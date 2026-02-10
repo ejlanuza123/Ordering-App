@@ -12,8 +12,10 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 // 2. Customer Screens
 import HomeScreen from '../screens/customer/HomeScreen';
 import ProductDetailsScreen from '../screens/customer/ProductDetailsScreen';
-import CartScreen from '../screens/customer/CartScreen';     // <--- UNCOMMENTED
-import CheckoutScreen from '../screens/customer/CheckoutScreen'; // <--- ADDED THIS
+import CartScreen from '../screens/customer/CartScreen';     
+import CheckoutScreen from '../screens/customer/CheckoutScreen'; 
+import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
+import ProfileScreen from '../screens/customer/ProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -34,23 +36,23 @@ export default function AppNavigator() {
         
         {user == null ? (
           // --- AUTH STACK (No User Logged In) ---
-          <>
+          <Stack.Group>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
-          </>
+          </Stack.Group>
         ) : (
           // --- CUSTOMER STACK (User Logged In) ---
-          <>
+          <Stack.Group>
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen 
               name="ProductDetails" 
               component={ProductDetailsScreen} 
-              options={{ headerShown: false }} 
             />
-            {/* Make sure these names match what you use in navigation.navigate() */}
             <Stack.Screen name="Cart" component={CartScreen} /> 
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
-          </>
+            <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+          </Stack.Group>
         )}
 
       </Stack.Navigator>

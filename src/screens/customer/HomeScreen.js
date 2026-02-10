@@ -16,6 +16,7 @@ export default function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { signOut } = useAuth();
 
   // 1. Fetch Data Function
   const fetchProducts = async () => {
@@ -61,21 +62,29 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       {/* --- UPDATED HEADER START --- */}
       <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerTitle}>Fuel & Oil</Text>
-            <Text style={styles.headerSubtitle}>Select a product to order</Text>
-          </View>
-          
-          {/* Cart Button */}
-          <TouchableOpacity 
-            style={styles.cartButton}
-            onPress={() => navigation.navigate('Cart')}
-          >
-            <Ionicons name="cart" size={28} color="#0033A0" />
-          </TouchableOpacity>
+            <View style={styles.headerRow}>
+                <View>
+                <Text style={styles.headerTitle}>Fuel & Oil</Text>
+                <Text style={styles.headerSubtitle}>Select a product to order</Text>
+                </View>
+
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                
+                {/* Cart Button */}
+                <TouchableOpacity 
+                    onPress={() => navigation.navigate('Cart')}
+                    style={{ marginRight: 15 }}
+                >
+                    <Ionicons name="cart" size={28} color="#0033A0" />
+                </TouchableOpacity>
+
+                {/* Profile Button (New) */}
+                <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+                    <Ionicons name="person-circle-outline" size={32} color="#0033A0" />
+                </TouchableOpacity>
+                </View>
+            </View>
         </View>
-      </View>
       {/* --- UPDATED HEADER END --- */}
 
       <FlatList
