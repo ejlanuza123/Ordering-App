@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'; // <--- Added this for the Icon
 import { supabase } from '../../lib/supabase';
 import ProductCard from '../../components/ProductCard';
+import { useAuth } from '../../context/AuthContext';
 
 export default function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);

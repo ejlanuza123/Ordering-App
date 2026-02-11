@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 
+
 export default function RegisterScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,7 +27,13 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters.');
+      return;
+    }
+
     setLoading(true);
+
 
     try {
       // 1. Create User in Supabase Auth
@@ -35,42 +42,82 @@ export default function RegisterScreen({ navigation }) {
         password: password,
         options: {
           data: {
-            full_name: fullName, // Start meta-data for the trigger
-            phone_number: phone, 
-          }
+            full_name: fullName,
+            phone_number: phone,
+          },
+
         }
       });
 
       if (error) throw error;
 
-      // 2. Trigger Logic Check
-      // If you used the SQL Trigger I gave you earlier, the profile is created automatically.
-      // If NOT, we would manually insert into 'profiles' here. 
-      // For safety, let's update the profile with the phone number just in case.
-      
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ 
-            full_name: fullName,
-            phone_number: phone,
-            role: 'customer' 
-          })
-          .eq('id', data.user.id);
+      // 2. Check if email confirmation is required
+      if (data.user && data.user.identities && data.user.identities.length === 0) {
+        // This means user already exists but needs to confirm email
+        Alert.alert(
+          'Check Your Email', 
+          'A user with this email already exists. Please check your inbox for confirmation email or try logging in.',
+          [{ text: 'OK' }]
+        );
+        setLoading(false);
+        return;
+      }
 
-        if (profileError) {
-          console.log('Profile update warning:', profileError);
-          // Don't block registration if this fails, but log it.
+      // 3. Manually create/update profile if trigger doesn't exist
+      if (data.user) {
+        try {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({ 
+              id: data.user.id,
+              full_name: fullName,
+              phone_number: phone,
+              role: 'customer' 
+            }, {
+              onConflict: 'id'
+            });
+
+          if (profileError) {
+            console.log('Profile update error:', profileError);
+            // Continue anyway - the trigger might handle it
+          }
+        } catch (profileErr) {
+          console.log('Profile creation failed:', profileErr);
+          // Non-critical error, continue
         }
 
-        Alert.alert(
-          'Success', 
-          'Account created! Please check your email to verify.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-        );
+        // 4. Show appropriate message
+        if (data.session) {
+          // User is immediately signed in (if email confirmations are disabled)
+          Alert.alert(
+            'Success!', 
+            'Account created successfully. You are now logged in.',
+          );
+        } else {
+          // Email confirmation required
+          Alert.alert(
+            'Almost There!', 
+            'Account created successfully! Please check your email (including spam folder) to verify your account before logging in.',
+            [
+              { 
+                text: 'Check Email', 
+                onPress: () => {
+                  // Optionally open email client
+                  // Linking.openURL('message://');
+                }
+              },
+              { 
+                text: 'Go to Login', 
+                style: 'default',
+                onPress: () => navigation.navigate('Login') 
+              }
+            ]
+          );
+        }
       }
 
     } catch (error) {
+      console.error('Registration error:', error);
       Alert.alert('Registration Failed', error.message);
     } finally {
       setLoading(false);
@@ -145,6 +192,13 @@ export default function RegisterScreen({ navigation }) {
               Already have an account? <Text style={styles.bold}>Login</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Add informational text */}
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              📧 After registration, check your email (including spam folder) for verification link.
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -170,4 +224,17 @@ const styles = StyleSheet.create({
   linkButton: { marginTop: 20, alignItems: 'center' },
   linkText: { color: '#666' },
   bold: { fontWeight: 'bold', color: '#0033A0' },
+  infoBox: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f0f7ff',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#0033A0',
+  },
+  infoText: {
+    color: '#0033A0',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
 });

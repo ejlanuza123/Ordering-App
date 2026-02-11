@@ -59,3 +59,5 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+console.log(OrderHistoryScreen);

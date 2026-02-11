@@ -3,6 +3,7 @@
     "name": "PetronSanPedroApp",
     "slug": "PetronSanPedroApp",
     "version": "1.0.0",
+    "scheme": "petronapp",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

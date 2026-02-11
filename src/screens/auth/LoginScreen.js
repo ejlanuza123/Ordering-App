@@ -26,31 +26,10 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      // 1. Attempt to sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
+      // ✅ FIX: Use the signIn function from AuthContext
+      // This automatically updates the 'user' state and redirects to Home
+      await signIn(email, password);
 
-      if (error) throw error;
-
-      // 2. Check Role (Security Step)
-      // We check if this user is actually an Admin trying to use the Customer App
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-
-      if (profile?.role === 'admin') {
-        Alert.alert('Notice', 'Admin accounts should use the Web Dashboard.');
-        await supabase.auth.signOut(); // Kick them out
-        setLoading(false);
-        return;
-      }
-      
-      // If customer, the AuthContext will automatically redirect to Home
-      
     } catch (error) {
       Alert.alert('Login Failed', error.message);
     } finally {
