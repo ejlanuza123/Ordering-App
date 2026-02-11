@@ -8,22 +8,26 @@ import {
   Image, 
   KeyboardAvoidingView, 
   Platform,
-  Alert 
+  Alert,
+  ScrollView,
+  Dimensions
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons'; // Ensure expo/vector-icons is installed
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../../context/CartContext';
 
-export default function ProductDetailsScreen({ route, navigation }) {
-  // 1. Get the product passed from Home Screen
-  const { product } = route.params;
-  
-  // 2. State for calculation
-  const [quantity, setQuantity] = useState('1'); // Liters or Bottles
-  const [totalPrice, setTotalPrice] = useState(product.current_price);
-  const [mode, setMode] = useState('liters'); // 'liters' or 'amount' (Only for Fuel)
-  const { addToCart } = useCart();
+const { width } = Dimensions.get('window');
 
-  // 3. Auto-Calculate when inputs change
+export default function ProductDetailsScreen({ route, navigation }) {
+  const { product } = route.params;
+  const [quantity, setQuantity] = useState('1');
+  const [totalPrice, setTotalPrice] = useState(product.current_price);
+  const [mode, setMode] = useState('liters');
+  const { addToCart } = useCart();
+  const insets = useSafeAreaInsets();
+
+  const isFuel = product.category === 'Fuel';
+
   useEffect(() => {
     if (!quantity || isNaN(quantity)) {
       setTotalPrice(0);
@@ -33,201 +37,466 @@ export default function ProductDetailsScreen({ route, navigation }) {
     const val = parseFloat(quantity);
     
     if (mode === 'liters') {
-      // Input is Liters -> Calculate Price
       setTotalPrice(val * product.current_price);
     } else {
-      // Input is Amount (Money) -> Calculate Liters (Just for display)
-      // We don't update totalPrice here because the user IS typing the price
-      setTotalPrice(val); 
+      setTotalPrice(val);
     }
   }, [quantity, mode]);
 
-  // 4. Handle Text Input
   const handleInputChange = (text) => {
-    // Only allow numbers and one decimal point
     const cleanText = text.replace(/[^0-9.]/g, '');
     setQuantity(cleanText);
   };
 
-  // 5. Add to Cart Logic (Placeholder)
   const handleAddToCart = () => {
     if (totalPrice <= 0) {
       Alert.alert('Error', 'Please enter a valid amount.');
       return;
     }
 
-    // Calculate final liters (if they used "By Amount" mode)
     const finalLiters = mode === 'liters' 
       ? parseFloat(quantity) 
       : parseFloat(quantity) / product.current_price;
 
-    // Call the Context function
     addToCart(product, finalLiters, parseFloat(totalPrice));
     
-    // Go back to shop more
     navigation.goBack();
   };
 
-  const isFuel = product.category === 'Fuel';
-
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      {/* Product Header Image */}
-      <View style={styles.imageContainer}>
-         {product.image_url ? (
-            <Image source={{ uri: product.image_url }} style={styles.image} />
-        ) : (
-            <View style={[styles.image, { backgroundColor: '#ccc' }]} /> 
-        )}
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
+          {/* Back Button */}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
 
-      <View style={styles.content}>
-        {/* Title & Price */}
-        <View style={styles.headerRow}>
+          {/* Product Image */}
+          <View style={styles.imageContainer}>
+            {product.image_url ? (
+              <Image source={{ uri: product.image_url }} style={styles.image} />
+            ) : (
+              <View style={[
+                styles.placeholderImage, 
+                { backgroundColor: isFuel ? '#0033A0' : '#ED2939' }
+              ]}>
+                <Ionicons 
+                  name={isFuel ? "water" : "oil"} 
+                  size={60} 
+                  color="#fff" 
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.content}>
+            {/* Title & Price */}
+            <View style={styles.headerRow}>
+              <View style={styles.titleContainer}>
+                <Text style={styles.title}>{product.name}</Text>
+                <View style={styles.categoryContainer}>
+                  <View style={[
+                    styles.categoryBadge,
+                    { backgroundColor: isFuel ? '#0033A0' : '#ED2939' }
+                  ]}>
+                    <Text style={styles.categoryText}>
+                      {product.category}
+                    </Text>
+                  </View>
+                  {product.stock_quantity > 0 && (
+                    <View style={styles.stockBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                      <Text style={styles.stockText}>In Stock</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <View style={styles.priceContainer}>
+                <Text style={styles.unitPrice}>
+                  ₱{product.current_price.toFixed(2)}
+                  <Text style={styles.unit}>/{product.unit}</Text>
+                </Text>
+              </View>
+            </View>
+
+            {product.description && (
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.descriptionTitle}>Description</Text>
+                <Text style={styles.descriptionText}>{product.description}</Text>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            {/* Quantity Input Section */}
+            <Text style={styles.sectionTitle}>
+              {isFuel ? 'How much would you like?' : 'Select Quantity'}
+            </Text>
+
+            {/* Toggle for Fuel */}
+            {isFuel && (
+              <View style={styles.toggleContainer}>
+                <TouchableOpacity 
+                  style={[styles.toggleBtn, mode === 'liters' && styles.activeToggle]}
+                  onPress={() => { setMode('liters'); setQuantity('1'); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name="water" 
+                    size={20} 
+                    color={mode === 'liters' ? '#0033A0' : '#666'} 
+                  />
+                  <Text style={[styles.toggleText, mode === 'liters' && styles.activeText]}>
+                    By Liters
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.toggleBtn, mode === 'amount' && styles.activeToggle]}
+                  onPress={() => { setMode('amount'); setQuantity('100'); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name="cash" 
+                    size={20} 
+                    color={mode === 'amount' ? '#0033A0' : '#666'} 
+                  />
+                  <Text style={[styles.toggleText, mode === 'amount' && styles.activeText]}>
+                    By Amount
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Input Field */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>
+                {mode === 'liters' || !isFuel ? 'Quantity' : 'Amount (₱)'}
+              </Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.input}
+                  value={quantity}
+                  onChangeText={handleInputChange}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#999"
+                />
+                <Text style={styles.suffix}>
+                  {mode === 'liters' || !isFuel ? product.unit : 'PHP'}
+                </Text>
+              </View>
+              
+              {/* Calculation Display */}
+              {isFuel && (
+                <Text style={styles.helperText}>
+                  {mode === 'liters' 
+                    ? `Total: ₱${totalPrice.toFixed(2)}` 
+                    : `Approx: ${((parseFloat(quantity) || 0) / product.current_price).toFixed(2)} Liters`
+                  }
+                </Text>
+              )}
+            </View>
+
+            {/* Delivery Info */}
+            <View style={styles.deliveryInfo}>
+              <Ionicons name="time" size={20} color="#0033A0" />
+              <Text style={styles.deliveryText}>15-30 min delivery • San Pedro Area</Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Fixed Bottom Bar */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
+        <View style={styles.footerContent}>
           <View>
-            <Text style={styles.title}>{product.name}</Text>
-            <Text style={styles.category}>{product.category}</Text>
-          </View>
-          <View style={styles.priceTag}>
-            <Text style={styles.priceText}>
-              ₱{product.current_price.toFixed(2)}
-              <Text style={styles.unitText}>/{product.unit}</Text>
+            <Text style={styles.footerLabel}>Total Amount</Text>
+            <Text style={styles.footerPrice}>
+              ₱{mode === 'amount' ? parseFloat(quantity || 0).toFixed(2) : totalPrice.toFixed(2)}
             </Text>
           </View>
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* INPUT SECTION */}
-        <Text style={styles.sectionTitle}>
-          {isFuel ? 'How much fuel?' : 'Quantity'}
-        </Text>
-
-        {/* Toggle for Fuel (Liters vs Peso Amount) */}
-        {isFuel && (
-          <View style={styles.toggleContainer}>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, mode === 'liters' && styles.activeToggle]}
-              onPress={() => { setMode('liters'); setQuantity('1'); }}
-            >
-              <Text style={[styles.toggleText, mode === 'liters' && styles.activeText]}>
-                By Liters
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, mode === 'amount' && styles.activeToggle]}
-              onPress={() => { setMode('amount'); setQuantity('100'); }}
-            >
-              <Text style={[styles.toggleText, mode === 'amount' && styles.activeText]}>
-                By Amount (₱)
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Main Input Field */}
-        <View style={styles.inputWrapper}>
-          <Text style={styles.inputLabel}>
-            {mode === 'liters' || !isFuel ? 'Quantity' : 'Amount (₱)'}
-          </Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              value={quantity}
-              onChangeText={handleInputChange}
-              keyboardType="decimal-pad"
-              placeholder="0"
-            />
-            <Text style={styles.suffix}>
-              {mode === 'liters' || !isFuel ? product.unit : 'PHP'}
+          <TouchableOpacity 
+            style={[styles.addButton, !product.stock_quantity && styles.disabledButton]}
+            onPress={handleAddToCart}
+            disabled={!product.stock_quantity}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="cart" size={20} color="#fff" />
+            <Text style={styles.addButtonText}>
+              {product.stock_quantity ? 'Add to Order' : 'Out of Stock'}
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
-
-        {/* Calculation Display */}
-        {isFuel && (
-          <Text style={styles.helperText}>
-            {mode === 'liters' 
-              ? `Total: ₱${totalPrice.toFixed(2)}` 
-              : `Approx: ${(parseFloat(quantity || 0) / product.current_price).toFixed(2)} Liters`
-            }
-          </Text>
-        )}
-
       </View>
-
-      {/* Bottom Action Button */}
-      <View style={styles.footer}>
-        <View>
-          <Text style={styles.footerLabel}>Total</Text>
-          <Text style={styles.footerPrice}>
-            ₱{mode === 'amount' ? parseFloat(quantity || 0).toFixed(2) : totalPrice.toFixed(2)}
-          </Text>
-        </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddToCart}>
-          <Text style={styles.addButtonText}>Add to Order</Text>
-        </TouchableOpacity>
-      </View>
-
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  imageContainer: { height: 200, width: '100%', position: 'relative' },
-  image: { width: '100%', height: '100%', resizeMode: 'cover' },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
   backButton: {
-    position: 'absolute', top: 40, left: 20,
-    backgroundColor: 'white', padding: 8, borderRadius: 20, elevation: 5
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  content: { flex: 1, padding: 20 },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#0033A0' },
-  category: { fontSize: 16, color: '#666', marginTop: 4 },
-  priceTag: { alignItems: 'flex-end' },
-  priceText: { fontSize: 20, fontWeight: 'bold', color: '#ED2939' },
-  unitText: { fontSize: 14, color: '#666', fontWeight: 'normal' },
-  divider: { height: 1, backgroundColor: '#eee', marginVertical: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 15 },
-  
-  toggleContainer: { 
-    flexDirection: 'row', backgroundColor: '#f0f0f0', 
-    borderRadius: 8, padding: 4, marginBottom: 20 
+  imageContainer: {
+    height: 250,
+    width: '100%',
   },
-  toggleBtn: { flex: 1, padding: 10, alignItems: 'center', borderRadius: 6 },
-  activeToggle: { backgroundColor: 'white', elevation: 2 },
-  toggleText: { color: '#666', fontWeight: '600' },
-  activeText: { color: '#0033A0' },
-
-  inputWrapper: { marginBottom: 10 },
-  inputLabel: { fontSize: 14, color: '#888', marginBottom: 5 },
-  inputContainer: { 
-    flexDirection: 'row', alignItems: 'center', 
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 10, paddingHorizontal: 15 
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
-  input: { flex: 1, fontSize: 24, fontWeight: 'bold', paddingVertical: 10, color: '#333' },
-  suffix: { fontSize: 18, color: '#888', fontWeight: '600' },
-  helperText: { color: '#666', fontSize: 14, marginTop: 5 },
-
-  footer: { 
-    padding: 20, borderTopWidth: 1, borderTopColor: '#eee', 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  footerLabel: { fontSize: 12, color: '#888' },
-  footerPrice: { fontSize: 24, fontWeight: 'bold', color: '#0033A0' },
-  addButton: { 
-    backgroundColor: '#ED2939', paddingVertical: 12, paddingHorizontal: 30, 
-    borderRadius: 10 
+  content: {
+    padding: 20,
   },
-  addButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  titleContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0033A0',
+    marginBottom: 8,
+  },
+  categoryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 10,
+  },
+  categoryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  stockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B98120',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  stockText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+  unitPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#ED2939',
+  },
+  unit: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: 'normal',
+  },
+  descriptionContainer: {
+    marginBottom: 20,
+  },
+  descriptionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e9ecef',
+    marginVertical: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  toggleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  activeToggle: {
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    marginLeft: 8,
+  },
+  activeText: {
+    color: '#0033A0',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#0033A0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 28,
+    fontWeight: 'bold',
+    paddingVertical: 12,
+    color: '#333',
+  },
+  suffix: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  helperText: {
+    fontSize: 14,
+    color: '#0033A0',
+    fontWeight: '600',
+  },
+  deliveryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f7ff',
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  deliveryText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#0033A0',
+    fontWeight: '500',
+  },
+  footer: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  footerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  footerLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  footerPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0033A0',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0033A0',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
 });

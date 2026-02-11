@@ -16,6 +16,7 @@ import CartScreen from '../screens/customer/CartScreen';
 import CheckoutScreen from '../screens/customer/CheckoutScreen'; 
 import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
+import SelectionScreen from '../screens/customer/SelectionScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,6 +44,7 @@ export default function AppNavigator() {
         ) : (
           // --- CUSTOMER STACK (User Logged In) ---
           <Stack.Group>
+            <Stack.Screen name="Selection" component={SelectionScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen 
               name="ProductDetails" 

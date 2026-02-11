@@ -140,6 +140,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Juan Dela Cruz"
+            placeholderTextColor="#999"
             value={fullName}
             onChangeText={setFullName}
           />
@@ -148,6 +149,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="0912 345 6789"
+            placeholderTextColor="#999"
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -157,6 +159,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="juan@example.com"
+            placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -167,6 +170,7 @@ export default function RegisterScreen({ navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Minimum 6 characters"
+            placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
