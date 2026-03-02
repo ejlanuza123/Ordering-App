@@ -51,15 +51,26 @@ export default function CartScreen({ navigation }) {
     );
   };
 
+  // Empty state with consistent header layout
   if (cartItems.length === 0) {
     return (
-      <View style={[styles.emptyContainer, { paddingTop: insets.top }]}>
-        <Header
-          title="My Cart"
-          showBackButton={true}
-          onBackPress={() => navigation.goBack()}
-          backgroundColor="#fff"
-        />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Custom header for empty state to match main screen */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Cart</Text>
+            <View style={{width: 40}} />
+          </View>
+        </View>
+
+        {/* Empty Content */}
         <View style={[styles.emptyContent, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.emptyIcon}>
             <Ionicons name="cart-outline" size={80} color="#ccc" />
@@ -80,15 +91,28 @@ export default function CartScreen({ navigation }) {
     );
   }
 
+  // Main cart screen with items
   return (
-    <View style={styles.container}>
-      <Header
-        title="My Cart"
-        subtitle={`${cartItems.length} ${cartItems.length === 1 ? 'item' : 'items'}`}
-        showBackButton={true}
-        onBackPress={() => navigation.goBack()}
-        backgroundColor="#fff"
-      />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Custom header for main screen */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>My Cart</Text>
+            <Text style={styles.headerSubtitle}>
+              {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+            </Text>
+          </View>
+          <View style={{width: 40}} />
+        </View>
+      </View>
 
       {/* List of Items */}
       <FlatList
@@ -97,13 +121,13 @@ export default function CartScreen({ navigation }) {
         renderItem={renderItem}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: insets.bottom + 200 } // Extra padding for footer
+          { paddingBottom: 200 } // Removed insets.bottom from here since container has padding
         ]}
         showsVerticalScrollIndicator={false}
       />
 
       {/* Fixed Footer with safe area padding */}
-      <View style={[styles.footer, { bottom: insets.bottom }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
@@ -138,15 +162,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9f9f9',
   },
-  emptyContainer: {
-    flex: 1,
-    backgroundColor: '#f9f9f9',
+  // Header styles - consistent for both empty and non-empty states
+  header: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    height: 60,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0033A0',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Empty state styles
   emptyContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
+    marginTop: -60, // Adjust for visual centering
   },
   emptyIcon: {
     marginBottom: 20,
@@ -156,6 +219,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 16,
@@ -174,6 +238,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // List styles
   listContent: {
     padding: 20,
   },
@@ -221,12 +286,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0033A0',
   },
+  // Footer styles
   footer: {
     position: 'absolute',
     left: 0,
     right: 0,
+    bottom: 10,
     backgroundColor: 'white',
     padding: 20,
+    paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
     elevation: 10,

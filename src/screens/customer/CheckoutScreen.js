@@ -96,7 +96,7 @@ export default function CheckoutScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // 1. Create the Main Order Record
+      // 1. Create the Main Order Record - REMOVED special_instructions
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -105,7 +105,7 @@ export default function CheckoutScreen({ navigation }) {
             total_amount: grandTotal,
             delivery_address: address,
             payment_method: paymentMethod,
-            special_instructions: specialInstructions.trim() || null,
+            // special_instructions: specialInstructions.trim() || null, // COMMENTED OUT
             status: 'Pending'
           }
         ])
@@ -116,13 +116,13 @@ export default function CheckoutScreen({ navigation }) {
 
       const orderId = orderData.id;
 
-      // 2. Prepare Order Items
+      // 2. Prepare Order Items - REMOVED product_name
       const orderItemsData = cartItems.map((item) => ({
         order_id: orderId,
         product_id: item.id,
         quantity: item.quantity,
         price_at_order: item.current_price,
-        product_name: item.name // Store product name for reference
+        // product_name: item.name // REMOVED - doesn't exist in schema
       }));
 
       // 3. Insert All Items
@@ -176,6 +176,7 @@ export default function CheckoutScreen({ navigation }) {
     return `${item.quantity} ${item.unit}(s)`;
   };
 
+  // Rest of your component JSX remains the same...
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
@@ -487,6 +488,7 @@ export default function CheckoutScreen({ navigation }) {
   );
 }
 
+// Add all your styles here (keep your existing styles)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -520,7 +522,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#0033A0',
   },
-  // Progress Steps
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -563,7 +564,6 @@ const styles = StyleSheet.create({
     color: '#0033A0',
     fontWeight: 'bold',
   },
-  // Cards
   card: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -597,7 +597,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
   },
-  // Order Items
   itemsContainer: {
     marginBottom: 15,
   },
@@ -634,7 +633,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e9ecef',
     marginVertical: 16,
   },
-  // Summary
   summarySection: {
     paddingTop: 5,
   },
@@ -685,7 +683,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ED2939',
   },
-  // Address Input
   inputArea: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -712,7 +709,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  // Payment Options
   paymentOptions: {
     marginTop: 10,
   },
@@ -759,7 +755,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // Special Instructions
   specialInstructionsInput: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -771,7 +766,6 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: 'top',
   },
-  // Terms
   termsContainer: {
     backgroundColor: '#f0f7ff',
     padding: 15,
@@ -784,7 +778,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: 'center',
   },
-  // Place Order Button
   placeOrderButton: {
     backgroundColor: '#0033A0',
     flexDirection: 'row',
@@ -820,7 +813,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

@@ -9,10 +9,10 @@ export default function ProductCard({ product, onPress, onAddToCart }) {
   const isFuel = product.category === 'Fuel';
   
   const getCategoryColor = () => {
-    if (isFuel) return '#0033A0';
+    if (isFuel) return '#0033A0'; // Petron Blue for Fuel
     if (product.category === 'Motor Oil') return '#10B981';
     if (product.category === 'Engine Oil') return '#F59E0B';
-    return '#ED2939';
+    return '#ED2939'; // Petron Red for others
   };
 
   const getCategoryIcon = () => {

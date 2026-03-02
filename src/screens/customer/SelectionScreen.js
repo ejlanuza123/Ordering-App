@@ -28,73 +28,76 @@ export default function SelectionScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Fixed Header - NOT SCROLLABLE */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.userName}>{getUserFirstName()}!</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <View style={styles.profileIcon}>
+              <Ionicons name="person" size={22} color="#0033A0" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Petron Branding */}
+        <View style={styles.brandContainer}>
+          <Image 
+            source={require('../../../assets/petron-logo.png')} 
+            style={styles.petronLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.brandTitle}>Petron San Pedro</Text>
+            <Text style={styles.brandSubtitle}>Fuel & Lubricants Delivery</Text>
+          </View>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
+              <Ionicons name="flash" size={18} color="#0033A0" />
+            </View>
+            <Text style={styles.statValue}>15-30</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#ED293920' }]}>
+              <Ionicons name="shield-checkmark" size={18} color="#ED2939" />
+            </View>
+            <Text style={styles.statValue}>100%</Text>
+            <Text style={styles.statLabel}>Authentic</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#10B98120' }]}>
+              <Ionicons name="location" size={18} color="#10B981" />
+            </View>
+            <Text style={styles.statValue}>San Pedro</Text>
+            <Text style={styles.statLabel}>Area</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Scrollable Content - Everything below the header */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Header with Profile Button */}
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View>
-              <Text style={styles.welcomeText}>Welcome back,</Text>
-              <Text style={styles.userName}>{getUserFirstName()}!</Text>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.profileButton}
-              onPress={() => navigation.navigate('Profile')}
-            >
-              <View style={styles.profileIcon}>
-                <Ionicons name="person" size={22} color="#0033A0" />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Petron Branding */}
-          <View style={styles.brandContainer}>
-            <View style={styles.petronLogo}>
-              <Text style={styles.petronLogoText}>P</Text>
-            </View>
-            <View style={styles.brandTextContainer}>
-              <Text style={styles.brandTitle}>Petron San Pedro</Text>
-              <Text style={styles.brandSubtitle}>Fuel & Lubricants Delivery</Text>
-            </View>
-          </View>
-
-          {/* Quick Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
-                <Ionicons name="flash" size={18} color="#0033A0" />
-              </View>
-              <Text style={styles.statValue}>15-30</Text>
-              <Text style={styles.statLabel}>Minutes</Text>
-            </View>
-            
-            <View style={styles.statDivider} />
-            
-            <View style={styles.statItem}>
-              <View style={[styles.statIcon, { backgroundColor: '#ED293920' }]}>
-                <Ionicons name="shield-checkmark" size={18} color="#ED2939" />
-              </View>
-              <Text style={styles.statValue}>100%</Text>
-              <Text style={styles.statLabel}>Authentic</Text>
-            </View>
-            
-            <View style={styles.statDivider} />
-            
-            <View style={styles.statItem}>
-              <View style={[styles.statIcon, { backgroundColor: '#10B98120' }]}>
-                <Ionicons name="location" size={18} color="#10B981" />
-              </View>
-              <Text style={styles.statValue}>San Pedro</Text>
-              <Text style={styles.statLabel}>Area</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Main Action Section */}
         <View style={styles.mainSection}>
           <Text style={styles.sectionTitle}>What would you like today?</Text>
@@ -234,7 +237,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  // Header Styles
+  // Header Styles - FIXED, NOT SCROLLABLE
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
@@ -247,7 +250,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    marginBottom: 20,
+    marginBottom: 0, // Changed from 20 to 0
   },
   headerTop: {
     flexDirection: 'row',
@@ -285,16 +288,11 @@ const styles = StyleSheet.create({
   petronLogo: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: 10,
     backgroundColor: '#0033A0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-  },
-  petronLogoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
   },
   brandTextContainer: {
     flex: 1,
@@ -345,6 +343,7 @@ const styles = StyleSheet.create({
   // Main Section
   mainSection: {
     paddingHorizontal: 20,
+    paddingTop: 20, // Added padding top instead of margin
   },
   sectionTitle: {
     fontSize: 18,

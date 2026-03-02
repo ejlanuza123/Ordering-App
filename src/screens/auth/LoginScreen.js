@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -56,9 +57,11 @@ export default function LoginScreen({ navigation }) {
         >
           {/* Logo and Welcome Section */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>P</Text>
-            </View>
+            <Image 
+              source={require('../../../assets/petron-logo.png')} 
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.welcomeTitle}>Welcome Back!</Text>
             <Text style={styles.welcomeSubtitle}>Sign in to continue to Petron San Pedro</Text>
           </View>
@@ -140,7 +143,7 @@ export default function LoginScreen({ navigation }) {
 
           {/* Footer */}
           <View style={[styles.footer, { marginBottom: insets.bottom + 20 }]}>
-            <Text style={styles.footerText}>© 2024 Petron San Pedro</Text>
+            <Text style={styles.footerText}>© 2026 Petron San Pedro</Text>
             <Text style={styles.footerSubtext}>Fuel & Oil Delivery Service</Text>
           </View>
         </ScrollView>
@@ -162,6 +165,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 20,
   },
+  logo: {
+    width: 120,
+    height: 120,
+    borderRadius: 20, // Half of width/height for perfect circle
+    marginBottom: 20,
+    borderWidth: 2, // Optional: add a border
+    borderColor: '#ED2939', // Petron Red border
+  },
   logoContainer: {
     alignItems: 'center',
     marginBottom: 40,
@@ -171,15 +182,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#0033A0',
+    backgroundColor: '#0033A0', // Petron Blue
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    elevation: 5,
-    shadowColor: '#0033A0',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   logoText: {
     fontSize: 36,
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#0033A0',
+    color: '#0033A0', // Petron Blue
     marginBottom: 8,
   },
   welcomeSubtitle: {
@@ -248,7 +254,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   forgotPasswordText: {
-    color: '#0033A0',
+    color: '#0033A0', // Petron Blue
     fontSize: 14,
     fontWeight: '600',
   },
