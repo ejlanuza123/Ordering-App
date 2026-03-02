@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PetronSanPedroApp",
+    "name": "Petron San Pedro App",
     "slug": "PetronSanPedroApp",
     "version": "1.0.0",
     "scheme": "petronapp",
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/petron-logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,

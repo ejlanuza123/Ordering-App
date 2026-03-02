@@ -1,3 +1,4 @@
+//src/screens/customer/CheckoutScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -19,6 +20,8 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapPickerModal from '../../components/OpenStreetMapPicker';
+import { getAddressFromCurrentLocation } from '../../utils/location';
 
 export default function CheckoutScreen({ navigation }) {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -32,6 +35,8 @@ export default function CheckoutScreen({ navigation }) {
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash on Delivery');
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   
   const totalAmount = getCartTotal();
 
@@ -82,6 +87,26 @@ export default function CheckoutScreen({ navigation }) {
     }
   };
 
+  const useCurrentLocation = async () => {
+    setIsGettingLocation(true);
+    try {
+      const locationData = await getAddressFromCurrentLocation();
+      if (locationData && locationData.address) {
+        setAddress(locationData.address);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Could not get your current location');
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
+  const handleMapAddressSelected = (location) => {
+    setAddress(location.address);
+    setMapModalVisible(false);
+  };
+
   const handlePlaceOrder = async () => {
     if (!address.trim()) {
       Alert.alert('Missing Info', 'Please enter your delivery address.');
@@ -96,7 +121,7 @@ export default function CheckoutScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // 1. Create the Main Order Record - REMOVED special_instructions
+      // 1. Create the Main Order Record
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -105,7 +130,7 @@ export default function CheckoutScreen({ navigation }) {
             total_amount: grandTotal,
             delivery_address: address,
             payment_method: paymentMethod,
-            // special_instructions: specialInstructions.trim() || null, // COMMENTED OUT
+            special_instructions: specialInstructions.trim() || null,
             status: 'Pending'
           }
         ])
@@ -116,13 +141,14 @@ export default function CheckoutScreen({ navigation }) {
 
       const orderId = orderData.id;
 
-      // 2. Prepare Order Items - REMOVED product_name
+      // 2. Prepare Order Items
       const orderItemsData = cartItems.map((item) => ({
         order_id: orderId,
         product_id: item.id,
         quantity: item.quantity,
         price_at_order: item.current_price,
-        // product_name: item.name // REMOVED - doesn't exist in schema
+        product_name: item.name,
+        product_unit: item.unit
       }));
 
       // 3. Insert All Items
@@ -176,7 +202,6 @@ export default function CheckoutScreen({ navigation }) {
     return `${item.quantity} ${item.unit}(s)`;
   };
 
-  // Rest of your component JSX remains the same...
   return (
     <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
@@ -288,7 +313,7 @@ export default function CheckoutScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Delivery Address Section */}
+          {/* Delivery Address Section - UPDATED WITH LOCATION FEATURES */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="location" size={24} color="#0033A0" />
@@ -302,15 +327,51 @@ export default function CheckoutScreen({ navigation }) {
             
             <Text style={styles.sectionSubtitle}>Where should we deliver your order?</Text>
             
-            <TextInput
-              style={styles.inputArea}
-              placeholder="House No., Street, Barangay, City..."
-              value={address}
-              onChangeText={setAddress}
-              multiline
-              numberOfLines={3}
-              placeholderTextColor="#999"
-            />
+            {/* Address Input with Map Button */}
+            <View style={styles.addressInputContainer}>
+              <TextInput
+                style={styles.addressInput}
+                placeholder="House No., Street, Barangay, City..."
+                value={address}
+                onChangeText={setAddress}
+                multiline
+                numberOfLines={2}
+                placeholderTextColor="#999"
+                textAlignVertical="top"
+              />
+              <TouchableOpacity 
+                style={styles.mapButton}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Ionicons name="map-outline" size={24} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Location Action Buttons */}
+            <View style={styles.locationActions}>
+              <TouchableOpacity 
+                style={styles.locationButton}
+                onPress={useCurrentLocation}
+                disabled={isGettingLocation}
+              >
+                {isGettingLocation ? (
+                  <ActivityIndicator size="small" color="#0033A0" />
+                ) : (
+                  <>
+                    <Ionicons name="locate" size={18} color="#0033A0" />
+                    <Text style={styles.locationButtonText}>Use My Location</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.locationButton, styles.mapButtonSmall]}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Ionicons name="map" size={18} color="#0033A0" />
+                <Text style={styles.locationButtonText}>Pick on Map</Text>
+              </TouchableOpacity>
+            </View>
             
             <TouchableOpacity 
               style={styles.saveAddressButton}
@@ -407,6 +468,7 @@ export default function CheckoutScreen({ navigation }) {
               multiline
               numberOfLines={2}
               placeholderTextColor="#999"
+              textAlignVertical="top"
             />
           </View>
 
@@ -484,11 +546,18 @@ export default function CheckoutScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* Map Picker Modal */}
+      <MapPickerModal
+        visible={mapModalVisible}
+        onClose={() => setMapModalVisible(false)}
+        onSelectAddress={handleMapAddressSelected}
+        initialAddress={address}
+      />
     </SafeAreaView>
   );
 }
 
-// Add all your styles here (keep your existing styles)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -683,7 +752,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ED2939',
   },
-  inputArea: {
+  // Updated Address Section Styles
+  addressInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  addressInput: {
+    flex: 1,
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 15,
@@ -691,8 +768,40 @@ const styles = StyleSheet.create({
     color: '#333',
     borderWidth: 1,
     borderColor: '#e9ecef',
-    minHeight: 100,
-    textAlignVertical: 'top',
+    minHeight: 80,
+  },
+  mapButton: {
+    width: 50,
+    height: 80,
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0033A0',
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  locationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f4ff',
+    padding: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  mapButtonSmall: {
+    backgroundColor: '#f0f4ff',
+  },
+  locationButtonText: {
+    color: '#0033A0',
+    fontSize: 14,
+    fontWeight: '500',
   },
   saveAddressButton: {
     flexDirection: 'row',
@@ -764,7 +873,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
     minHeight: 60,
-    textAlignVertical: 'top',
   },
   termsContainer: {
     backgroundColor: '#f0f7ff',
