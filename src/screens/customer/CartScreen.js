@@ -121,12 +121,12 @@ export default function CartScreen({ navigation }) {
         renderItem={renderItem}
         contentContainerStyle={[
           styles.listContent,
-          { paddingBottom: 200 } // Removed insets.bottom from here since container has padding
+          { paddingBottom: 120 } // Increased padding to make room for footer
         ]}
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Fixed Footer with safe area padding */}
+      {/* Fixed Footer - REMOVED absolute positioning */}
       <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
@@ -288,7 +288,6 @@ const styles = StyleSheet.create({
   },
   // Footer styles
   footer: {
-    position: 'absolute',
     left: 0,
     right: 0,
     bottom: 10,

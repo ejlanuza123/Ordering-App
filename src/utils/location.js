@@ -24,7 +24,7 @@ export const getCurrentLocation = async () => {
     }
 
     const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
+      accuracy: Location.Accuracy.Highest,
     });
     
     return location;

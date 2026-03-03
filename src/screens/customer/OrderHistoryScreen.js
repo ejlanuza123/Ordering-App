@@ -1,3 +1,4 @@
+// src/screens/customer/OrderHistoryScreen.js
 import React, { useEffect, useState } from 'react';
 import { 
   View, 
@@ -32,6 +33,7 @@ export default function OrderHistoryScreen({ navigation }) {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const filters = [
     { id: 'all', label: 'All Orders' },
@@ -70,7 +72,6 @@ export default function OrderHistoryScreen({ navigation }) {
 
       if (error) throw error;
       
-      console.log('Fetched orders:', data);
       setOrders(data || []);
       applyFilter(data || [], selectedFilter);
     } catch (error) {
@@ -103,6 +104,63 @@ export default function OrderHistoryScreen({ navigation }) {
         }
       });
       setFilteredOrders(filtered);
+    }
+  };
+
+  const handleCancelOrder = async (order) => {
+    // Check if order can be cancelled (only Pending or Processing)
+    const status = order.status?.toLowerCase();
+    if (status !== 'pending' && status !== 'processing') {
+      Alert.alert(
+        'Cannot Cancel',
+        `Orders with status "${order.status}" cannot be cancelled. Please contact support for assistance.`
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Cancel Order',
+      `Are you sure you want to cancel order ${order.order_number || `#${order.id}`}? This action cannot be undone.`,
+      [
+        { text: 'No, Keep It', style: 'cancel' },
+        {
+          text: 'Yes, Cancel Order',
+          style: 'destructive',
+          onPress: () => confirmCancelOrder(order.id)
+        }
+      ]
+    );
+  };
+
+  const confirmCancelOrder = async (orderId) => {
+    setCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: 'Cancelled',
+          notes: 'Cancelled by customer'
+        })
+        .eq('id', orderId)
+        .eq('user_id', user.id); // Extra safety check
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Order has been cancelled successfully.');
+      
+      // Refresh orders
+      fetchOrders();
+      
+      // Close modal if open
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setOrderDetailsModal(false);
+        setSelectedOrder(null);
+      }
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      Alert.alert('Error', 'Failed to cancel order. Please try again.');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -181,6 +239,11 @@ export default function OrderHistoryScreen({ navigation }) {
     setOrderDetailsModal(true);
   };
 
+  const canCancelOrder = (status) => {
+    const lowerStatus = status?.toLowerCase();
+    return lowerStatus === 'pending' || lowerStatus === 'processing';
+  };
+
   const renderOrderItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.orderCard}
@@ -222,6 +285,7 @@ export default function OrderHistoryScreen({ navigation }) {
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
         </View>
+        {/* Removed the cancel button from here - now just the chevron */}
         <Ionicons name="chevron-forward" size={20} color="#999" />
       </View>
     </TouchableOpacity>
@@ -237,7 +301,6 @@ export default function OrderHistoryScreen({ navigation }) {
         visible={orderDetailsModal}
         onRequestClose={() => setOrderDetailsModal(false)}
       >
-        {/* REMOVE the SafeAreaView here - we'll handle padding with insets */}
         <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
           <View style={styles.modalHeader}>
             <TouchableOpacity 
@@ -278,6 +341,24 @@ export default function OrderHistoryScreen({ navigation }) {
                 </Text>
               </View>
             </View>
+
+            {/* Cancel Button - Show if order can be cancelled */}
+            {canCancelOrder(selectedOrder.status) && (
+              <TouchableOpacity 
+                style={styles.cancelButtonFull}
+                onPress={() => handleCancelOrder(selectedOrder)}
+                disabled={cancelling}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="close-circle" size={20} color="#fff" />
+                    <Text style={styles.cancelButtonFullText}>Cancel Order</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             {/* Order Items */}
             <View style={styles.detailsSection}>
@@ -345,12 +426,16 @@ export default function OrderHistoryScreen({ navigation }) {
                 </View>
                 <View style={styles.timelineItem}>
                   <View style={[styles.timelineDot, { 
-                    backgroundColor: selectedOrder.status === 'Completed' ? '#10B981' : '#e9ecef' 
+                    backgroundColor: selectedOrder.status === 'Completed' ? '#10B981' : 
+                                   selectedOrder.status === 'Cancelled' ? '#EF4444' : '#e9ecef' 
                   }]} />
                   <View style={styles.timelineContent}>
-                    <Text style={styles.timelineTitle}>Order Delivered</Text>
+                    <Text style={styles.timelineTitle}>
+                      {selectedOrder.status === 'Cancelled' ? 'Order Cancelled' : 'Order Delivered'}
+                    </Text>
                     <Text style={styles.timelineTime}>
-                      {selectedOrder.status === 'Completed' ? formatDate(selectedOrder.created_at) : 'Pending'}
+                      {selectedOrder.status === 'Completed' ? formatDate(selectedOrder.created_at) : 
+                       selectedOrder.status === 'Cancelled' ? formatDate(selectedOrder.created_at) : 'Pending'}
                     </Text>
                   </View>
                 </View>
@@ -378,7 +463,7 @@ export default function OrderHistoryScreen({ navigation }) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
       
-      {/* Header - No extra padding needed since container has paddingTop */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity 
@@ -643,6 +728,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ED2939',
   },
+  orderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cancelButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFE5E5',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  cancelButtonSmallText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -760,6 +864,26 @@ const styles = StyleSheet.create({
   detailsStatusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  cancelButtonFull: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF4444',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  cancelButtonFullText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   detailsSection: {
     backgroundColor: '#fff',

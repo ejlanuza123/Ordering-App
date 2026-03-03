@@ -1,3 +1,4 @@
+// src\screens\auth\LoginScreen.js
 import React, { useState } from 'react';
 import { 
   View, 
@@ -9,11 +10,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  Image
+  Image,
+  Dimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+
+const { height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
@@ -45,16 +48,13 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
+        {/* Main Content - No ScrollView */}
+        <View style={styles.content}>
           {/* Logo and Welcome Section */}
           <View style={styles.logoContainer}>
             <Image 
@@ -142,11 +142,11 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* Footer */}
-          <View style={[styles.footer, { marginBottom: insets.bottom + 20 }]}>
+          <View style={styles.footer}>
             <Text style={styles.footerText}>© 2026 Petron San Pedro</Text>
             <Text style={styles.footerSubtext}>Fuel & Oil Delivery Service</Text>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -160,114 +160,102 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingVertical: 20,
   },
   logo: {
-    width: 120,
-    height: 120,
-    borderRadius: 20, // Half of width/height for perfect circle
-    marginBottom: 20,
-    borderWidth: 2, // Optional: add a border
-    borderColor: '#ED2939', // Petron Red border
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#ED2939',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 20,
-  },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#0033A0', // Petron Blue
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#fff',
+    flexShrink: 0,
   },
   welcomeTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
-    color: '#0033A0', // Petron Blue
-    marginBottom: 8,
+    color: '#0033A0',
+    marginBottom: 6,
+    textAlign: 'center',
   },
   welcomeSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
   },
   formContainer: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    marginBottom: 30,
+    width: '100%',
+    alignSelf: 'center',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputWrapper: {
     position: 'relative',
   },
   input: {
     backgroundColor: '#f8f9fa',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
   },
   passwordInput: {
-    paddingRight: 50,
+    paddingRight: 45,
   },
   eyeIcon: {
     position: 'absolute',
-    right: 16,
+    right: 14,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
   },
   eyeIconText: {
-    fontSize: 20,
+    fontSize: 18,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   forgotPasswordText: {
-    color: '#0033A0', // Petron Blue
-    fontSize: 14,
+    color: '#0033A0',
+    fontSize: 13,
     fontWeight: '600',
   },
   loginButton: {
     backgroundColor: '#0033A0',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     elevation: 3,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
   },
   loginButtonDisabled: {
@@ -275,14 +263,14 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   dividerLine: {
     flex: 1,
@@ -290,9 +278,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#e9ecef',
   },
   dividerText: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     color: '#666',
-    fontSize: 14,
+    fontSize: 13,
   },
   registerContainer: {
     flexDirection: 'row',
@@ -301,24 +289,24 @@ const styles = StyleSheet.create({
   },
   registerText: {
     color: '#666',
-    fontSize: 14,
+    fontSize: 13,
   },
   registerLink: {
     color: '#0033A0',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
   footer: {
     alignItems: 'center',
-    marginTop: 'auto',
+    flexShrink: 0,
   },
   footerText: {
     color: '#666',
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 11,
+    marginBottom: 2,
   },
   footerSubtext: {
     color: '#999',
-    fontSize: 11,
+    fontSize: 10,
   },
 });

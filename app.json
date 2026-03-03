@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "scheme": "petronapp",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/petron-logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -22,10 +22,22 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.ejlanuza124.PetronSanPedroApp"
+      "package": "com.ejlanuza124.PetronSanPedroApp",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Petron San Pedro App to use your location to accurately pinpoint your delivery address."
+        }
+      ]
+    ]
   }
 }

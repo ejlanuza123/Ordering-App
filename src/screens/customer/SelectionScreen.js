@@ -166,7 +166,7 @@ export default function SelectionScreen({ navigation }) {
                 activeOpacity={0.8}
               >
                 <View style={[styles.actionIcon, { backgroundColor: '#F59E0B' }]}>
-                  <Ionicons name="oil" size={22} color="#fff" />
+                  <Ionicons name="water" size={22} color="#fff" />
                 </View>
                 <Text style={styles.actionLabel}>Lubricants</Text>
               </TouchableOpacity>

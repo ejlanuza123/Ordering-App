@@ -93,7 +93,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
                 { backgroundColor: isFuel ? '#0033A0' : '#ED2939' }
               ]}>
                 <Ionicons 
-                  name={isFuel ? "water" : "oil"} 
+                  name={isFuel ? "water" : "water"} 
                   size={60} 
                   color="#fff" 
                 />

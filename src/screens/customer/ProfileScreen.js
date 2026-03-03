@@ -1,3 +1,4 @@
+// src/screens/customer/ProfileScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -17,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
+import { getAddressFromCurrentLocation } from '../../utils/location';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
@@ -24,6 +27,8 @@ export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -161,6 +166,27 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
+  // 5. Location Functions
+  const useCurrentLocation = async () => {
+    setIsGettingLocation(true);
+    try {
+      const locationData = await getAddressFromCurrentLocation();
+      if (locationData && locationData.address) {
+        setAddress(locationData.address);
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Could not get your current location');
+    } finally {
+      setIsGettingLocation(false);
+    }
+  };
+
+  const handleMapAddressSelected = (location) => {
+    setAddress(location.address);
+    setMapModalVisible(false);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -182,26 +208,27 @@ export default function ProfileScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
       
+      {/* Fixed Header - NOT SCROLLABLE */}
+      <View style={styles.header}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Profile</Text>
+        <View style={{width: 40}} />
+      </View>
+
+      {/* Scrollable Content */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Back Button */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Profile</Text>
-          <View style={{width: 40}} />
-        </View>
-
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
@@ -264,17 +291,56 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.inputHint}>Used for delivery updates</Text>
           </View>
 
+          {/* Delivery Address with Map Integration */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Delivery Address</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="House No., Street, Barangay, City..."
-              multiline
-              numberOfLines={3}
-              placeholderTextColor="#999"
-            />
+            
+            {/* Address Input with Map Button */}
+            <View style={styles.addressInputContainer}>
+              <TextInput
+                style={styles.addressInput}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="House No., Street, Barangay, City..."
+                multiline
+                numberOfLines={2}
+                placeholderTextColor="#999"
+                textAlignVertical="top"
+              />
+              <TouchableOpacity 
+                style={styles.mapButton}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Ionicons name="map-outline" size={24} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Location Action Buttons */}
+            <View style={styles.locationActions}>
+              <TouchableOpacity 
+                style={styles.locationButton}
+                onPress={useCurrentLocation}
+                disabled={isGettingLocation}
+              >
+                {isGettingLocation ? (
+                  <ActivityIndicator size="small" color="#0033A0" />
+                ) : (
+                  <>
+                    <Ionicons name="locate" size={18} color="#0033A0" />
+                    <Text style={styles.locationButtonText}>Use My Location</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.locationButton, styles.mapButtonSmall]}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Ionicons name="map" size={18} color="#0033A0" />
+                <Text style={styles.locationButtonText}>Pick on Map</Text>
+              </TouchableOpacity>
+            </View>
+            
             <Text style={styles.inputHint}>We'll deliver to this address by default</Text>
           </View>
         </View>
@@ -397,10 +463,18 @@ export default function ProfileScreen({ navigation }) {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appVersion}>Petron San Pedro v1.0.0</Text>
-          <Text style={styles.appCopyright}>© 2024 Petron San Pedro Delivery</Text>
+          <Text style={styles.appCopyright}>© 2026 Petron San Pedro Delivery</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Map Picker Modal */}
+      <OpenStreetMapPicker
+        visible={mapModalVisible}
+        onClose={() => setMapModalVisible(false)}
+        onSelectAddress={handleMapAddressSelected}
+        initialAddress={address}
+      />
+    </View>
   );
 }
 
@@ -426,13 +500,21 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 14,
   },
-  // Header
+  // Fixed Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   backButton: {
     width: 40,
@@ -443,7 +525,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#0033A0',
   },
@@ -452,7 +534,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 20,
+    marginTop: 15,
+    marginBottom: 25,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -558,14 +641,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
-  textArea: {
+  // Address Input Styles
+  addressInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  addressInput: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  mapButton: {
+    width: 50,
+    height: 80,
+    backgroundColor: '#f0f4ff',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0033A0',
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 8,
+  },
+  locationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f4ff',
+    padding: 10,
+    borderRadius: 10,
+    gap: 6,
+  },
+  mapButtonSmall: {
+    backgroundColor: '#f0f4ff',
+  },
+  locationButtonText: {
+    color: '#0033A0',
+    fontSize: 13,
+    fontWeight: '500',
   },
   inputHint: {
     fontSize: 12,
     color: '#999',
-    marginTop: 6,
+    marginTop: 4,
   },
   // Preferences
   preferenceItem: {

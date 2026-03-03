@@ -250,7 +250,7 @@ export default function HomeScreen({ navigation, route }) {
               onPress={() => handleCategoryChange('Motor Oil')}
             >
               <Ionicons 
-                name="oil" 
+                name="water" 
                 size={20} 
                 color={selectedCategory !== 'Fuel' ? '#fff' : '#ED2939'} 
               />
