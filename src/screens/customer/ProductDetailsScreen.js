@@ -1,3 +1,4 @@
+// src/screens/customer/ProductDetailsScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -8,21 +9,26 @@ import {
   Image, 
   KeyboardAvoidingView, 
   Platform,
-  Alert,
-  ScrollView,
   Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../../context/CartContext';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function ProductDetailsScreen({ route, navigation }) {
   const { product } = route.params;
   const [quantity, setQuantity] = useState('1');
   const [totalPrice, setTotalPrice] = useState(product.current_price);
   const [mode, setMode] = useState('liters');
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'warning',
+    title: '',
+    message: ''
+  });
   const { addToCart } = useCart();
   const insets = useSafeAreaInsets();
 
@@ -50,7 +56,12 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const handleAddToCart = () => {
     if (totalPrice <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter a valid amount.'
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -60,21 +71,36 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
     addToCart(product, finalLiters, parseFloat(totalPrice));
     
-    navigation.goBack();
+    setAlertConfig({
+      type: 'success',
+      title: 'Added to Cart',
+      message: `${product.name} has been added to your cart.`
+    });
+    setShowAlert(true);
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView 
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
+    <>
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => {
+          setShowAlert(false);
+          if (alertConfig.type === 'success') {
+            navigation.goBack();
+          }
+        }}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
+      
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
         >
-          {/* Back Button */}
+          {/* Back Button - Fixed position */}
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -83,7 +109,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
 
-          {/* Product Image */}
+          {/* Product Image - Fixed height */}
           <View style={styles.imageContainer}>
             {product.image_url ? (
               <Image source={{ uri: product.image_url }} style={styles.image} />
@@ -101,11 +127,12 @@ export default function ProductDetailsScreen({ route, navigation }) {
             )}
           </View>
 
+          {/* Content - Takes remaining space */}
           <View style={styles.content}>
             {/* Title & Price */}
             <View style={styles.headerRow}>
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>{product.name}</Text>
+                <Text style={styles.title} numberOfLines={2}>{product.name}</Text>
                 <View style={styles.categoryContainer}>
                   <View style={[
                     styles.categoryBadge,
@@ -134,7 +161,9 @@ export default function ProductDetailsScreen({ route, navigation }) {
             {product.description && (
               <View style={styles.descriptionContainer}>
                 <Text style={styles.descriptionTitle}>Description</Text>
-                <Text style={styles.descriptionText}>{product.description}</Text>
+                <Text style={styles.descriptionText} numberOfLines={2}>
+                  {product.description}
+                </Text>
               </View>
             )}
 
@@ -215,32 +244,32 @@ export default function ProductDetailsScreen({ route, navigation }) {
               <Text style={styles.deliveryText}>15-30 min delivery • San Pedro Area</Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
 
-      {/* Fixed Bottom Bar */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
-        <View style={styles.footerContent}>
-          <View>
-            <Text style={styles.footerLabel}>Total Amount</Text>
-            <Text style={styles.footerPrice}>
-              ₱{mode === 'amount' ? parseFloat(quantity || 0).toFixed(2) : totalPrice.toFixed(2)}
-            </Text>
+        {/* Fixed Bottom Bar */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
+          <View style={styles.footerContent}>
+            <View>
+              <Text style={styles.footerLabel}>Total Amount</Text>
+              <Text style={styles.footerPrice}>
+                ₱{mode === 'amount' ? parseFloat(quantity || 0).toFixed(2) : totalPrice.toFixed(2)}
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={[styles.addButton, !product.stock_quantity && styles.disabledButton]}
+              onPress={handleAddToCart}
+              disabled={!product.stock_quantity}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="cart" size={20} color="#fff" />
+              <Text style={styles.addButtonText}>
+                {product.stock_quantity ? 'Add to Order' : 'Out of Stock'}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            style={[styles.addButton, !product.stock_quantity && styles.disabledButton]}
-            onPress={handleAddToCart}
-            disabled={!product.stock_quantity}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="cart" size={20} color="#fff" />
-            <Text style={styles.addButtonText}>
-              {product.stock_quantity ? 'Add to Order' : 'Out of Stock'}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </>
   );
 }
 
@@ -251,9 +280,6 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
   },
   backButton: {
     position: 'absolute',
@@ -268,7 +294,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imageContainer: {
-    height: 250,
+    height: height * 0.25, // 25% of screen height
     width: '100%',
   },
   image: {
@@ -283,20 +309,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
+    flex: 1,
     padding: 20,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   titleContainer: {
     flex: 1,
     marginRight: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#0033A0',
     marginBottom: 8,
@@ -304,16 +331,18 @@ const styles = StyleSheet.create({
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   categoryBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
     marginRight: 10,
+    marginBottom: 4,
   },
   categoryText: {
     color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   stockBadge: {
@@ -326,7 +355,7 @@ const styles = StyleSheet.create({
   },
   stockText: {
     color: '#10B981',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -334,53 +363,53 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   unitPrice: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#ED2939',
   },
   unit: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     fontWeight: 'normal',
   },
   descriptionContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   descriptionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   descriptionText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   divider: {
     height: 1,
     backgroundColor: '#e9ecef',
-    marginVertical: 20,
+    marginVertical: 15,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   toggleContainer: {
     flexDirection: 'row',
     backgroundColor: '#f0f4ff',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 15,
   },
   toggleBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   activeToggle: {
@@ -392,47 +421,47 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   toggleText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#666',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   activeText: {
     color: '#0033A0',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#0033A0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    marginBottom: 6,
   },
   input: {
     flex: 1,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    paddingVertical: 12,
+    paddingVertical: 10,
     color: '#333',
   },
   suffix: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#666',
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   helperText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#0033A0',
     fontWeight: '600',
   },
@@ -440,13 +469,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f0f7ff',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 10,
+    padding: 12,
+    borderRadius: 10,
   },
   deliveryText: {
-    marginLeft: 10,
-    fontSize: 14,
+    marginLeft: 8,
+    fontSize: 13,
     color: '#0033A0',
     fontWeight: '500',
   },
@@ -455,7 +483,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
     paddingHorizontal: 20,
-    paddingTop: 15,
+    paddingTop: 8,
+    paddingBottom: 8,
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -466,14 +495,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 60, 
   },
   footerLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     marginBottom: 2,
   },
   footerPrice: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#0033A0',
   },
@@ -481,9 +511,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0033A0',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
     elevation: 3,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 2 },
@@ -495,8 +525,8 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
-    marginLeft: 8,
+    marginLeft: 6,
   },
 });

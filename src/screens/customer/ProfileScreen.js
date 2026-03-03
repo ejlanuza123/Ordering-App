@@ -6,10 +6,8 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
-  Alert, 
   ActivityIndicator,
   ScrollView,
-  SafeAreaView,
   StatusBar,
   Switch,
   Modal
@@ -21,7 +19,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
-
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
@@ -44,6 +41,7 @@ export default function ProfileScreen({ navigation }) {
   const [totalSpent, setTotalSpent] = useState(0);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'success',
     title: '',
@@ -99,7 +97,12 @@ export default function ProfileScreen({ navigation }) {
   // 2. Handle Update (Save Changes)
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter your full name.'
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -117,9 +120,19 @@ export default function ProfileScreen({ navigation }) {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Profile updated successfully!');
+      setAlertConfig({
+        type: 'success',
+        title: 'Success',
+        message: 'Profile updated successfully!'
+      });
+      setShowAlert(true);
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to update profile.');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'Failed to update profile.'
+      });
+      setShowAlert(true);
     } finally {
       setSaving(false);
     }
@@ -129,6 +142,7 @@ export default function ProfileScreen({ navigation }) {
   const handleLogoutPress = () => {
     setShowLogoutModal(true);
   };
+  
   const confirmLogout = async () => {
     setShowLogoutModal(false);
     await signOut();
@@ -170,7 +184,12 @@ export default function ProfileScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Could not get your current location'
+      });
+      setShowAlert(true);
     } finally {
       setIsGettingLocation(false);
     }
@@ -190,297 +209,357 @@ export default function ProfileScreen({ navigation }) {
     );
   }
 
-  // Format phone number for display
-  const formatPhoneNumber = (phone) => {
-    if (!phone) return '';
-    const cleaned = phone.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-      return `+63 ${match[1]} ${match[2]} ${match[3]}`;
-    }
-    return phone;
-  };
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-      
-      {/* Fixed Header - NOT SCROLLABLE */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={{width: 40}} />
-      </View>
-
-      {/* Scrollable Content */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>
-                {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-              </Text>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{fullName || 'User'}</Text>
-              <Text style={styles.profileEmail}>{user.email}</Text>
-              <Text style={styles.profileMember}>Member since {new Date(user.created_at).getFullYear()}</Text>
-            </View>
-          </View>
-
-          {/* User Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{orderCount}</Text>
-              <Text style={styles.statLabel}>Orders</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>₱{totalSpent.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Total Spent</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Ionicons name="star" size={20} color="#F59E0B" />
-              <Text style={styles.statLabel}>Loyal Customer</Text>
-            </View>
-          </View>
+    <>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+        
+        {/* Fixed Header - NOT SCROLLABLE */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Profile</Text>
+          <TouchableOpacity 
+            onPress={() => setShowSettingsModal(true)}
+            style={styles.settingsButton}
+          >
+            <Ionicons name="settings-outline" size={24} color="#0033A0" />
+          </TouchableOpacity>
         </View>
 
-        {/* Personal Information Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
-          
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter your full name"
-              placeholderTextColor="#999"
-            />
+        {/* Scrollable Content */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>
+                  {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={styles.profileName}>{fullName || 'User'}</Text>
+                <Text style={styles.profileEmail}>{user.email}</Text>
+                <Text style={styles.profileMember}>Member since {new Date(user.created_at).getFullYear()}</Text>
+              </View>
+            </View>
+
+            {/* User Stats */}
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{orderCount}</Text>
+                <Text style={styles.statLabel}>Orders</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>₱{totalSpent.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Total Spent</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Ionicons name="star" size={20} color="#F59E0B" />
+                <Text style={styles.statLabel}>Loyal Customer</Text>
+              </View>
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="0912 345 6789"
-              keyboardType="phone-pad"
-              placeholderTextColor="#999"
-            />
-            <Text style={styles.inputHint}>Used for delivery updates</Text>
-          </View>
-
-          {/* Delivery Address with Map Integration */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Delivery Address</Text>
+          {/* Personal Information Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
             
-            {/* Address Input with Map Button */}
-            <View style={styles.addressInputContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name</Text>
               <TextInput
-                style={styles.addressInput}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="House No., Street, Barangay, City..."
-                multiline
-                numberOfLines={2}
+                style={styles.input}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Enter your full name"
                 placeholderTextColor="#999"
-                textAlignVertical="top"
               />
-              <TouchableOpacity 
-                style={styles.mapButton}
-                onPress={() => setMapModalVisible(true)}
-              >
-                <Ionicons name="map-outline" size={24} color="#0033A0" />
-              </TouchableOpacity>
             </View>
 
-            {/* Location Action Buttons */}
-            <View style={styles.locationActions}>
-              <TouchableOpacity 
-                style={styles.locationButton}
-                onPress={useCurrentLocation}
-                disabled={isGettingLocation}
-              >
-                {isGettingLocation ? (
-                  <ActivityIndicator size="small" color="#0033A0" />
-                ) : (
-                  <>
-                    <Ionicons name="locate" size={18} color="#0033A0" />
-                    <Text style={styles.locationButtonText}>Use My Location</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number</Text>
+              <TextInput
+                style={styles.input}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="0912 345 6789"
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+              <Text style={styles.inputHint}>Used for delivery updates</Text>
+            </View>
+
+            {/* Delivery Address with Map Integration */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Delivery Address</Text>
               
-              <TouchableOpacity 
-                style={[styles.locationButton, styles.mapButtonSmall]}
-                onPress={() => setMapModalVisible(true)}
-              >
-                <Ionicons name="map" size={18} color="#0033A0" />
-                <Text style={styles.locationButtonText}>Pick on Map</Text>
-              </TouchableOpacity>
+              {/* Address Input with Map Button */}
+              <View style={styles.addressInputContainer}>
+                <TextInput
+                  style={styles.addressInput}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder="House No., Street, Barangay, City..."
+                  multiline
+                  numberOfLines={2}
+                  placeholderTextColor="#999"
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity 
+                  style={styles.mapButton}
+                  onPress={() => setMapModalVisible(true)}
+                >
+                  <Ionicons name="map-outline" size={24} color="#0033A0" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Location Action Buttons */}
+              <View style={styles.locationActions}>
+                <TouchableOpacity 
+                  style={styles.locationButton}
+                  onPress={useCurrentLocation}
+                  disabled={isGettingLocation}
+                >
+                  {isGettingLocation ? (
+                    <ActivityIndicator size="small" color="#0033A0" />
+                  ) : (
+                    <>
+                      <Ionicons name="locate" size={18} color="#0033A0" />
+                      <Text style={styles.locationButtonText}>Use My Location</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.locationButton, styles.mapButtonSmall]}
+                  onPress={() => setMapModalVisible(true)}
+                >
+                  <Ionicons name="map" size={18} color="#0033A0" />
+                  <Text style={styles.locationButtonText}>Pick on Map</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <Text style={styles.inputHint}>We'll deliver to this address by default</Text>
             </View>
+          </View>
+
+          {/* Preferences Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
             
-            <Text style={styles.inputHint}>We'll deliver to this address by default</Text>
-          </View>
-        </View>
-
-        {/* Preferences Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          
-          <View style={styles.preferenceItem}>
-            <View style={styles.preferenceInfo}>
-              <Ionicons name="notifications" size={22} color="#0033A0" />
-              <View style={styles.preferenceText}>
-                <Text style={styles.preferenceTitle}>Push Notifications</Text>
-                <Text style={styles.preferenceDescription}>Order updates and promotions</Text>
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <Ionicons name="notifications" size={22} color="#0033A0" />
+                <View style={styles.preferenceText}>
+                  <Text style={styles.preferenceTitle}>Push Notifications</Text>
+                  <Text style={styles.preferenceDescription}>Order updates and promotions</Text>
+                </View>
               </View>
+              <Switch
+                value={notifications}
+                onValueChange={setNotifications}
+                trackColor={{ false: '#e9ecef', true: '#0033A0' }}
+                thumbColor="#fff"
+              />
             </View>
-            <Switch
-              value={notifications}
-              onValueChange={setNotifications}
-              trackColor={{ false: '#e9ecef', true: '#0033A0' }}
-              thumbColor="#fff"
-            />
-          </View>
 
-          <View style={styles.preferenceItem}>
-            <View style={styles.preferenceInfo}>
-              <Ionicons name="mail" size={22} color="#0033A0" />
-              <View style={styles.preferenceText}>
-                <Text style={styles.preferenceTitle}>Marketing Emails</Text>
-                <Text style={styles.preferenceDescription}>Special offers and news</Text>
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <Ionicons name="mail" size={22} color="#0033A0" />
+                <View style={styles.preferenceText}>
+                  <Text style={styles.preferenceTitle}>Marketing Emails</Text>
+                  <Text style={styles.preferenceDescription}>Special offers and news</Text>
+                </View>
               </View>
+              <Switch
+                value={marketingEmails}
+                onValueChange={setMarketingEmails}
+                trackColor={{ false: '#e9ecef', true: '#0033A0' }}
+                thumbColor="#fff"
+              />
             </View>
-            <Switch
-              value={marketingEmails}
-              onValueChange={setMarketingEmails}
-              trackColor={{ false: '#e9ecef', true: '#0033A0' }}
-              thumbColor="#fff"
-            />
           </View>
-        </View>
 
-        {/* Account Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
+          {/* Account Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Account</Text>
+            
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => navigation.navigate('OrderHistory')}
+            >
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="time" size={22} color="#0033A0" />
+              </View>
+              <Text style={styles.actionText}>Order History</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => {
+                setAlertConfig({
+                  type: 'info',
+                  title: 'Help',
+                  message: 'Contact support at support@petronsanpedro.com'
+                });
+                setShowAlert(true);
+              }}
+            >
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="help-circle" size={22} color="#0033A0" />
+              </View>
+              <Text style={styles.actionText}>Help & Support</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.actionItem}
+              onPress={() => {
+                setAlertConfig({
+                  type: 'info',
+                  title: 'Terms & Privacy',
+                  message: 'By using our service, you agree to our Terms of Service and Privacy Policy.'
+                });
+                setShowAlert(true);
+              }}
+            >
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="document-text" size={22} color="#0033A0" />
+              </View>
+              <Text style={styles.actionText}>Terms & Privacy</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Save Changes Button */}
           <TouchableOpacity 
-            style={styles.actionItem}
-            onPress={() => navigation.navigate('OrderHistory')}
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.8}
           >
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="time" size={22} color="#0033A0" />
-            </View>
-            <Text style={styles.actionText}>Order History</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              </>
+            )}
           </TouchableOpacity>
 
+          {/* Sign Out Button */}
           <TouchableOpacity 
-            style={styles.actionItem}
-            onPress={() => Alert.alert('Help', 'Contact support at support@petronsanpedro.com')}
-          >
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="help-circle" size={22} color="#0033A0" />
-            </View>
-            <Text style={styles.actionText}>Help & Support</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionItem}
-            onPress={() => Alert.alert('Terms', 'By using our service, you agree to our Terms of Service and Privacy Policy.')}
-          >
-            <View style={styles.actionIconContainer}>
-              <Ionicons name="document-text" size={22} color="#0033A0" />
-            </View>
-            <Text style={styles.actionText}>Terms & Privacy</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Save Changes Button */}
-        <TouchableOpacity 
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-          activeOpacity={0.8}
-        >
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle" size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {/* Danger Zone */}
-        <View style={styles.dangerZone}>
-          <Text style={styles.dangerZoneTitle}>Account Actions</Text>
-          
-          <TouchableOpacity 
-            style={[styles.dangerButton, styles.logoutButton]}
+            style={styles.signOutButton}
             onPress={handleLogoutPress}
             activeOpacity={0.7}
           >
             <Ionicons name="log-out" size={20} color="#ED2939" />
-            <Text style={[styles.dangerButtonText, { color: '#ED2939' }]}>Sign Out</Text>
+            <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.dangerButton, styles.deleteButton]}
-            onPress={handleDeletePress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash" size={20} color="#666" />
-            <Text style={[styles.dangerButtonText, { color: '#666' }]}>Delete Account</Text>
-          </TouchableOpacity>
+          {/* App Info */}
+          <View style={styles.appInfo}>
+            <Text style={styles.appVersion}>Petron San Pedro v1.0.0</Text>
+            <Text style={styles.appCopyright}>© 2026 Petron San Pedro Delivery</Text>
+          </View>
+        </ScrollView>
+
+        {/* Map Picker Modal */}
+        <OpenStreetMapPicker
+          visible={mapModalVisible}
+          onClose={() => setMapModalVisible(false)}
+          onSelectAddress={handleMapAddressSelected}
+          initialAddress={address}
+        />
+
+        {/* Logout Confirmation Modal */}
+        <CustomAlertModal
+          visible={showLogoutModal}
+          onClose={() => setShowLogoutModal(false)}
+          type="confirm"
+          title="Sign Out"
+          message="Are you sure you want to log out?"
+          confirmText="Log Out"
+          cancelText="Cancel"
+          showCancelButton={true}
+          onConfirm={confirmLogout}
+        />
+
+        {/* Success/Error Alert */}
+        <CustomAlertModal
+          visible={showAlert}
+          onClose={() => setShowAlert(false)}
+          type={alertConfig.type}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText="OK"
+        />
+      </View>
+
+      {/* Settings Modal - Contains Delete Account Button */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showSettingsModal}
+        onRequestClose={() => setShowSettingsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Account Settings</Text>
+              <TouchableOpacity 
+                onPress={() => setShowSettingsModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {/* Delete Account Option */}
+              <TouchableOpacity 
+                style={styles.deleteOption}
+                onPress={() => {
+                  setShowSettingsModal(false);
+                  setShowDeleteModal(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.deleteIconContainer}>
+                  <Ionicons name="trash" size={24} color="#EF4444" />
+                </View>
+                <View style={styles.deleteTextContainer}>
+                  <Text style={styles.deleteTitle}>Delete Account</Text>
+                  <Text style={styles.deleteDescription}>
+                    Permanently delete your account and all data
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#999" />
+              </TouchableOpacity>
+
+              <View style={styles.modalFooter}>
+                <Text style={styles.modalFooterText}>
+                  This action cannot be undone. All your order history and personal information will be permanently removed.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
         </View>
+      </Modal>
 
-        {/* App Info */}
-        <View style={styles.appInfo}>
-          <Text style={styles.appVersion}>Petron San Pedro v1.0.0</Text>
-          <Text style={styles.appCopyright}>© 2026 Petron San Pedro Delivery</Text>
-        </View>
-      </ScrollView>
-
-      {/* Map Picker Modal */}
-      <OpenStreetMapPicker
-        visible={mapModalVisible}
-        onClose={() => setMapModalVisible(false)}
-        onSelectAddress={handleMapAddressSelected}
-        initialAddress={address}
-      />
-      <CustomAlertModal
-        visible={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        type="confirm"
-        title="Sign Out"
-        message="Are you sure you want to log out?"
-        confirmText="Log Out"
-        cancelText="Cancel"
-        showCancelButton={true}
-        onConfirm={confirmLogout}
-      />
-
-      {/* Delete Account Confirmation */}
+      {/* Delete Account Confirmation Modal */}
       <CustomAlertModal
         visible={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
@@ -492,17 +571,7 @@ export default function ProfileScreen({ navigation }) {
         showCancelButton={true}
         onConfirm={confirmDelete}
       />
-
-      {/* Success/Error Alert */}
-      <CustomAlertModal
-        visible={showAlert}
-        onClose={() => setShowAlert(false)}
-        type={alertConfig.type}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        confirmText="OK"
-      />
-    </View>
+    </>
   );
 }
 
@@ -545,6 +614,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -785,7 +862,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0033A0',
     padding: 16,
     borderRadius: 12,
-    marginBottom: 20,
+    marginBottom: 12,
     elevation: 4,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 2 },
@@ -801,41 +878,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  // Danger Zone
-  dangerZone: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ffeaea',
-  },
-  dangerZoneTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  dangerButton: {
+  // Sign Out Button
+  signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 12,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
     borderWidth: 1,
-  },
-  logoutButton: {
     borderColor: '#ED2939',
-    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  deleteButton: {
-    borderColor: '#e9ecef',
-    backgroundColor: '#fff',
-  },
-  dangerButtonText: {
+  signOutText: {
+    color: '#ED2939',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 10,
+    marginLeft: 8,
   },
   // App Info
   appInfo: {
@@ -850,5 +914,78 @@ const styles = StyleSheet.create({
   appCopyright: {
     fontSize: 11,
     color: '#ccc',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  deleteOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f4ff',
+  },
+  deleteIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  deleteTextContainer: {
+    flex: 1,
+  },
+  deleteTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginBottom: 2,
+  },
+  deleteDescription: {
+    fontSize: 13,
+    color: '#666',
+  },
+  modalFooter: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  modalFooterText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

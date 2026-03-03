@@ -1,3 +1,4 @@
+// src/screens/customer/SelectionScreen.js
 import React from 'react';
 import { 
   View, 
@@ -59,7 +60,62 @@ export default function SelectionScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Quick Stats */}
+        {/* Quick Actions - MOVED TO HEADER WITH COLOR INDICATORS */}
+        <View style={styles.quickActionsHeader}>
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Cart')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#0033A020' }]}>
+              <Ionicons name="cart" size={20} color="#0033A0" />
+            </View>
+            <Text style={styles.headerActionText}>Cart</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('OrderHistory')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#ED293920' }]}>
+              <Ionicons name="time" size={20} color="#ED2939" />
+            </View>
+            <Text style={styles.headerActionText}>Orders</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Home', { category: 'Fuel' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#10B98120' }]}>
+              <Ionicons name="water" size={20} color="#10B981" />
+            </View>
+            <Text style={styles.headerActionText}>Fuel</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Home', { category: 'Motor Oil' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B20' }]}>
+              <Ionicons name="water" size={20} color="#F59E0B" />
+            </View>
+            <Text style={styles.headerActionText}>Oil</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Scrollable Content - Everything below the header */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Quick Stats - MOVED TO SCROLLABLE AREA */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
@@ -89,15 +145,7 @@ export default function SelectionScreen({ navigation }) {
             <Text style={styles.statLabel}>Area</Text>
           </View>
         </View>
-      </View>
 
-      {/* Scrollable Content - Everything below the header */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
         {/* Main Action Section */}
         <View style={styles.mainSection}>
           <Text style={styles.sectionTitle}>What would you like today?</Text>
@@ -121,57 +169,6 @@ export default function SelectionScreen({ navigation }) {
               <Ionicons name="chevron-forward" size={24} color="#666" />
             </View>
           </TouchableOpacity>
-
-          {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
-            
-            <View style={styles.actionGrid}>
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('Cart')}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#0033A0' }]}>
-                  <Ionicons name="cart" size={22} color="#fff" />
-                </View>
-                <Text style={styles.actionLabel}>My Cart</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('OrderHistory')}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#ED2939' }]}>
-                  <Ionicons name="time" size={22} color="#fff" />
-                </View>
-                <Text style={styles.actionLabel}>My Orders</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('Home', { category: 'Fuel' })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-                  <Ionicons name="water" size={22} color="#fff" />
-                </View>
-                <Text style={styles.actionLabel}>Fuel</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.actionCard}
-                onPress={() => navigation.navigate('Home', { category: 'Motor Oil' })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: '#F59E0B' }]}>
-                  <Ionicons name="water" size={22} color="#fff" />
-                </View>
-                <Text style={styles.actionLabel}>Lubricants</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
 
           {/* Services Section */}
           <View style={styles.servicesSection}>
@@ -242,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 25,
+    paddingBottom: 15,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     elevation: 3,
@@ -250,13 +247,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    marginBottom: 0, // Changed from 20 to 0
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   welcomeText: {
     fontSize: 14,
@@ -283,36 +279,69 @@ const styles = StyleSheet.create({
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   petronLogo: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
+    width: 45,
+    height: 45,
+    borderRadius: 8,
     backgroundColor: '#0033A0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 12,
   },
   brandTextContainer: {
     flex: 1,
   },
   brandTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#0033A0',
     marginBottom: 2,
   },
   brandSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
   },
-  // Stats
+  // Quick Actions in Header WITH COLOR INDICATORS
+  quickActionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f4ff',
+  },
+  headerActionButton: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  headerActionText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '500',
+  },
+  // Stats - Now in scrollable area
   statsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   statItem: {
     flex: 1,
@@ -324,7 +353,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
     fontSize: 14,
@@ -343,7 +372,7 @@ const styles = StyleSheet.create({
   // Main Section
   mainSection: {
     paddingHorizontal: 20,
-    paddingTop: 20, // Added padding top instead of margin
+    paddingTop: 15,
   },
   sectionTitle: {
     fontSize: 18,
@@ -390,43 +419,6 @@ const styles = StyleSheet.create({
   orderCardSubtitle: {
     fontSize: 14,
     color: '#666',
-  },
-  // Quick Actions
-  quickActions: {
-    marginBottom: 25,
-  },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionCard: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  actionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
   },
   // Services
   servicesSection: {
