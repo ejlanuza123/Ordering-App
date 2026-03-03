@@ -40,6 +40,7 @@ export default function SelectionScreen({ navigation }) {
           <TouchableOpacity 
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.7}
           >
             <View style={styles.profileIcon}>
               <Ionicons name="person" size={22} color="#0033A0" />
@@ -47,7 +48,7 @@ export default function SelectionScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Petron Branding */}
+        {/* Petron Branding - NOT A BUTTON */}
         <View style={styles.brandContainer}>
           <Image 
             source={require('../../../assets/petron-logo.png')} 
@@ -60,7 +61,7 @@ export default function SelectionScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Quick Actions - MOVED TO HEADER WITH COLOR INDICATORS */}
+        {/* Quick Actions - OBVIOUS BUTTONS with hover effect */}
         <View style={styles.quickActionsHeader}>
           <TouchableOpacity 
             style={styles.headerActionButton}
@@ -115,7 +116,34 @@ export default function SelectionScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        {/* Quick Stats - MOVED TO SCROLLABLE AREA */}
+        {/* Main Action Section - Order Now is an OBVIOUS BUTTON */}
+        <View style={styles.mainSection}>
+          <Text style={styles.sectionTitle}>What would you like today?</Text>
+          
+          {/* Order Now Button - OBVIOUS BUTTON with prominent styling */}
+          <TouchableOpacity 
+            style={styles.orderNowButton}
+            onPress={() => navigation.navigate('Home', { category: 'Fuel' })}
+            activeOpacity={0.7}
+          >
+            <View style={styles.orderNowContent}>
+              <View style={styles.orderNowIconContainer}>
+                <Ionicons name="flash" size={32} color="#0033A0" />
+              </View>
+              <View style={styles.orderNowTextContainer}>
+                <Text style={styles.orderNowTitle}>Order Now</Text>
+                <Text style={styles.orderNowSubtitle}>
+                  Browse fuel & lubricants
+                </Text>
+              </View>
+              <View style={styles.orderNowArrow}>
+                <Ionicons name="arrow-forward" size={24} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Stats - NOT BUTTONS (just information cards) */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
@@ -146,76 +174,51 @@ export default function SelectionScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Main Action Section */}
-        <View style={styles.mainSection}>
-          <Text style={styles.sectionTitle}>What would you like today?</Text>
+        {/* Services Section - Cards are NOT BUTTONS (just information) */}
+        <View style={styles.servicesSection}>
+          <Text style={styles.sectionTitle}>Our Services</Text>
           
-          {/* Order Now Card */}
-          <TouchableOpacity 
-            style={styles.orderCard}
-            onPress={() => navigation.navigate('Home', { category: 'Fuel' })}
-            activeOpacity={0.9}
-          >
-            <View style={styles.orderCardContent}>
-              <View style={styles.orderCardIcon}>
-                <Ionicons name="flash" size={32} color="#0033A0" />
+          <View style={styles.servicesGrid}>
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#0033A010' }]}>
+                <Ionicons name="car" size={20} color="#0033A0" />
               </View>
-              <View style={styles.orderCardText}>
-                <Text style={styles.orderCardTitle}>Order Now</Text>
-                <Text style={styles.orderCardSubtitle}>
-                  Browse fuel & lubricants
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={24} color="#666" />
+              <Text style={styles.serviceText}>Vehicle Fuel</Text>
             </View>
-          </TouchableOpacity>
-
-          {/* Services Section */}
-          <View style={styles.servicesSection}>
-            <Text style={styles.sectionTitle}>Our Services</Text>
             
-            <View style={styles.servicesGrid}>
-              <View style={styles.serviceItem}>
-                <View style={[styles.serviceIcon, { backgroundColor: '#0033A010' }]}>
-                  <Ionicons name="car" size={20} color="#0033A0" />
-                </View>
-                <Text style={styles.serviceText}>Vehicle Fuel</Text>
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#ED293910' }]}>
+                <Ionicons name="construct" size={20} color="#ED2939" />
               </View>
-              
-              <View style={styles.serviceItem}>
-                <View style={[styles.serviceIcon, { backgroundColor: '#ED293910' }]}>
-                  <Ionicons name="construct" size={20} color="#ED2939" />
-                </View>
-                <Text style={styles.serviceText}>Engine Oils</Text>
+              <Text style={styles.serviceText}>Engine Oils</Text>
+            </View>
+            
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#10B98110' }]}>
+                <Ionicons name="home" size={20} color="#10B981" />
               </View>
-              
-              <View style={styles.serviceItem}>
-                <View style={[styles.serviceIcon, { backgroundColor: '#10B98110' }]}>
-                  <Ionicons name="home" size={20} color="#10B981" />
-                </View>
-                <Text style={styles.serviceText}>Home Delivery</Text>
+              <Text style={styles.serviceText}>Home Delivery</Text>
+            </View>
+            
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#F59E0B10' }]}>
+                <Ionicons name="time" size={20} color="#F59E0B" />
               </View>
-              
-              <View style={styles.serviceItem}>
-                <View style={[styles.serviceIcon, { backgroundColor: '#F59E0B10' }]}>
-                  <Ionicons name="time" size={20} color="#F59E0B" />
-                </View>
-                <Text style={styles.serviceText}>24/7 Service</Text>
-              </View>
+              <Text style={styles.serviceText}>24/7 Service</Text>
             </View>
           </View>
+        </View>
 
-          {/* Footer Info */}
-          <View style={styles.footer}>
-            <Text style={styles.footerTitle}>Petron San Pedro</Text>
-            <Text style={styles.footerText}>
-              Premium quality fuel and lubricants delivered to your doorstep in San Pedro area.
-              Available 24/7 for your convenience.
-            </Text>
-            <View style={styles.footerContact}>
-              <Ionicons name="call" size={14} color="#666" />
-              <Text style={styles.footerContactText}> (02) 8888-9999</Text>
-            </View>
+        {/* Footer Info - NOT A BUTTON */}
+        <View style={styles.footerCard}>
+          <Text style={styles.footerTitle}>Petron San Pedro</Text>
+          <Text style={styles.footerText}>
+            Premium quality fuel and lubricants delivered to your doorstep in San Pedro area.
+            Available 24/7 for your convenience.
+          </Text>
+          <View style={styles.footerContact}>
+            <Ionicons name="call" size={14} color="#666" />
+            <Text style={styles.footerContactText}> (02) 8888-9999</Text>
           </View>
         </View>
       </ScrollView>
@@ -275,7 +278,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Branding
+  // Branding - NOT A BUTTON
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -303,7 +306,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
-  // Quick Actions in Header WITH COLOR INDICATORS
+  // Quick Actions - OBVIOUS BUTTONS
   quickActionsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -314,34 +317,98 @@ const styles = StyleSheet.create({
   headerActionButton: {
     alignItems: 'center',
     flex: 1,
+    transform: [{ scale: 1 }],
   },
   headerActionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   headerActionText: {
     fontSize: 11,
     color: '#666',
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  // Stats - Now in scrollable area
+  // Main Section
+  mainSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  // Order Now Button - OBVIOUS BUTTON
+  orderNowButton: {
+    backgroundColor: '#0033A0',
+    borderRadius: 16,
+    marginBottom: 20,
+    elevation: 5,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  orderNowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  orderNowIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  orderNowTextContainer: {
+    flex: 1,
+  },
+  orderNowTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  orderNowSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  orderNowArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Stats - INFORMATION CARDS (NOT BUTTONS)
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
   statItem: {
     flex: 1,
@@ -369,67 +436,17 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: '#e9ecef',
   },
-  // Main Section
-  mainSection: {
-    paddingHorizontal: 20,
-    paddingTop: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  // Order Card
-  orderCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 25,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  orderCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  orderCardIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#f0f4ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  orderCardText: {
-    flex: 1,
-  },
-  orderCardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0033A0',
-    marginBottom: 4,
-  },
-  orderCardSubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  // Services
+  // Services - INFORMATION CARDS (NOT BUTTONS)
   servicesSection: {
-    marginBottom: 25,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   servicesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  serviceItem: {
+  serviceCard: {
     width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
@@ -453,11 +470,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#333',
   },
-  // Footer
-  footer: {
+  // Footer - INFORMATION CARD (NOT A BUTTON)
+  footerCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 20,
+    marginHorizontal: 20,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#e9ecef',
