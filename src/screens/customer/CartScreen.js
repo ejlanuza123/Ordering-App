@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState} from 'react';
 import { 
   View, 
   Text, 
@@ -12,11 +12,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../../context/CartContext';
 import { Header } from '../../components/Header';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 export default function CartScreen({ navigation }) {
   const { cartItems, removeFromCart, getCartTotal } = useCart();
   const insets = useSafeAreaInsets();
   const total = getCartTotal();
+  const [removeModalVisible, setRemoveModalVisible] = useState(false);
+  const [itemToRemove, setItemToRemove] = useState(null);
+  
+  const handleRemovePress = (item) => {
+    setItemToRemove(item);
+    setRemoveModalVisible(true);
+  };
+
+  const confirmRemove = () => {
+    if (itemToRemove) {
+      removeFromCart(itemToRemove.id);
+      setRemoveModalVisible(false);
+      setItemToRemove(null);
+    }
+  };
 
   const renderItem = ({ item }) => {
     const isFuel = item.category === 'Fuel';
@@ -27,7 +43,7 @@ export default function CartScreen({ navigation }) {
           <View style={styles.itemHeader}>
             <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
             <TouchableOpacity 
-              onPress={() => removeFromCart(item.id)}
+              onPress={() => handleRemovePress(item)}
               style={styles.removeBtn}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -93,67 +109,80 @@ export default function CartScreen({ navigation }) {
 
   // Main cart screen with items
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Custom header for main screen */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity 
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>My Cart</Text>
-            <Text style={styles.headerSubtitle}>
-              {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
-            </Text>
-          </View>
-          <View style={{width: 40}} />
-        </View>
-      </View>
-
-      {/* List of Items */}
-      <FlatList
-        data={cartItems}
-        keyExtractor={(item, index) => item.id.toString() + index}
-        renderItem={renderItem}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: 120 } // Increased padding to make room for footer
-        ]}
-        showsVerticalScrollIndicator={false}
+    <>
+      <CustomAlertModal
+        visible={removeModalVisible}
+        onClose={() => setRemoveModalVisible(false)}
+        type="confirm"
+        title="Remove Item"
+        message={`Are you sure you want to remove "${itemToRemove?.name}" from your cart?`}
+        confirmText="Yes, Remove"
+        cancelText="Cancel"
+        showCancelButton={true}
+        onConfirm={confirmRemove}
       />
-
-      {/* Fixed Footer - REMOVED absolute positioning */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>₱{total.toFixed(2)}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Fee</Text>
-            <Text style={styles.summaryValue}>₱0.00</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total to Pay</Text>
-            <Text style={styles.totalAmount}>₱{total.toFixed(2)}</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Custom header for main screen */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle}>My Cart</Text>
+              <Text style={styles.headerSubtitle}>
+                {cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}
+              </Text>
+            </View>
+            <View style={{width: 40}} />
           </View>
         </View>
 
-        <TouchableOpacity 
-          style={styles.checkoutButton}
-          onPress={() => navigation.navigate('Checkout')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.checkoutText}>PROCEED TO CHECKOUT</Text>
-          <Ionicons name="arrow-forward" size={20} color="#fff" />
-        </TouchableOpacity>
+        {/* List of Items */}
+        <FlatList
+          data={cartItems}
+          keyExtractor={(item, index) => item.id.toString() + index}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: 120 } // Increased padding to make room for footer
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+
+        {/* Fixed Footer - REMOVED absolute positioning */}
+        <View style={[styles.footer, { paddingBottom: insets.bottom }]}>
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>₱{total.toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Delivery Fee</Text>
+              <Text style={styles.summaryValue}>₱0.00</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total to Pay</Text>
+              <Text style={styles.totalAmount}>₱{total.toFixed(2)}</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity 
+            style={styles.checkoutButton}
+            onPress={() => navigation.navigate('Checkout')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.checkoutText}>PROCEED TO CHECKOUT</Text>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 

@@ -29,7 +29,6 @@ export const CartProvider = ({ children }) => {
       }
     });
     
-    Alert.alert('Success', 'Item added to cart!');
   };
 
   // 2. Remove Item

@@ -20,6 +20,8 @@ import { supabase } from '../../lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
+import CustomAlertModal from '../../components/CustomAlertModal';
+
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
@@ -40,6 +42,13 @@ export default function ProfileScreen({ navigation }) {
   // User stats
   const [orderCount, setOrderCount] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'success',
+    title: '',
+    message: ''
+  });
 
   // 1. Fetch Profile Data and Stats
   useEffect(() => {
@@ -117,53 +126,38 @@ export default function ProfileScreen({ navigation }) {
   };
 
   // 3. Handle Logout
-  const handleLogout = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Log Out', 
-          style: 'destructive', 
-          onPress: async () => {
-            await signOut();
-          } 
-        }
-      ]
-    );
+  const handleLogoutPress = () => {
+    setShowLogoutModal(true);
+  };
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    await signOut();
   };
 
   // 4. Handle Account Deletion
-  const handleDeleteAccount = async () => {
-    Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete Account', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // First delete user data from profiles table
-              const { error: profileError } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', user.id);
+  const handleDeletePress = () => {
+    setShowDeleteModal(true);
+  };
 
-              if (profileError) throw profileError;
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    try {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
 
-              // Then sign out (which will delete auth user)
-              await signOut();
-              
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete account. Please contact support.');
-            }
-          }
-        }
-      ]
-    );
+      if (profileError) throw profileError;
+
+      await signOut();
+    } catch (error) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to delete account. Please contact support.'
+      });
+      setShowAlert(true);
+    }
   };
 
   // 5. Location Functions
@@ -443,7 +437,7 @@ export default function ProfileScreen({ navigation }) {
           
           <TouchableOpacity 
             style={[styles.dangerButton, styles.logoutButton]}
-            onPress={handleLogout}
+            onPress={handleLogoutPress}
             activeOpacity={0.7}
           >
             <Ionicons name="log-out" size={20} color="#ED2939" />
@@ -452,7 +446,7 @@ export default function ProfileScreen({ navigation }) {
 
           <TouchableOpacity 
             style={[styles.dangerButton, styles.deleteButton]}
-            onPress={handleDeleteAccount}
+            onPress={handleDeletePress}
             activeOpacity={0.7}
           >
             <Ionicons name="trash" size={20} color="#666" />
@@ -473,6 +467,40 @@ export default function ProfileScreen({ navigation }) {
         onClose={() => setMapModalVisible(false)}
         onSelectAddress={handleMapAddressSelected}
         initialAddress={address}
+      />
+      <CustomAlertModal
+        visible={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        type="confirm"
+        title="Sign Out"
+        message="Are you sure you want to log out?"
+        confirmText="Log Out"
+        cancelText="Cancel"
+        showCancelButton={true}
+        onConfirm={confirmLogout}
+      />
+
+      {/* Delete Account Confirmation */}
+      <CustomAlertModal
+        visible={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        type="warning"
+        title="Delete Account"
+        message="This action cannot be undone. All your data will be permanently deleted."
+        confirmText="Delete Account"
+        cancelText="Cancel"
+        showCancelButton={true}
+        onConfirm={confirmDelete}
+      />
+
+      {/* Success/Error Alert */}
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
       />
     </View>
   );

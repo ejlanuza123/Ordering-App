@@ -1,4 +1,4 @@
-// src\screens\auth\RegisterScreen.js
+// src/screens/auth/RegisterScreen.js
 import React, { useState } from 'react';
 import { 
   View, 
@@ -6,7 +6,6 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
-  Alert, 
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { height } = Dimensions.get('window');
 
@@ -28,20 +28,41 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'warning',
+    title: '',
+    message: ''
+  });
 
   const handleRegister = async () => {
     if (!fullName || !phone || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please fill in all fields.'
+      });
+      setShowAlert(true);
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Password must be at least 6 characters.'
+      });
+      setShowAlert(true);
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Passwords do not match.'
+      });
+      setShowAlert(true);
       return;
     }
 
@@ -64,11 +85,12 @@ export default function RegisterScreen({ navigation }) {
 
       // 2. Check if email confirmation is required
       if (data.user && data.user.identities && data.user.identities.length === 0) {
-        Alert.alert(
-          'Check Your Email', 
-          'A user with this email already exists. Please check your inbox for confirmation email or try logging in.',
-          [{ text: 'OK' }]
-        );
+        setAlertConfig({
+          type: 'info',
+          title: 'Check Your Email',
+          message: 'A user with this email already exists. Please check your inbox for confirmation email or try logging in.'
+        });
+        setShowAlert(true);
         setLoading(false);
         return;
       }
@@ -96,180 +118,199 @@ export default function RegisterScreen({ navigation }) {
 
         // 4. Show appropriate message
         if (data.session) {
-          Alert.alert(
-            'Success!', 
-            'Account created successfully. You are now logged in.',
-          );
+          setAlertConfig({
+            type: 'success',
+            title: 'Success!',
+            message: 'Account created successfully. You are now logged in.'
+          });
+          setShowAlert(true);
         } else {
-          Alert.alert(
-            'Almost There!', 
-            'Account created successfully! Please check your email (including spam folder) to verify your account before logging in.',
-            [
-              { 
-                text: 'Go to Login', 
-                style: 'default',
-                onPress: () => navigation.navigate('Login') 
-              }
-            ]
-          );
+          setAlertConfig({
+            type: 'success',
+            title: 'Almost There!',
+            message: 'Account created successfully! Please check your email (including spam folder) to verify your account before logging in.'
+          });
+          setShowAlert(true);
         }
       }
 
     } catch (error) {
       console.error('Registration error:', error);
-      Alert.alert('Registration Failed', error.message);
+      setAlertConfig({
+        type: 'error',
+        title: 'Registration Failed',
+        message: error.message
+      });
+      setShowAlert(true);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={[styles.container, { 
-      paddingTop: insets.top, 
-      paddingBottom: insets.bottom 
-    }]}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        {/* Main Content - No ScrollView */}
-        <View style={styles.content}>
-          {/* Header with Back Button */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
-            </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Create Account</Text>
-              <Text style={styles.subtitle}>Join Petron San Pedro</Text>
-            </View>
-            <View style={{ width: 40 }} />
-          </View>
-
-          {/* Form */}
-          <View style={styles.form}>
-            {/* Full Name */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Juan Dela Cruz"
-                placeholderTextColor="#999"
-                value={fullName}
-                onChangeText={setFullName}
-              />
-            </View>
-
-            {/* Phone Number */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0912 345 6789"
-                placeholderTextColor="#999"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
+    <>
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => {
+          setShowAlert(false);
+          // Navigate to login screen after successful registration that requires email verification
+          if (alertConfig.type === 'success' && alertConfig.title === 'Almost There!') {
+            navigation.navigate('Login');
+          }
+        }}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
+      
+      <View style={[styles.container, { 
+        paddingTop: insets.top, 
+        paddingBottom: insets.bottom 
+      }]}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
+          {/* Main Content - No ScrollView */}
+          <View style={styles.content}>
+            {/* Header with Back Button */}
+            <View style={styles.header}>
+              <TouchableOpacity 
+                onPress={() => navigation.goBack()}
+                style={styles.backButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="arrow-back" size={24} color="#0033A0" />
+              </TouchableOpacity>
+              <View style={styles.titleContainer}>
+                <Text style={styles.title}>Create Account</Text>
+                <Text style={styles.subtitle}>Join Petron San Pedro</Text>
+              </View>
+              <View style={{ width: 40 }} />
             </View>
 
-            {/* Email Address */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email Address</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="juan@example.com"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-            </View>
-
-            {/* Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputWrapper}>
+            {/* Form */}
+            <View style={styles.form}>
+              {/* Full Name */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Full Name</Text>
                 <TextInput
-                  style={[styles.input, styles.passwordInput]}
-                  placeholder="Minimum 6 characters"
+                  style={styles.input}
+                  placeholder="Juan Dela Cruz"
                   placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+                  value={fullName}
+                  onChangeText={setFullName}
                 />
-                <TouchableOpacity 
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Text style={styles.eyeIconText}>
-                    {showPassword ? '👁️' : '👁️‍🗨️'}
-                  </Text>
-                </TouchableOpacity>
+              </View>
+
+              {/* Phone Number */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0912 345 6789"
+                  placeholderTextColor="#999"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              {/* Email Address */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email Address</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="juan@example.com"
+                  placeholderTextColor="#999"
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              {/* Password */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Minimum 6 characters"
+                    placeholderTextColor="#999"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeIconText}>
+                      {showPassword ? '👁️' : '👁️‍🗨️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirm Password</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    placeholder="Re-enter your password"
+                    placeholderTextColor="#999"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                  />
+                  <TouchableOpacity 
+                    style={styles.eyeIcon}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Text style={styles.eyeIconText}>
+                      {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Sign Up Button */}
+              <TouchableOpacity 
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleRegister}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>SIGN UP</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Login Link */}
+              <TouchableOpacity 
+                style={styles.linkButton}
+                onPress={() => navigation.navigate('Login')}
+              >
+                <Text style={styles.linkText}>
+                  Already have an account? <Text style={styles.bold}>Login</Text>
+                </Text>
+              </TouchableOpacity>
+
+              {/* Info Box */}
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  📧 After registration, check your email (including spam folder) for verification link.
+                </Text>
               </View>
             </View>
-
-            {/* Confirm Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={[styles.input, styles.passwordInput]}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor="#999"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry={!showConfirmPassword}
-                />
-                <TouchableOpacity 
-                  style={styles.eyeIcon}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  <Text style={styles.eyeIconText}>
-                    {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Sign Up Button */}
-            <TouchableOpacity 
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>SIGN UP</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Login Link */}
-            <TouchableOpacity 
-              style={styles.linkButton}
-              onPress={() => navigation.navigate('Login')}
-            >
-              <Text style={styles.linkText}>
-                Already have an account? <Text style={styles.bold}>Login</Text>
-              </Text>
-            </TouchableOpacity>
-
-            {/* Info Box */}
-            <View style={styles.infoBox}>
-              <Text style={styles.infoText}>
-                📧 After registration, check your email (including spam folder) for verification link.
-              </Text>
-            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </View>
+        </KeyboardAvoidingView>
+      </View>
+    </>
   );
 }
 

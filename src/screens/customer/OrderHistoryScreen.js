@@ -13,13 +13,13 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  Alert,
   Platform
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width } = Dimensions.get('window');
 
@@ -34,6 +34,15 @@ export default function OrderHistoryScreen({ navigation }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'warning',
+    title: '',
+    message: ''
+  });
+
 
   const filters = [
     { id: 'all', label: 'All Orders' },
@@ -76,7 +85,12 @@ export default function OrderHistoryScreen({ navigation }) {
       applyFilter(data || [], selectedFilter);
     } catch (error) {
       console.log('Error fetching orders:', error.message);
-      Alert.alert('Error', 'Failed to load orders');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load orders'
+      });
+      setShowAlert(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,32 +121,25 @@ export default function OrderHistoryScreen({ navigation }) {
     }
   };
 
-  const handleCancelOrder = async (order) => {
-    // Check if order can be cancelled (only Pending or Processing)
+  const handleCancelPress = (order) => {
     const status = order.status?.toLowerCase();
     if (status !== 'pending' && status !== 'processing') {
-      Alert.alert(
-        'Cannot Cancel',
-        `Orders with status "${order.status}" cannot be cancelled. Please contact support for assistance.`
-      );
+      setAlertConfig({
+        type: 'warning',
+        title: 'Cannot Cancel',
+        message: `Orders with status "${order.status}" cannot be cancelled. Please contact support for assistance.`
+      });
+      setShowAlert(true);
       return;
     }
-
-    Alert.alert(
-      'Cancel Order',
-      `Are you sure you want to cancel order ${order.order_number || `#${order.id}`}? This action cannot be undone.`,
-      [
-        { text: 'No, Keep It', style: 'cancel' },
-        {
-          text: 'Yes, Cancel Order',
-          style: 'destructive',
-          onPress: () => confirmCancelOrder(order.id)
-        }
-      ]
-    );
+    
+    setOrderToCancel(order);
+    setShowCancelModal(true);
   };
 
-  const confirmCancelOrder = async (orderId) => {
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+    
     setCancelling(true);
     try {
       const { error } = await supabase
@@ -141,26 +148,32 @@ export default function OrderHistoryScreen({ navigation }) {
           status: 'Cancelled',
           notes: 'Cancelled by customer'
         })
-        .eq('id', orderId)
-        .eq('user_id', user.id); // Extra safety check
+        .eq('id', orderToCancel.id)
+        .eq('user_id', user.id);
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Order has been cancelled successfully.');
+      setAlertConfig({
+        type: 'success',
+        title: 'Success',
+        message: 'Order has been cancelled successfully.'
+      });
+      setShowAlert(true);
       
-      // Refresh orders
       fetchOrders();
-      
-      // Close modal if open
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setOrderDetailsModal(false);
-        setSelectedOrder(null);
-      }
+      setOrderDetailsModal(false);
+      setSelectedOrder(null);
     } catch (error) {
-      console.error('Error cancelling order:', error);
-      Alert.alert('Error', 'Failed to cancel order. Please try again.');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to cancel order. Please try again.'
+      });
+      setShowAlert(true);
     } finally {
       setCancelling(false);
+      setShowCancelModal(false);
+      setOrderToCancel(null);
     }
   };
 
@@ -346,7 +359,7 @@ export default function OrderHistoryScreen({ navigation }) {
             {canCancelOrder(selectedOrder.status) && (
               <TouchableOpacity 
                 style={styles.cancelButtonFull}
-                onPress={() => handleCancelOrder(selectedOrder)}
+                onPress={() => handleCancelPress(selectedOrder)}
                 disabled={cancelling}
               >
                 {cancelling ? (
@@ -558,6 +571,31 @@ export default function OrderHistoryScreen({ navigation }) {
 
       {/* Order Details Modal */}
       {renderOrderDetails()}
+      <CustomAlertModal
+        visible={showCancelModal}
+        onClose={() => {
+          setShowCancelModal(false);
+          setOrderToCancel(null);
+        }}
+        type="confirm"
+        title="Cancel Order"
+        message={`Are you sure you want to cancel order ${orderToCancel?.order_number || `#${orderToCancel?.id}`}? This action cannot be undone.`}
+        confirmText="Yes, Cancel"
+        cancelText="No, Keep It"
+        showCancelButton={true}
+        onConfirm={confirmCancelOrder}
+        loading={cancelling}
+      />
+
+      {/* Success/Error Alert */}
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
     </View>
   );
 }

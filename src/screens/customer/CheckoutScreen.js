@@ -6,13 +6,11 @@ import {
   TextInput, 
   TouchableOpacity, 
   StyleSheet, 
-  Alert, 
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Modal,
-  SafeAreaView,
   StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +20,8 @@ import { supabase } from '../../lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapPickerModal from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
+import CustomAlertModal from '../../components/CustomAlertModal';
+import SuccessModal from '../../components/SuccessModal';
 
 export default function CheckoutScreen({ navigation }) {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -37,6 +37,14 @@ export default function CheckoutScreen({ navigation }) {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'warning',
+    title: '',
+    message: ''
+  });
   
   const totalAmount = getCartTotal();
 
@@ -78,10 +86,20 @@ export default function CheckoutScreen({ navigation }) {
 
       if (error) throw error;
       
-      Alert.alert('Success', 'Address saved to your profile!');
+      setAlertConfig({
+        type: 'success',
+        title: 'Success',
+        message: 'Address saved to your profile!'
+      });
+      setShowAlert(true);
       setSavedAddresses([address]);
     } catch (error) {
-      Alert.alert('Error', 'Failed to save address.');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to save address.'
+      });
+      setShowAlert(true);
     } finally {
       setSavingAddress(false);
     }
@@ -96,7 +114,12 @@ export default function CheckoutScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location');
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Could not get your current location'
+      });
+      setShowAlert(true);
     } finally {
       setIsGettingLocation(false);
     }
@@ -109,19 +132,28 @@ export default function CheckoutScreen({ navigation }) {
 
   const handlePlaceOrder = async () => {
     if (!address.trim()) {
-      Alert.alert('Missing Info', 'Please enter your delivery address.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Missing Info',
+        message: 'Please enter your delivery address.'
+      });
+      setShowAlert(true);
       return;
     }
 
     if (cartItems.length === 0) {
-      Alert.alert('Error', 'Your cart is empty.');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Your cart is empty.'
+      });
+      setShowAlert(true);
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. Create the Main Order Record
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert([
@@ -141,7 +173,6 @@ export default function CheckoutScreen({ navigation }) {
 
       const orderId = orderData.id;
 
-      // 2. Prepare Order Items
       const orderItemsData = cartItems.map((item) => ({
         order_id: orderId,
         product_id: item.id,
@@ -151,43 +182,30 @@ export default function CheckoutScreen({ navigation }) {
         product_unit: item.unit
       }));
 
-      // 3. Insert All Items
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(orderItemsData);
 
       if (itemsError) throw itemsError;
 
-      // 4. Show success modal with order details
-      showSuccessModal(orderId, grandTotal);
-
-      // 5. Clear cart
+      // Clear cart first
       clearCart();
+      
+      // Set order ID and show success modal
+      setLastOrderId(orderId);
+      setLoading(false);
+      setShowSuccessModal(true);
 
     } catch (error) {
       console.error('Checkout Error:', error);
-      Alert.alert('Order Failed', error.message || 'Something went wrong. Please try again.');
-    } finally {
+      setAlertConfig({
+        type: 'error',
+        title: 'Order Failed',
+        message: error.message || 'Something went wrong. Please try again.'
+      });
+      setShowAlert(true);
       setLoading(false);
     }
-  };
-
-  const showSuccessModal = (orderId, total) => {
-    Alert.alert(
-      '🎉 Order Placed Successfully!',
-      `Order #${orderId}\n\nTotal: ₱${total.toFixed(2)}\n\nYour order has been received and is being processed. You can track your order in the Orders section.`,
-      [
-        { 
-          text: 'Track Order', 
-          onPress: () => navigation.navigate('OrderHistory')
-        },
-        { 
-          text: 'Continue Shopping',
-          style: 'default',
-          onPress: () => navigation.navigate('Selection')
-        }
-      ]
-    );
   };
 
   const selectSavedAddress = (selectedAddress) => {
@@ -203,307 +221,8 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-      
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView 
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          {/* Header with Back Button */}
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => navigation.goBack()}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
-            </TouchableOpacity>
-            <Text style={styles.title}>Checkout</Text>
-            <View style={{width: 40}} />
-          </View>
-
-          {/* Progress Steps */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressStep}>
-              <View style={[styles.progressCircle, styles.progressCircleActive]}>
-                <Ionicons name="cart" size={20} color="#fff" />
-              </View>
-              <Text style={styles.progressTextActive}>Cart</Text>
-            </View>
-            
-            <View style={styles.progressLine} />
-            
-            <View style={styles.progressStep}>
-              <View style={[styles.progressCircle, styles.progressCircleActive]}>
-                <Text style={styles.progressNumber}>2</Text>
-              </View>
-              <Text style={styles.progressTextActive}>Checkout</Text>
-            </View>
-            
-            <View style={styles.progressLine} />
-            
-            <View style={styles.progressStep}>
-              <View style={styles.progressCircle}>
-                <Text style={styles.progressNumber}>3</Text>
-              </View>
-              <Text style={styles.progressText}>Complete</Text>
-            </View>
-          </View>
-
-          {/* Order Summary Card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="receipt" size={24} color="#0033A0" />
-              <Text style={styles.cardTitle}>Order Summary</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
-                <Text style={styles.editButton}>Edit</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.itemsContainer}>
-              {cartItems.map((item, index) => (
-                <View key={index} style={styles.itemRow}>
-                  <View style={styles.itemInfo}>
-                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.itemDetails}>
-                      {formatItemQuantity(item)} @ ₱{item.current_price.toFixed(2)}
-                    </Text>
-                  </View>
-                  <Text style={styles.itemPrice}>₱{item.totalItemPrice.toFixed(2)}</Text>
-                </View>
-              ))}
-            </View>
-            
-            <View style={styles.divider} />
-            
-            <View style={styles.summarySection}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>₱{totalAmount.toFixed(2)}</Text>
-              </View>
-              
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                <Text style={[
-                  styles.summaryValue,
-                  deliveryFee === 0 && styles.freeDelivery
-                ]}>
-                  {deliveryFee === 0 ? 'FREE' : `₱${deliveryFee.toFixed(2)}`}
-                </Text>
-              </View>
-              
-              {deliveryFee === 0 && (
-                <View style={styles.freeDeliveryBadge}>
-                  <Ionicons name="trophy" size={16} color="#10B981" />
-                  <Text style={styles.freeDeliveryText}>Free delivery on orders ₱500+</Text>
-                </View>
-              )}
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total to Pay</Text>
-                <Text style={styles.totalAmount}>₱{grandTotal.toFixed(2)}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Delivery Address Section - UPDATED WITH LOCATION FEATURES */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="location" size={24} color="#0033A0" />
-              <Text style={styles.cardTitle}>Delivery Address</Text>
-              {savedAddresses.length > 0 && (
-                <TouchableOpacity onPress={() => setShowAddressModal(true)}>
-                  <Text style={styles.editButton}>Saved</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            
-            <Text style={styles.sectionSubtitle}>Where should we deliver your order?</Text>
-            
-            {/* Address Input with Map Button */}
-            <View style={styles.addressInputContainer}>
-              <TextInput
-                style={styles.addressInput}
-                placeholder="House No., Street, Barangay, City..."
-                value={address}
-                onChangeText={setAddress}
-                multiline
-                numberOfLines={2}
-                placeholderTextColor="#999"
-                textAlignVertical="top"
-              />
-              <TouchableOpacity 
-                style={styles.mapButton}
-                onPress={() => setMapModalVisible(true)}
-              >
-                <Ionicons name="map-outline" size={24} color="#0033A0" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Location Action Buttons */}
-            <View style={styles.locationActions}>
-              <TouchableOpacity 
-                style={styles.locationButton}
-                onPress={useCurrentLocation}
-                disabled={isGettingLocation}
-              >
-                {isGettingLocation ? (
-                  <ActivityIndicator size="small" color="#0033A0" />
-                ) : (
-                  <>
-                    <Ionicons name="locate" size={18} color="#0033A0" />
-                    <Text style={styles.locationButtonText}>Use My Location</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.locationButton, styles.mapButtonSmall]}
-                onPress={() => setMapModalVisible(true)}
-              >
-                <Ionicons name="map" size={18} color="#0033A0" />
-                <Text style={styles.locationButtonText}>Pick on Map</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity 
-              style={styles.saveAddressButton}
-              onPress={saveAddressToProfile}
-              disabled={savingAddress || !address.trim()}
-            >
-              {savingAddress ? (
-                <ActivityIndicator size="small" color="#0033A0" />
-              ) : (
-                <>
-                  <Ionicons name="bookmark" size={16} color="#0033A0" />
-                  <Text style={styles.saveAddressText}>Save to my addresses</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Payment Method Section */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="card" size={24} color="#0033A0" />
-              <Text style={styles.cardTitle}>Payment Method</Text>
-            </View>
-            
-            <View style={styles.paymentOptions}>
-              <TouchableOpacity 
-                style={[
-                  styles.paymentOption,
-                  paymentMethod === 'Cash on Delivery' && styles.paymentOptionSelected
-                ]}
-                onPress={() => setPaymentMethod('Cash on Delivery')}
-              >
-                <Ionicons 
-                  name="cash" 
-                  size={24} 
-                  color={paymentMethod === 'Cash on Delivery' ? '#0033A0' : '#666'} 
-                />
-                <View style={styles.paymentOptionInfo}>
-                  <Text style={[
-                    styles.paymentOptionTitle,
-                    paymentMethod === 'Cash on Delivery' && styles.paymentOptionTitleSelected
-                  ]}>
-                    Cash on Delivery
-                  </Text>
-                  <Text style={styles.paymentOptionDescription}>
-                    Pay when you receive your order
-                  </Text>
-                </View>
-                {paymentMethod === 'Cash on Delivery' && (
-                  <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[
-                  styles.paymentOption,
-                  paymentMethod === 'GCash' && styles.paymentOptionSelected
-                ]}
-                onPress={() => setPaymentMethod('GCash')}
-              >
-                <View style={[styles.gcashIcon, { backgroundColor: paymentMethod === 'GCash' ? '#0033A0' : '#f0f4ff' }]}>
-                  <Text style={[styles.gcashText, { color: paymentMethod === 'GCash' ? '#fff' : '#0033A0' }]}>G</Text>
-                </View>
-                <View style={styles.paymentOptionInfo}>
-                  <Text style={[
-                    styles.paymentOptionTitle,
-                    paymentMethod === 'GCash' && styles.paymentOptionTitleSelected
-                  ]}>
-                    GCash
-                  </Text>
-                  <Text style={styles.paymentOptionDescription}>
-                    Pay via GCash (Coming Soon)
-                  </Text>
-                </View>
-                {paymentMethod === 'GCash' && (
-                  <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Special Instructions */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="document-text" size={24} color="#0033A0" />
-              <Text style={styles.cardTitle}>Special Instructions</Text>
-            </View>
-            
-            <TextInput
-              style={styles.specialInstructionsInput}
-              placeholder="Any special instructions for delivery? (Optional)"
-              value={specialInstructions}
-              onChangeText={setSpecialInstructions}
-              multiline
-              numberOfLines={2}
-              placeholderTextColor="#999"
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Terms and Conditions */}
-          <View style={styles.termsContainer}>
-            <Text style={styles.termsText}>
-              By placing your order, you agree to our Terms of Service and Privacy Policy. Delivery time: 15-30 minutes.
-            </Text>
-          </View>
-
-          {/* Place Order Button */}
-          <TouchableOpacity 
-            style={[
-              styles.placeOrderButton,
-              (loading || cartItems.length === 0) && styles.placeOrderButtonDisabled
-            ]}
-            onPress={handlePlaceOrder}
-            disabled={loading || cartItems.length === 0}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Text style={styles.placeOrderText}>PLACE ORDER</Text>
-                <View style={styles.orderTotalBadge}>
-                  <Text style={styles.orderTotalText}>₱{grandTotal.toFixed(2)}</Text>
-                </View>
-              </>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-
-      {/* Saved Addresses Modal */}
+    <>
+      {/* Modals - Following CartScreen pattern */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -547,14 +266,351 @@ export default function CheckoutScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* Map Picker Modal */}
       <MapPickerModal
         visible={mapModalVisible}
         onClose={() => setMapModalVisible(false)}
         onSelectAddress={handleMapAddressSelected}
         initialAddress={address}
       />
-    </SafeAreaView>
+
+      <SuccessModal
+        visible={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        orderId={lastOrderId}
+        totalAmount={grandTotal}
+        onTrackOrder={() => {
+          setShowSuccessModal(false);
+          navigation.navigate('OrderHistory');
+        }}
+        onContinueShopping={() => {
+          setShowSuccessModal(false);
+          navigation.navigate('Selection');
+        }}
+      />
+
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
+
+      {/* Main Content */}
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+        
+        {/* Fixed Header Section - NOT SCROLLABLE */}
+        <View style={styles.fixedHeader}>
+          {/* Header with Back Button */}
+          <View style={styles.header}>
+            <TouchableOpacity 
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Checkout</Text>
+            <View style={{width: 40}} />
+          </View>
+
+          {/* Progress Steps - FIXED */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressStep}>
+              <View style={[styles.progressCircle, styles.progressCircleActive]}>
+                <Ionicons name="cart" size={20} color="#fff" />
+              </View>
+              <Text style={styles.progressTextActive}>Cart</Text>
+            </View>
+            
+            <View style={styles.progressLine} />
+            
+            <View style={styles.progressStep}>
+              <View style={[styles.progressCircle, styles.progressCircleActive]}>
+                <Text style={styles.progressNumber}>2</Text>
+              </View>
+              <Text style={styles.progressTextActive}>Checkout</Text>
+            </View>
+            
+            <View style={styles.progressLine} />
+            
+            <View style={styles.progressStep}>
+              <View style={[styles.progressCircle, styles.progressCircle]}>
+                <Text style={styles.progressNumber}>3</Text>
+              </View>
+              <Text style={styles.progressText}>Complete</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Scrollable Content */}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
+          <ScrollView 
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Order Summary Card */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="receipt" size={24} color="#0033A0" />
+                <Text style={styles.cardTitle}>Order Summary</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
+                  <Text style={styles.editButton}>Edit</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.itemsContainer}>
+                {cartItems.map((item, index) => (
+                  <View key={index} style={styles.itemRow}>
+                    <View style={styles.itemInfo}>
+                      <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                      <Text style={styles.itemDetails}>
+                        {formatItemQuantity(item)} @ ₱{item.current_price.toFixed(2)}
+                      </Text>
+                    </View>
+                    <Text style={styles.itemPrice}>₱{item.totalItemPrice.toFixed(2)}</Text>
+                  </View>
+                ))}
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <View style={styles.summarySection}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Subtotal</Text>
+                  <Text style={styles.summaryValue}>₱{totalAmount.toFixed(2)}</Text>
+                </View>
+                
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Delivery Fee</Text>
+                  <Text style={[
+                    styles.summaryValue,
+                    deliveryFee === 0 && styles.freeDelivery
+                  ]}>
+                    {deliveryFee === 0 ? 'FREE' : `₱${deliveryFee.toFixed(2)}`}
+                  </Text>
+                </View>
+                
+                {deliveryFee === 0 && (
+                  <View style={styles.freeDeliveryBadge}>
+                    <Ionicons name="trophy" size={16} color="#10B981" />
+                    <Text style={styles.freeDeliveryText}>Free delivery on orders ₱500+</Text>
+                  </View>
+                )}
+                
+                <View style={styles.divider} />
+                
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Total to Pay</Text>
+                  <Text style={styles.totalAmount}>₱{grandTotal.toFixed(2)}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Delivery Address Section */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="location" size={24} color="#0033A0" />
+                <Text style={styles.cardTitle}>Delivery Address</Text>
+                {savedAddresses.length > 0 && (
+                  <TouchableOpacity onPress={() => setShowAddressModal(true)}>
+                    <Text style={styles.editButton}>Saved</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <Text style={styles.sectionSubtitle}>Where should we deliver your order?</Text>
+              
+              {/* Address Input with Map Button */}
+              <View style={styles.addressInputContainer}>
+                <TextInput
+                  style={styles.addressInput}
+                  placeholder="House No., Street, Barangay, City..."
+                  value={address}
+                  onChangeText={setAddress}
+                  multiline
+                  numberOfLines={2}
+                  placeholderTextColor="#999"
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity 
+                  style={styles.mapButton}
+                  onPress={() => setMapModalVisible(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="map-outline" size={24} color="#0033A0" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Location Action Buttons */}
+              <View style={styles.locationActions}>
+                <TouchableOpacity 
+                  style={styles.locationButton}
+                  onPress={useCurrentLocation}
+                  disabled={isGettingLocation}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  {isGettingLocation ? (
+                    <ActivityIndicator size="small" color="#0033A0" />
+                  ) : (
+                    <>
+                      <Ionicons name="locate" size={18} color="#0033A0" />
+                      <Text style={styles.locationButtonText}>Use My Location</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.locationButton, styles.mapButtonSmall]}
+                  onPress={() => setMapModalVisible(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="map" size={18} color="#0033A0" />
+                  <Text style={styles.locationButtonText}>Pick on Map</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.saveAddressButton}
+                onPress={saveAddressToProfile}
+                disabled={savingAddress || !address.trim()}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {savingAddress ? (
+                  <ActivityIndicator size="small" color="#0033A0" />
+                ) : (
+                  <>
+                    <Ionicons name="bookmark" size={16} color="#0033A0" />
+                    <Text style={styles.saveAddressText}>Save to my addresses</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Payment Method Section */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="card" size={24} color="#0033A0" />
+                <Text style={styles.cardTitle}>Payment Method</Text>
+              </View>
+              
+              <View style={styles.paymentOptions}>
+                <TouchableOpacity 
+                  style={[
+                    styles.paymentOption,
+                    paymentMethod === 'Cash on Delivery' && styles.paymentOptionSelected
+                  ]}
+                  onPress={() => setPaymentMethod('Cash on Delivery')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons 
+                    name="cash" 
+                    size={24} 
+                    color={paymentMethod === 'Cash on Delivery' ? '#0033A0' : '#666'} 
+                  />
+                  <View style={styles.paymentOptionInfo}>
+                    <Text style={[
+                      styles.paymentOptionTitle,
+                      paymentMethod === 'Cash on Delivery' && styles.paymentOptionTitleSelected
+                    ]}>
+                      Cash on Delivery
+                    </Text>
+                    <Text style={styles.paymentOptionDescription}>
+                      Pay when you receive your order
+                    </Text>
+                  </View>
+                  {paymentMethod === 'Cash on Delivery' && (
+                    <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.paymentOption,
+                    paymentMethod === 'GCash' && styles.paymentOptionSelected
+                  ]}
+                  onPress={() => setPaymentMethod('GCash')}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.gcashIcon, { backgroundColor: paymentMethod === 'GCash' ? '#0033A0' : '#f0f4ff' }]}>
+                    <Text style={[styles.gcashText, { color: paymentMethod === 'GCash' ? '#fff' : '#0033A0' }]}>G</Text>
+                  </View>
+                  <View style={styles.paymentOptionInfo}>
+                    <Text style={[
+                      styles.paymentOptionTitle,
+                      paymentMethod === 'GCash' && styles.paymentOptionTitleSelected
+                    ]}>
+                      GCash
+                    </Text>
+                    <Text style={styles.paymentOptionDescription}>
+                      Pay via GCash (Coming Soon)
+                    </Text>
+                  </View>
+                  {paymentMethod === 'GCash' && (
+                    <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Special Instructions */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="document-text" size={24} color="#0033A0" />
+                <Text style={styles.cardTitle}>Special Instructions</Text>
+              </View>
+              
+              <TextInput
+                style={styles.specialInstructionsInput}
+                placeholder="Any special instructions for delivery? (Optional)"
+                value={specialInstructions}
+                onChangeText={setSpecialInstructions}
+                multiline
+                numberOfLines={2}
+                placeholderTextColor="#999"
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Terms and Conditions */}
+            <View style={styles.termsContainer}>
+              <Text style={styles.termsText}>
+                By placing your order, you agree to our Terms of Service and Privacy Policy. Delivery time: 15-30 minutes.
+              </Text>
+            </View>
+
+            {/* Place Order Button */}
+            <TouchableOpacity 
+              style={[
+                styles.placeOrderButton,
+                (loading || cartItems.length === 0) && styles.placeOrderButtonDisabled
+              ]}
+              onPress={handlePlaceOrder}
+              disabled={loading || cartItems.length === 0}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Text style={styles.placeOrderText}>PLACE ORDER</Text>
+                  <View style={styles.orderTotalBadge}>
+                    <Text style={styles.orderTotalText}>₱{grandTotal.toFixed(2)}</Text>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+    </>
   );
 }
 
@@ -562,6 +618,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  fixedHeader: {
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 10,
   },
   keyboardView: {
     flex: 1,
@@ -575,7 +644,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 15,
     paddingTop: 10,
   },
   backButton: {
@@ -595,7 +664,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 30,
+    marginBottom: 5,
     paddingHorizontal: 10,
   },
   progressStep: {
@@ -752,7 +821,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ED2939',
   },
-  // Updated Address Section Styles
   addressInputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',

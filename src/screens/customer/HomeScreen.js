@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase';
 import ProductCard from '../../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +44,12 @@ export default function HomeScreen({ navigation, route }) {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [sortBy, setSortBy] = useState('name_asc');
   const { cartItems, addToCart } = useCart();
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'warning',
+    title: '',
+    message: ''
+  });
   
   const selectedCategory = route.params?.category || 'Fuel';
   
@@ -50,12 +57,27 @@ export default function HomeScreen({ navigation, route }) {
   const debouncedSearchRef = useRef(null);
 
   const handleAddToCart = (product) => {
-    // For fuel products, default to 1 liter
-    // For lubricants, default to 1 unit
+    if (product.stock_quantity <= 0) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Out of Stock',
+        message: `${product.name} is currently out of stock.`
+      });
+      setShowAlert(true);
+      return;
+    }
+    
     const defaultQuantity = product.category === 'Fuel' ? 1 : 1;
     const totalItemPrice = product.current_price * defaultQuantity;
     
     addToCart(product, defaultQuantity, totalItemPrice);
+    
+    setAlertConfig({
+      type: 'success',
+      title: 'Added to Cart',
+      message: `${product.name} has been added to your cart.`
+    });
+    setShowAlert(true);
   };
 
   // Fetch products
@@ -489,6 +511,14 @@ export default function HomeScreen({ navigation, route }) {
           </TouchableOpacity>
         </Modal>
       </View>
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
     </SafeAreaWrapper>
   );
 }

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { height } = Dimensions.get('window');
 
@@ -25,10 +26,21 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const insets = useSafeAreaInsets();
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    type: 'error',
+    title: '',
+    message: ''
+  });
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      setAlertConfig({
+          type: 'warning',
+          title: 'Error',
+          message: 'Please fill in all fields'
+        });
+        setShowAlert(true);
       return;
     }
 
@@ -148,6 +160,14 @@ export default function LoginScreen({ navigation }) {
           </View>
         </View>
       </KeyboardAvoidingView>
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
     </View>
   );
 }
