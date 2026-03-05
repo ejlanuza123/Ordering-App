@@ -29,6 +29,8 @@ export default function CheckoutScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   
   const [address, setAddress] = useState('');
+  const [addressLat, setAddressLat] = useState(null);
+  const [addressLng, setAddressLng] = useState(null);
   const [loading, setLoading] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
@@ -61,13 +63,17 @@ export default function CheckoutScreen({ navigation }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('address')
+        .select('address,address_lat,address_lng')
         .eq('id', user.id)
         .single();
 
-      if (data && data.address) {
-        setSavedAddresses([data.address]);
-        setAddress(data.address);
+      if (data) {
+        if (data.address) {
+          setSavedAddresses([data.address]);
+          setAddress(data.address);
+        }
+        if (data.address_lat != null) setAddressLat(data.address_lat);
+        if (data.address_lng != null) setAddressLng(data.address_lng);
       }
     } catch (error) {
       console.log('Error fetching addresses:', error.message);
@@ -79,9 +85,13 @@ export default function CheckoutScreen({ navigation }) {
 
     setSavingAddress(true);
     try {
+      const updates = { address: address };
+      if (addressLat != null) updates.address_lat = addressLat;
+      if (addressLng != null) updates.address_lng = addressLng;
+
       const { error } = await supabase
         .from('profiles')
-        .update({ address: address })
+        .update(updates)
         .eq('id', user.id);
 
       if (error) throw error;
@@ -111,6 +121,10 @@ export default function CheckoutScreen({ navigation }) {
       const locationData = await getAddressFromCurrentLocation();
       if (locationData && locationData.address) {
         setAddress(locationData.address);
+        if (locationData.coords) {
+          setAddressLat(locationData.coords.latitude);
+          setAddressLng(locationData.coords.longitude);
+        }
       }
     } catch (error) {
       console.error('Error getting location:', error);
@@ -127,6 +141,13 @@ export default function CheckoutScreen({ navigation }) {
 
   const handleMapAddressSelected = (location) => {
     setAddress(location.address);
+    // support both naming conventions returned by picker
+    const latVal = location.lat != null ? location.lat : location.latitude;
+    const lngVal = location.lng != null ? location.lng : location.longitude;
+    if (latVal != null && lngVal != null) {
+      setAddressLat(latVal);
+      setAddressLng(lngVal);
+    }
     setMapModalVisible(false);
   };
 
@@ -154,18 +175,21 @@ export default function CheckoutScreen({ navigation }) {
     setLoading(true);
 
     try {
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert([
-          {
+      const orderInsert = {
             user_id: user.id,
             total_amount: grandTotal,
             delivery_address: address,
             payment_method: paymentMethod,
             special_instructions: specialInstructions.trim() || null,
             status: 'Pending'
-          }
-        ])
+      };
+      if (addressLat != null && addressLng != null) {
+        orderInsert.delivery_lat = addressLat;
+        orderInsert.delivery_lng = addressLng;
+      }
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert([orderInsert])
         .select()
         .single();
 

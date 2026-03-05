@@ -33,6 +33,8 @@ export default function ProfileScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [addressLat, setAddressLat] = useState(null);
+  const [addressLng, setAddressLng] = useState(null);
   const [notifications, setNotifications] = useState(true);
   const [marketingEmails, setMarketingEmails] = useState(false);
 
@@ -43,10 +45,11 @@ export default function ProfileScreen({ navigation }) {
   const [showAlert, setShowAlert] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
-    type: 'success',
-    title: '',
-    message: ''
   });
+
+  // coordinates of saved address (optional) — already declared earlier
+  
+  // alertConfig was initialized above with empty object; leave as-is
 
   // 1. Fetch Profile Data and Stats
   useEffect(() => {
@@ -67,6 +70,8 @@ export default function ProfileScreen({ navigation }) {
           setFullName(profileData.full_name || '');
           setPhone(profileData.phone_number || '');
           setAddress(profileData.address || '');
+          if (profileData.address_lat != null) setAddressLat(profileData.address_lat);
+          if (profileData.address_lng != null) setAddressLng(profileData.address_lng);
         }
 
         // Fetch user stats
@@ -106,16 +111,44 @@ export default function ProfileScreen({ navigation }) {
       return;
     }
 
+    // unique phone check
+    if (phone.trim()) {
+      try {
+        const { data: existing, error: phoneErr } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('phone_number', phone.trim())
+          .single();
+
+        if (!phoneErr && existing && existing.id !== user.id) {
+          setAlertConfig({
+            type: 'error',
+            title: 'Duplicate Phone',
+            message: 'This phone number is already used by another account.'
+          });
+          setShowAlert(true);
+          return;
+        }
+      } catch (e) {
+        // ignore lookup errors and proceed with normal save, server will still reject if constraint fails
+        console.warn('phone uniqueness check failed', e);
+      }
+    }
+
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      const updates = {
           full_name: fullName.trim(),
           phone_number: phone.trim(),
           address: address.trim(),
           updated_at: new Date().toISOString(),
-        })
+      };
+      if (addressLat != null) updates.address_lat = addressLat;
+      if (addressLng != null) updates.address_lng = addressLng;
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
         .eq('id', user.id);
 
       if (error) throw error;
@@ -127,10 +160,15 @@ export default function ProfileScreen({ navigation }) {
       });
       setShowAlert(true);
     } catch (error) {
+      // handle unique constraint message
+      let msg = error.message || 'Failed to update profile.';
+      if (msg.includes('profiles_phone_number_key')) {
+        msg = 'That phone number is already in use.';
+      }
       setAlertConfig({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Failed to update profile.'
+        message: msg
       });
       setShowAlert(true);
     } finally {
@@ -181,6 +219,10 @@ export default function ProfileScreen({ navigation }) {
       const locationData = await getAddressFromCurrentLocation();
       if (locationData && locationData.address) {
         setAddress(locationData.address);
+        if (locationData.coords) {
+          setAddressLat(locationData.coords.latitude);
+          setAddressLng(locationData.coords.longitude);
+        }
       }
     } catch (error) {
       console.error('Error getting location:', error);
@@ -197,6 +239,13 @@ export default function ProfileScreen({ navigation }) {
 
   const handleMapAddressSelected = (location) => {
     setAddress(location.address);
+    // picker may send { latitude, longitude } or { lat, lng }
+    const latVal = location.lat != null ? location.lat : location.latitude;
+    const lngVal = location.lng != null ? location.lng : location.longitude;
+    if (latVal != null && lngVal != null) {
+      setAddressLat(latVal);
+      setAddressLng(lngVal);
+    }
     setMapModalVisible(false);
   };
 
