@@ -8,7 +8,6 @@ import {
   ActivityIndicator, 
   TouchableOpacity,
   RefreshControl,
-  SafeAreaView,
   StatusBar,
   Modal,
   ScrollView,
@@ -18,7 +17,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets,SafeAreaView } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width } = Dimensions.get('window');

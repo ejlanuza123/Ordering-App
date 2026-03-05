@@ -1,525 +1,228 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+// src/screens/customer/HomeScreen.js
+import React from 'react';
 import { 
   View, 
   Text, 
-  FlatList, 
+  TouchableOpacity, 
   StyleSheet, 
-  ActivityIndicator, 
-  RefreshControl,
-  TouchableOpacity,
   Dimensions,
-  Platform,
-  TextInput,
-  Modal,
-  ScrollView
+  ScrollView,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
-import ProductCard from '../../components/ProductCard';
-import { useCart } from '../../context/CartContext';
-import SafeAreaWrapper from '../../components/SafeAreaWrapper';
-import CustomAlertModal from '../../components/CustomAlertModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-// Custom debounce function
-const debounce = (func, wait) => {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
+export default function HomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
 
-export default function HomeScreen({ navigation, route }) {
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortModalVisible, setSortModalVisible] = useState(false);
-  const [sortBy, setSortBy] = useState('name_asc');
-  const { cartItems, addToCart } = useCart();
-  const [showAlert, setShowAlert] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({
-    type: 'warning',
-    title: '',
-    message: ''
-  });
-  
-  const selectedCategory = route.params?.category || 'Fuel';
-  
-  // Create a ref for the debounced function
-  const debouncedSearchRef = useRef(null);
-
-  const handleAddToCart = (product) => {
-    if (product.stock_quantity <= 0) {
-      setAlertConfig({
-        type: 'warning',
-        title: 'Out of Stock',
-        message: `${product.name} is currently out of stock.`
-      });
-      setShowAlert(true);
-      return;
+  // Extract first name from email or full name
+  const getUserFirstName = () => {
+    if (user?.email) {
+      return user.email.split('@')[0];
     }
-    
-    const defaultQuantity = product.category === 'Fuel' ? 1 : 1;
-    const totalItemPrice = product.current_price * defaultQuantity;
-    
-    addToCart(product, defaultQuantity, totalItemPrice);
-    
-    setAlertConfig({
-      type: 'success',
-      title: 'Added to Cart',
-      message: `${product.name} has been added to your cart.`
-    });
-    setShowAlert(true);
-  };
-
-  // Fetch products
-  const fetchProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true);
-
-      if (error) throw error;
-      setProducts(data);
-      applyFilters(data, searchQuery, sortBy, selectedCategory);
-    } catch (error) {
-      console.error('Error fetching products:', error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  // Apply all filters and sorting
-  const applyFilters = useCallback((productsList, query, sortMethod, category) => {
-    let filtered = [...productsList];
-    
-    // Filter by category
-    if (category === 'Fuel') {
-      filtered = filtered.filter(product => product.category === 'Fuel');
-    } else {
-      filtered = filtered.filter(product => product.category !== 'Fuel');
-    }
-    
-    // Filter by search query
-    if (query.trim() !== '') {
-      const lowerQuery = query.toLowerCase();
-      filtered = filtered.filter(product => 
-        product.name.toLowerCase().includes(lowerQuery) ||
-        (product.description && product.description.toLowerCase().includes(lowerQuery)) ||
-        product.category.toLowerCase().includes(lowerQuery)
-      );
-    }
-    
-    // Apply sorting
-    filtered.sort((a, b) => {
-      switch (sortMethod) {
-        case 'name_asc':
-          return a.name.localeCompare(b.name);
-        case 'name_desc':
-          return b.name.localeCompare(a.name);
-        case 'price_asc':
-          return parseFloat(a.current_price) - parseFloat(b.current_price);
-        case 'price_desc':
-          return parseFloat(b.current_price) - parseFloat(a.current_price);
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-    
-    setFilteredProducts(filtered);
-  }, []);
-
-  // Initialize debounced search function
-  useEffect(() => {
-    debouncedSearchRef.current = debounce((query) => {
-      applyFilters(products, query, sortBy, selectedCategory);
-    }, 300);
-  }, [products, sortBy, selectedCategory, applyFilters]);
-
-  // Handle search input change
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-    if (debouncedSearchRef.current) {
-      debouncedSearchRef.current(text);
-    }
-  };
-
-  // Handle sort selection
-  const handleSortSelect = (sortMethod) => {
-    setSortBy(sortMethod);
-    applyFilters(products, searchQuery, sortMethod, selectedCategory);
-    setSortModalVisible(false);
-  };
-
-  useEffect(() => {
-    fetchProducts();
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    if (products.length > 0) {
-      applyFilters(products, searchQuery, sortBy, selectedCategory);
-    }
-  }, [products, sortBy, applyFilters]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchProducts();
-  };
-
-  const handleProductPress = (product) => {
-    navigation.navigate('ProductDetails', { product });
-  };
-
-  const handleCategoryChange = (category) => {
-    setSearchQuery('');
-    if (category === 'Fuel') {
-      navigation.setParams({ category: 'Fuel' });
-      applyFilters(products, '', sortBy, 'Fuel');
-    } else {
-      navigation.setParams({ category: 'Motor Oil' });
-      applyFilters(products, '', sortBy, 'Motor Oil');
-    }
-  };
-
-  // Get sort label text
-  const getSortLabel = () => {
-    switch (sortBy) {
-      case 'name_asc': return 'Name: A-Z';
-      case 'name_desc': return 'Name: Z-A';
-      case 'price_asc': return 'Price: Low to High';
-      case 'price_desc': return 'Price: High to Low';
-      default: return 'Sort by';
-    }
+    return 'Customer';
   };
 
   return (
-    <SafeAreaWrapper backgroundColor="#f8f9fa" barStyle="dark-content">
-      <View style={styles.container}>
-        {/* Custom Header */}
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Selection')}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
-            </TouchableOpacity>
-            
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>
-                {selectedCategory === 'Fuel' ? 'Fuel Products' : 'Lubricants'}
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                {selectedCategory === 'Fuel' 
-                  ? 'Premium fuels delivered to you' 
-                  : 'High-quality lubricants'
-                }
-              </Text>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Fixed Header - NOT SCROLLABLE */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.welcomeText}>Welcome back,</Text>
+            <Text style={styles.userName}>{getUserFirstName()}!</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.profileIcon}>
+              <Ionicons name="person" size={22} color="#0033A0" />
             </View>
-            
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Cart')}
-              style={styles.cartButton}
-            >
-              <Ionicons name="cart" size={24} color="#0033A0" />
-              {cartItems.length > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>
-                    {cartItems.length > 9 ? '9+' : cartItems.length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
+        </View>
 
-          {/* Category Tabs */}
-          <View style={styles.categoryTabs}>
-            <TouchableOpacity 
-              style={[
-                styles.categoryTab,
-                selectedCategory === 'Fuel' && styles.activeCategoryTab
-              ]}
-              onPress={() => handleCategoryChange('Fuel')}
-            >
-              <Ionicons 
-                name="water" 
-                size={20} 
-                color={selectedCategory === 'Fuel' ? '#fff' : '#0033A0'} 
-              />
-              <Text style={[
-                styles.categoryTabText,
-                selectedCategory === 'Fuel' && styles.activeCategoryTabText
-              ]}>
-                Fuel
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[
-                styles.categoryTab,
-                selectedCategory !== 'Fuel' && styles.activeCategoryTab
-              ]}
-              onPress={() => handleCategoryChange('Motor Oil')}
-            >
-              <Ionicons 
-                name="water" 
-                size={20} 
-                color={selectedCategory !== 'Fuel' ? '#fff' : '#ED2939'} 
-              />
-              <Text style={[
-                styles.categoryTabText,
-                selectedCategory !== 'Fuel' && styles.activeCategoryTabText
-              ]}>
-                Lubricants
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Search Bar */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#999" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search products by name or description..."
-              value={searchQuery}
-              onChangeText={handleSearchChange}
-              placeholderTextColor="#999"
-              clearButtonMode="while-editing"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity 
-                onPress={() => handleSearchChange('')}
-                style={styles.clearButton}
-              >
-                <Ionicons name="close-circle" size={20} color="#999" />
-              </TouchableOpacity>
-            )}
+        {/* Petron Branding - NOT A BUTTON */}
+        <View style={styles.brandContainer}>
+          <Image 
+            source={require('../../../assets/petron-logo.png')} 
+            style={styles.petronLogo}
+            resizeMode="contain"
+          />
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.brandTitle}>Petron San Pedro</Text>
+            <Text style={styles.brandSubtitle}>Fuel & Lubricants Delivery</Text>
           </View>
         </View>
 
-        {/* Products Section */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#0033A0" />
-            <Text style={styles.loadingText}>Loading products...</Text>
-          </View>
-        ) : (
-          <View style={styles.productsContainer}>
-            <View style={styles.productsHeader}>
-              <Text style={styles.productsCount}>
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'Product' : 'Products'} Found
-              </Text>
-              <TouchableOpacity 
-                style={styles.filterButton}
-                onPress={() => setSortModalVisible(true)}
-              >
-                <Text style={styles.filterText}>{getSortLabel()}</Text>
-                <Ionicons name="chevron-down" size={16} color="#0033A0" />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={filteredProducts}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item, index }) => (
-                <View style={[
-                  styles.productWrapper,
-                  index % 2 === 0 ? styles.productWrapperLeft : styles.productWrapperRight
-                ]}>
-                  <ProductCard 
-                    product={item} 
-                    onPress={() => handleProductPress(item)} 
-                    onAddToCart={() => handleAddToCart(item)}
-                  />
-                </View>
-              )}
-              numColumns={2}
-              columnWrapperStyle={styles.columnWrapper}
-              contentContainerStyle={styles.listContent}
-              refreshControl={
-                <RefreshControl 
-                  refreshing={refreshing} 
-                  onRefresh={onRefresh}
-                  colors={['#0033A0']}
-                  tintColor="#0033A0"
-                />
-              }
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons 
-                    name={selectedCategory === 'Fuel' ? "water-outline" : "oil-outline"} 
-                    size={80} 
-                    color="#ccc" 
-                  />
-                  <Text style={styles.emptyTitle}>
-                    {searchQuery ? 'No matching products found' : `No ${selectedCategory === 'Fuel' ? 'fuel' : 'lubricant'} products available`}
-                  </Text>
-                  <Text style={styles.emptySubtitle}>
-                    {searchQuery 
-                      ? 'Try searching with different keywords' 
-                      : 'Check back soon for new products'
-                    }
-                  </Text>
-                  {searchQuery && (
-                    <TouchableOpacity 
-                      style={styles.emptyButton}
-                      onPress={() => handleSearchChange('')}
-                    >
-                      <Text style={styles.emptyButtonText}>Clear Search</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity 
-                    style={styles.emptyButton}
-                    onPress={() => navigation.navigate('Selection')}
-                  >
-                    <Text style={styles.emptyButtonText}>Browse Categories</Text>
-                  </TouchableOpacity>
-                </View>
-              }
-            />
-          </View>
-        )}
-
-        {/* Sort Modal */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={sortModalVisible}
-          onRequestClose={() => setSortModalVisible(false)}
-        >
+        {/* Quick Actions - OBVIOUS BUTTONS with hover effect */}
+        <View style={styles.quickActionsHeader}>
           <TouchableOpacity 
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setSortModalVisible(false)}
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Cart')}
+            activeOpacity={0.7}
           >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Sort Products</Text>
-                <TouchableOpacity 
-                  onPress={() => setSortModalVisible(false)}
-                  style={styles.modalCloseButton}
-                >
-                  <Ionicons name="close" size={24} color="#666" />
-                </TouchableOpacity>
+            <View style={[styles.headerActionIcon, { backgroundColor: '#0033A020' }]}>
+              <Ionicons name="cart" size={20} color="#0033A0" />
+            </View>
+            <Text style={styles.headerActionText}>Cart</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('OrderHistory')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#ED293920' }]}>
+              <Ionicons name="time" size={20} color="#ED2939" />
+            </View>
+            <Text style={styles.headerActionText}>Orders</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#10B98120' }]}>
+              <Ionicons name="water" size={20} color="#10B981" />
+            </View>
+            <Text style={styles.headerActionText}>Fuel</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Selection', { category: 'Motor Oil' })}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B20' }]}>
+              <Ionicons name="water" size={20} color="#F59E0B" />
+            </View>
+            <Text style={styles.headerActionText}>Oil</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Scrollable Content - Everything below the header */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Main Action Section - Order Now is an OBVIOUS BUTTON */}
+        <View style={styles.mainSection}>
+          <Text style={styles.sectionTitle}>What would you like today?</Text>
+          
+          {/* Order Now Button - OBVIOUS BUTTON with prominent styling */}
+          <TouchableOpacity 
+            style={styles.orderNowButton}
+            onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
+            activeOpacity={0.7}
+          >
+            <View style={styles.orderNowContent}>
+              <View style={styles.orderNowIconContainer}>
+                <Ionicons name="flash" size={32} color="#0033A0" />
               </View>
-              
-              <ScrollView style={styles.sortOptions}>
-                <TouchableOpacity 
-                  style={[
-                    styles.sortOption,
-                    sortBy === 'name_asc' && styles.sortOptionSelected
-                  ]}
-                  onPress={() => handleSortSelect('name_asc')}
-                >
-                  <Ionicons 
-                    name="text" 
-                    size={20} 
-                    color={sortBy === 'name_asc' ? '#0033A0' : '#666'} 
-                  />
-                  <Text style={[
-                    styles.sortOptionText,
-                    sortBy === 'name_asc' && styles.sortOptionTextSelected
-                  ]}>
-                    Name: A to Z
-                  </Text>
-                  {sortBy === 'name_asc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
-                  )}
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[
-                    styles.sortOption,
-                    sortBy === 'name_desc' && styles.sortOptionSelected
-                  ]}
-                  onPress={() => handleSortSelect('name_desc')}
-                >
-                  <Ionicons 
-                    name="text" 
-                    size={20} 
-                    color={sortBy === 'name_desc' ? '#0033A0' : '#666'} 
-                  />
-                  <Text style={[
-                    styles.sortOptionText,
-                    sortBy === 'name_desc' && styles.sortOptionTextSelected
-                  ]}>
-                    Name: Z to A
-                  </Text>
-                  {sortBy === 'name_desc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
-                  )}
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[
-                    styles.sortOption,
-                    sortBy === 'price_asc' && styles.sortOptionSelected
-                  ]}
-                  onPress={() => handleSortSelect('price_asc')}
-                >
-                  <Ionicons 
-                    name="arrow-up" 
-                    size={20} 
-                    color={sortBy === 'price_asc' ? '#0033A0' : '#666'} 
-                  />
-                  <Text style={[
-                    styles.sortOptionText,
-                    sortBy === 'price_asc' && styles.sortOptionTextSelected
-                  ]}>
-                    Price: Low to High
-                  </Text>
-                  {sortBy === 'price_asc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
-                  )}
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[
-                    styles.sortOption,
-                    sortBy === 'price_desc' && styles.sortOptionSelected
-                  ]}
-                  onPress={() => handleSortSelect('price_desc')}
-                >
-                  <Ionicons 
-                    name="arrow-down" 
-                    size={20} 
-                    color={sortBy === 'price_desc' ? '#0033A0' : '#666'} 
-                  />
-                  <Text style={[
-                    styles.sortOptionText,
-                    sortBy === 'price_desc' && styles.sortOptionTextSelected
-                  ]}>
-                    Price: High to Low
-                  </Text>
-                  {sortBy === 'price_desc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
+              <View style={styles.orderNowTextContainer}>
+                <Text style={styles.orderNowTitle}>Order Now</Text>
+                <Text style={styles.orderNowSubtitle}>
+                  Browse fuel & lubricants
+                </Text>
+              </View>
+              <View style={styles.orderNowArrow}>
+                <Ionicons name="arrow-forward" size={24} color="#fff" />
+              </View>
             </View>
           </TouchableOpacity>
-        </Modal>
-      </View>
-      <CustomAlertModal
-        visible={showAlert}
-        onClose={() => setShowAlert(false)}
-        type={alertConfig.type}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        confirmText="OK"
-      />
-    </SafeAreaWrapper>
+        </View>
+
+        {/* Quick Stats - NOT BUTTONS (just information cards) */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
+              <Ionicons name="flash" size={18} color="#0033A0" />
+            </View>
+            <Text style={styles.statValue}>15-30</Text>
+            <Text style={styles.statLabel}>Minutes</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#ED293920' }]}>
+              <Ionicons name="shield-checkmark" size={18} color="#ED2939" />
+            </View>
+            <Text style={styles.statValue}>100%</Text>
+            <Text style={styles.statLabel}>Authentic</Text>
+          </View>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={[styles.statIcon, { backgroundColor: '#10B98120' }]}>
+              <Ionicons name="location" size={18} color="#10B981" />
+            </View>
+            <Text style={styles.statValue}>San Pedro</Text>
+            <Text style={styles.statLabel}>Area</Text>
+          </View>
+        </View>
+
+        {/* Services Section - Cards are NOT BUTTONS (just information) */}
+        <View style={styles.servicesSection}>
+          <Text style={styles.sectionTitle}>Our Services</Text>
+          
+          <View style={styles.servicesGrid}>
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#0033A010' }]}>
+                <Ionicons name="car" size={20} color="#0033A0" />
+              </View>
+              <Text style={styles.serviceText}>Vehicle Fuel</Text>
+            </View>
+            
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#ED293910' }]}>
+                <Ionicons name="construct" size={20} color="#ED2939" />
+              </View>
+              <Text style={styles.serviceText}>Engine Oils</Text>
+            </View>
+            
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#10B98110' }]}>
+                <Ionicons name="home" size={20} color="#10B981" />
+              </View>
+              <Text style={styles.serviceText}>Home Delivery</Text>
+            </View>
+            
+            <View style={styles.serviceCard}>
+              <View style={[styles.serviceIcon, { backgroundColor: '#F59E0B10' }]}>
+                <Ionicons name="time" size={20} color="#F59E0B" />
+              </View>
+              <Text style={styles.serviceText}>24/7 Service</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Footer Info - NOT A BUTTON */}
+        <View style={styles.footerCard}>
+          <Text style={styles.footerTitle}>Petron San Pedro</Text>
+          <Text style={styles.footerText}>
+            Premium quality fuel and lubricants delivered to your doorstep in San Pedro area.
+            Available 24/7 for your convenience.
+          </Text>
+          <View style={styles.footerContact}>
+            <Ionicons name="call" size={14} color="#666" />
+            <Text style={styles.footerContactText}> (02) 8888-9999</Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -528,261 +231,274 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  // Header Styles - FIXED, NOT SCROLLABLE
   header: {
     backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
     paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 15,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    elevation: 10,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    marginBottom: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   headerTop: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f4ff',
-    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 15,
   },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#0033A0',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
+  welcomeText: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
-  cartButton: {
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0033A0',
+  },
+  profileButton: {
+    padding: 6,
+  },
+  profileIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
-  cartBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#ED2939',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  cartBadgeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  categoryTabs: {
-    flexDirection: 'row',
-    backgroundColor: '#f0f4ff',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-  },
-  categoryTab: {
-    flex: 1,
+  // Branding - NOT A BUTTON
+  brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
+    marginBottom: 15,
+  },
+  petronLogo: {
+    width: 45,
+    height: 45,
     borderRadius: 8,
-  },
-  activeCategoryTab: {
     backgroundColor: '#0033A0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  categoryTabText: {
-    fontSize: 16,
-    fontWeight: '600',
+  brandTextContainer: {
+    flex: 1,
+  },
+  brandTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0033A0',
+    marginBottom: 2,
+  },
+  brandSubtitle: {
+    fontSize: 13,
     color: '#666',
-    marginLeft: 8,
   },
-  activeCategoryTabText: {
-    color: '#fff',
+  // Quick Actions - OBVIOUS BUTTONS
+  quickActionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f4ff',
   },
-  searchBar: {
+  headerActionButton: {
+    alignItems: 'center',
+    flex: 1,
+    transform: [{ scale: 1 }],
+  },
+  headerActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerActionText: {
+    fontSize: 11,
+    color: '#666',
+    fontWeight: '600',
+  },
+  // Main Section
+  mainSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  // Order Now Button - OBVIOUS BUTTON
+  orderNowButton: {
+    backgroundColor: '#0033A0',
+    borderRadius: 16,
+    marginBottom: 20,
+    elevation: 5,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  orderNowContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 16,
+  },
+  orderNowIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  orderNowTextContainer: {
+    flex: 1,
+  },
+  orderNowTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  orderNowSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  orderNowArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Stats - INFORMATION CARDS (NOT BUTTONS)
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
-  searchInput: {
+  statItem: {
     flex: 1,
-    marginLeft: 12,
-    color: '#333',
-    fontSize: 16,
-    padding: 0,
+    alignItems: 'center',
   },
-  clearButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 6,
   },
-  loadingText: {
-    marginTop: 12,
-    color: '#666',
-    fontSize: 16,
-  },
-  productsContainer: {
-    flex: 1,
-    paddingHorizontal: 15,
-  },
-  productsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    marginTop: 10,
-  },
-  productsCount: {
+  statValue: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f4ff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  filterText: {
-    color: '#0033A0',
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 4,
-  },
-  columnWrapper: {
-    justifyContent: 'space-between',
-  },
-  productWrapper: {
-    width: '48%',
-    marginBottom: 15,
-  },
-  productWrapperLeft: {
-    marginRight: '2%',
-  },
-  productWrapperRight: {
-    marginLeft: '2%',
-  },
-  listContent: {
-    paddingBottom: 100,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    marginTop: 60,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#666',
-    marginTop: 20,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    marginBottom: 25,
-  },
-  emptyButton: {
-    backgroundColor: '#0033A0',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginBottom: 10,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingBottom: 30,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-  },
-  modalTitle: {
-    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 2,
   },
-  modalCloseButton: {
-    padding: 4,
+  statLabel: {
+    fontSize: 11,
+    color: '#666',
   },
-  sortOptions: {
+  statDivider: {
+    width: 1,
+    backgroundColor: '#e9ecef',
+  },
+  // Services - INFORMATION CARDS (NOT BUTTONS)
+  servicesSection: {
     paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  sortOption: {
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  serviceCard: {
+    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
-  sortOptionSelected: {
-    backgroundColor: '#f0f4ff',
+  serviceIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
-  sortOptionText: {
-    flex: 1,
-    marginLeft: 12,
+  serviceText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#333',
+  },
+  // Footer - INFORMATION CARD (NOT A BUTTON)
+  footerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  footerTitle: {
     fontSize: 16,
-    color: '#666',
-  },
-  sortOptionTextSelected: {
+    fontWeight: 'bold',
     color: '#0033A0',
-    fontWeight: '600',
+    marginBottom: 8,
+  },
+  footerText: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  footerContact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  footerContactText: {
+    fontSize: 13,
+    color: '#666',
+    marginLeft: 6,
   },
 });

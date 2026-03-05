@@ -44,8 +44,8 @@ export default function AppNavigator() {
         ) : (
           // --- CUSTOMER STACK (User Logged In) ---
           <Stack.Group>
-            <Stack.Screen name="Selection" component={SelectionScreen} />
             <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Selection" component={SelectionScreen} />
             <Stack.Screen 
               name="ProductDetails" 
               component={ProductDetailsScreen} 

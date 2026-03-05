@@ -9,12 +9,11 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  SafeAreaView
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets,SafeAreaView } from 'react-native-safe-area-context';
 import { requestLocationPermission } from '../utils/location';
 
 export default function OpenStreetMapPicker({
@@ -374,9 +373,9 @@ export default function OpenStreetMapPicker({
       onRequestClose={onClose}
       presentationStyle="fullScreen"
     >
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color="#333" />
           </TouchableOpacity>
@@ -429,7 +428,7 @@ export default function OpenStreetMapPicker({
         </View>
 
         {/* Bottom Address Panel - NOW EDITABLE */}
-        <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 8 }]}>
           <Text style={styles.inputLabel}>Complete Address (Edit if needed):</Text>
           <View style={styles.addressContainer}>
             <Ionicons name="location-outline" size={20} color="#0033A0" style={{ marginTop: 2 }}/>
@@ -515,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
     marginHorizontal: 16,
-    marginVertical: 12,
+    marginTop: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
