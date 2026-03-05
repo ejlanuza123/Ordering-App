@@ -12,12 +12,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import NotificationIcon from '../../components/NotificationIcon';
+import { useNotifications } from '../../context/NotificationContext';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
 
   // Extract first name from email or full name
   const getUserFirstName = () => {
@@ -37,15 +40,23 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.userName}>{getUserFirstName()}!</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={() => navigation.navigate('Profile')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.profileIcon}>
-              <Ionicons name="person" size={22} color="#0033A0" />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <NotificationIcon 
+              onPress={() => navigation.navigate('Notifications')}
+              color="#0033A0"
+              size={22}
+            />
+            
+            <TouchableOpacity 
+              style={styles.profileButton}
+              onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.profileIcon}>
+                <Ionicons name="person" size={22} color="#0033A0" />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Petron Branding - NOT A BUTTON */}
@@ -324,6 +335,11 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0f4ff',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerActionButton: {
     alignItems: 'center',

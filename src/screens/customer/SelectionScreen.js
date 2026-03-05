@@ -215,46 +215,44 @@ export default function SelectionScreen({ navigation, route }) {
         {/* Custom Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Home')}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
-            </TouchableOpacity>
-            
-            <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>
-                {selectedCategory === 'Fuel' ? 'Fuel Products' : 'Lubricants'}
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                {selectedCategory === 'Fuel' 
-                  ? 'Premium fuels delivered to you' 
-                  : 'High-quality lubricants'
-                }
-              </Text>
-            </View>
-            
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Cart')}
-              style={styles.cartButton}
-            >
-              <Ionicons name="cart" size={24} color="#0033A0" />
-              {cartItems.length > 0 && (
-                <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>
-                    {cartItems.length > 9 ? '9+' : cartItems.length}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('Home')}
+                style={styles.backButton}
+              >
+                <Ionicons name="arrow-back" size={24} color="#0033A0" />
+              </TouchableOpacity>
+              
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle}>
+                  {selectedCategory === 'Fuel' ? 'Fuel Products' : 'Lubricants'}
+                </Text>
+                <Text style={styles.headerSubtitle}>
+                  {selectedCategory === 'Fuel' 
+                    ? 'Premium fuels delivered to you' 
+                    : 'High-quality lubricants'
+                  }
+                </Text>
+              </View>
+              
+              <View style={styles.headerActions}>
 
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Favorites')}
-              style={styles.cartButton}
-            >
-              <Ionicons name="heart" size={24} color="#0033A0" />
-            </TouchableOpacity>
-          </View>
+                
+                <TouchableOpacity 
+                  onPress={() => navigation.navigate('Cart')}
+                  style={styles.cartButton}
+                >
+                  <Ionicons name="cart" size={24} color="#0033A0" />
+                  {cartItems.length > 0 && (
+                    <View style={styles.cartBadge}>
+                      <Text style={styles.cartBadgeText}>
+                        {cartItems.length > 9 ? '9+' : cartItems.length}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+              </View>
+            </View>
 
           {/* Category Tabs */}
           <View style={styles.categoryTabs}>
@@ -566,6 +564,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 16,
     marginBottom: 10,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   headerTop: {
     flexDirection: 'row',

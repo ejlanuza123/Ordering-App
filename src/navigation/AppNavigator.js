@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 // 1. Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import NotificationsScreen from '../screens/customer/NotificationsScreen';
 
 // 2. Customer Screens
 import HomeScreen from '../screens/customer/HomeScreen';
@@ -56,6 +57,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </Stack.Group>
         )}
 
