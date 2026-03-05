@@ -17,6 +17,7 @@ import CheckoutScreen from '../screens/customer/CheckoutScreen';
 import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
 import SelectionScreen from '../screens/customer/SelectionScreen';
+import MyFavoritesScreen from '../screens/customer/MyFavoritesScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -50,6 +51,7 @@ export default function AppNavigator() {
               name="ProductDetails" 
               component={ProductDetailsScreen} 
             />
+            <Stack.Screen name="Favorites" component={MyFavoritesScreen} />
             <Stack.Screen name="Cart" component={CartScreen} /> 
             <Stack.Screen name="Checkout" component={CheckoutScreen} />
             <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />

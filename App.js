@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
+import { FavoritesProvider } from './src/context/FavoritesContext';
 
 export default function App() {
   return (
@@ -14,9 +15,11 @@ export default function App() {
         translucent={false}
       />
       <AuthProvider>
-        <CartProvider>
-          <AppNavigator />
-        </CartProvider>
+        <FavoritesProvider>
+          <CartProvider>
+            <AppNavigator />
+          </CartProvider>
+        </FavoritesProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

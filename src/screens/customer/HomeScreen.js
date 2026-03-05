@@ -84,6 +84,17 @@ export default function HomeScreen({ navigation }) {
             </View>
             <Text style={styles.headerActionText}>Orders</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Favorites')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#ED293920' }]}>    
+              <Ionicons name="heart" size={20} color="#ED2939" />
+            </View>
+            <Text style={styles.headerActionText}>Favorites</Text>
+          </TouchableOpacity>
           
           <TouchableOpacity 
             style={styles.headerActionButton}

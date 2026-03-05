@@ -14,12 +14,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { useFavorites } from '../../context/FavoritesContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProductDetailsScreen({ route, navigation }) {
   const { product } = route.params;
+  const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [quantity, setQuantity] = useState('1');
   const [totalPrice, setTotalPrice] = useState(product.current_price);
   const [mode, setMode] = useState('liters');
@@ -31,6 +36,18 @@ export default function ProductDetailsScreen({ route, navigation }) {
   });
   const { addToCart } = useCart();
   const insets = useSafeAreaInsets();
+
+  const handleFavPress = async () => {
+    if (!user) return;
+    const added = await toggleFavorite(product.id);
+    setAlertConfig({
+      type: 'success',
+      title: added ? 'Added to Favorites' : 'Removed from Favorites',
+      message: added ? `${product.name} has been added to your favorites.`
+                     : `${product.name} has been removed from your favorites.`
+    });
+    setShowAlert(true);
+  };
 
   const isFuel = product.category === 'Fuel';
 
@@ -156,6 +173,18 @@ export default function ProductDetailsScreen({ route, navigation }) {
                   <Text style={styles.unit}>/{product.unit}</Text>
                 </Text>
               </View>
+              {/* favorite icon in details header */}
+              <TouchableOpacity
+                style={styles.detailFavButton}
+                onPress={handleFavPress}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isFavorite(product.id) ? 'heart' : 'heart-outline'}
+                  size={24}
+                  color={isFavorite(product.id) ? '#ED2939' : '#fff'}
+                />
+              </TouchableOpacity>
             </View>
 
             {product.description && (
@@ -285,6 +314,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailFavButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
     zIndex: 10,
     width: 40,
     height: 40,

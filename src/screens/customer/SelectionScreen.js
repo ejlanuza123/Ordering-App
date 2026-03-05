@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import ProductCard from '../../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
@@ -44,6 +46,7 @@ export default function SelectionScreen({ navigation, route }) {
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [sortBy, setSortBy] = useState('name_asc');
   const { cartItems, addToCart } = useCart();
+  const { user } = useAuth();
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
@@ -51,6 +54,9 @@ export default function SelectionScreen({ navigation, route }) {
     message: ''
   });
   
+  // favorites handled by context
+  const { isFavorite, toggleFavorite, favorites } = useFavorites();
+
   const selectedCategory = route.params?.category || 'Fuel';
   
   // Create a ref for the debounced function
@@ -98,6 +104,7 @@ export default function SelectionScreen({ navigation, route }) {
       setRefreshing(false);
     }
   };
+
 
   // Apply all filters and sorting
   const applyFilters = useCallback((productsList, query, sortMethod, category) => {
@@ -240,6 +247,13 @@ export default function SelectionScreen({ navigation, route }) {
                 </View>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Favorites')}
+              style={styles.cartButton}
+            >
+              <Ionicons name="heart" size={24} color="#0033A0" />
+            </TouchableOpacity>
           </View>
 
           {/* Category Tabs */}
@@ -340,6 +354,17 @@ export default function SelectionScreen({ navigation, route }) {
                     product={item} 
                     onPress={() => handleProductPress(item)} 
                     onAddToCart={() => handleAddToCart(item)}
+                    isFavorite={isFavorite(item.id)}
+                    onToggleFavorite={async (p) => {
+                      const added = await toggleFavorite(p.id);
+                      setAlertConfig({
+                        type: 'success',
+                        title: added ? 'Added to Favorites' : 'Removed from Favorites',
+                        message: added ? `${p.name} has been added to your favorites.`
+                                       : `${p.name} has been removed from your favorites.`
+                      });
+                      setShowAlert(true);
+                    }}
                   />
                 </View>
               )}

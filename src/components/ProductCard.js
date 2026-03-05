@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 45) / 2;
 
-export default function ProductCard({ product, onPress, onAddToCart }) {
+export default function ProductCard({ product, onPress, onAddToCart, isFavorite = false, onToggleFavorite }) {
   const isFuel = product.category === 'Fuel';
   
   const getCategoryColor = () => {
@@ -143,8 +143,16 @@ export default function ProductCard({ product, onPress, onAddToCart }) {
       </View>
       
       {/* Favorite Button */}
-      <TouchableOpacity style={styles.favoriteButton}>
-        <Ionicons name="heart-outline" size={20} color="#666" />
+      <TouchableOpacity 
+        style={styles.favoriteButton}
+        onPress={() => onToggleFavorite && onToggleFavorite(product)}
+        activeOpacity={0.7}
+      >
+        <Ionicons 
+          name={isFavorite ? 'heart' : 'heart-outline'}
+          size={20} 
+          color={isFavorite ? '#ED2939' : '#666'}
+        />
       </TouchableOpacity>
     </TouchableOpacity>
   );
