@@ -41,6 +41,7 @@ export default function CheckoutScreen({ navigation }) {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastOrderId, setLastOrderId] = useState(null);
+  const [lastOrderNumber, setLastOrderNumber] = useState(null); // store formatted order number returned by backend
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
@@ -196,6 +197,7 @@ export default function CheckoutScreen({ navigation }) {
       if (orderError) throw orderError;
 
       const orderId = orderData.id;
+      const orderNumber = orderData.order_number || orderId; // use generated code if available
 
       const orderItemsData = cartItems.map((item) => ({
         order_id: orderId,
@@ -215,8 +217,9 @@ export default function CheckoutScreen({ navigation }) {
       // Clear cart first
       clearCart();
       
-      // Set order ID and show success modal
+      // Set order ID/number and show success modal
       setLastOrderId(orderId);
+      setLastOrderNumber(orderNumber);
       setLoading(false);
       setShowSuccessModal(true);
 
@@ -300,7 +303,7 @@ export default function CheckoutScreen({ navigation }) {
       <SuccessModal
         visible={showSuccessModal}
         onClose={() => setShowSuccessModal(false)}
-        orderId={lastOrderId}
+        orderNumber={lastOrderNumber || lastOrderId}
         totalAmount={grandTotal}
         onTrackOrder={() => {
           setShowSuccessModal(false);

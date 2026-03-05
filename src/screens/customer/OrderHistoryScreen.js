@@ -52,6 +52,17 @@ export default function OrderHistoryScreen({ navigation }) {
     { id: 'cancelled', label: 'Cancelled' },
   ];
 
+  // helper removes leading zeros after prefix (e.g. ORD-000010 -> ORD-10)
+  const formatOrderNumber = (num) => {
+    if (!num) return '';
+    if (typeof num === 'string' && num.startsWith('ORD-')) {
+      const raw = num.slice(4);
+      const trimmed = parseInt(raw, 10).toString();
+      return `ORD-${trimmed}`;
+    }
+    return num;
+  };
+
   const fetchOrders = async () => {
     try {
       const { data, error } = await supabase
@@ -265,7 +276,7 @@ export default function OrderHistoryScreen({ navigation }) {
       <View style={styles.orderHeader}>
         <View style={styles.orderInfo}>
           <Text style={styles.orderNumber}>
-            {item.order_number || `Order #${item.id}`}
+            {formatOrderNumber(item.order_number) || `Order #${item.id}`}
           </Text>
           <Text style={styles.orderDate}>{formatTimeAgo(item.created_at)}</Text>
         </View>
@@ -338,7 +349,7 @@ export default function OrderHistoryScreen({ navigation }) {
             <View style={styles.detailsHeader}>
               <View style={styles.detailsHeaderLeft}>
                 <Text style={styles.detailsOrderNumber}>
-                  {selectedOrder.order_number || `Order #${selectedOrder.id}`}
+                  {formatOrderNumber(selectedOrder.order_number) || `Order #${selectedOrder.id}`}
                 </Text>
                 <Text style={styles.detailsDate}>{formatDate(selectedOrder.created_at)}</Text>
               </View>

@@ -14,7 +14,7 @@ const { width } = Dimensions.get('window');
 const SuccessModal = ({
   visible,
   onClose,
-  orderId,
+  orderNumber,
   totalAmount,
   onTrackOrder,
   onContinueShopping
@@ -40,7 +40,7 @@ const SuccessModal = ({
           <View style={styles.orderDetails}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Order Number</Text>
-              <Text style={styles.detailValue}>#{orderId}</Text>
+              <Text style={styles.detailValue}>#{orderNumber}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Total Amount</Text>
