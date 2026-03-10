@@ -47,7 +47,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     fetchDeliveryDetails();
     startDeliveryTimer();
     
-    // Subscribe to real-time updates
+      // Subscribe to real-time updates
     const channel = supabase
       .channel(`delivery-${delivery.id}`)
       .on(
@@ -59,7 +59,9 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           filter: `id=eq.${delivery.id}`
         },
         (payload) => {
-          setDeliveryData(payload.new);
+          // Fetch fresh data instead of just updating with the payload
+          // because the payload only contains the delivery row, not nested orders
+          fetchDeliveryDetails();
         }
       )
       .subscribe();
@@ -115,7 +117,6 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             ),
             payment_method,
             special_instructions,
-            status as order_status,
             created_at,
             order_items (
               quantity,
@@ -127,7 +128,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                 category,
                 image_url
               )
-            )
+            ),
+            status
           )
         `)
         .eq('id', delivery.id)
@@ -143,6 +145,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
   const updateDeliveryStatus = async (newStatus) => {
     setLoading(true);
+    
+    // Get fresh delivery data to ensure we have the latest order info
+    const currentDelivery = deliveryData;
+    const currentOrder = currentDelivery.orders;
+    
     try {
       const updates = {
         status: newStatus,
@@ -156,7 +163,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       const { error: deliveryError } = await supabase
         .from('deliveries')
         .update(updates)
-        .eq('id', delivery.id);
+        .eq('id', currentDelivery.id);
 
       if (deliveryError) throw deliveryError;
 
@@ -169,17 +176,17 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         case 'picked_up':
           orderStatus = 'Out for Delivery';
           notificationTitle = 'Order Out for Delivery';
-          notificationMessage = `Your order #${order.order_number} is on its way!`;
+          notificationMessage = `Your order #${currentOrder.order_number} is on its way!`;
           break;
         case 'delivered':
           orderStatus = 'Completed';
           notificationTitle = 'Order Delivered';
-          notificationMessage = `Your order #${order.order_number} has been delivered. Thank you!`;
+          notificationMessage = `Your order #${currentOrder.order_number} has been delivered. Thank you!`;
           break;
         case 'failed':
           orderStatus = 'Cancelled';
           notificationTitle = 'Delivery Failed';
-          notificationMessage = `Your order #${order.order_number} delivery failed. Please contact support.`;
+          notificationMessage = `Your order #${currentOrder.order_number} delivery failed. Please contact support.`;
           break;
       }
 
@@ -189,7 +196,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           status: orderStatus,
           updated_at: new Date().toISOString()
         })
-        .eq('id', order.id);
+        .eq('id', currentOrder.id);
 
       if (orderError) throw orderError;
 
@@ -806,7 +813,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
@@ -815,6 +823,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    zIndex: 10,
   },
   backButton: {
     width: 40,

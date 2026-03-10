@@ -700,8 +700,8 @@ export default function RiderDashboardScreen({ navigation }) {
         visible={showAcceptModal}
         onRequestClose={() => setShowAcceptModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Accept Delivery?</Text>
               <TouchableOpacity onPress={() => setShowAcceptModal(false)}>
@@ -766,8 +766,8 @@ export default function RiderDashboardScreen({ navigation }) {
         visible={showEarningsModal}
         onRequestClose={() => setShowEarningsModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Earnings Breakdown</Text>
               <TouchableOpacity onPress={() => setShowEarningsModal(false)}>

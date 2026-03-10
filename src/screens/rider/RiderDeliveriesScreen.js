@@ -23,7 +23,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, assigned, picked_up, delivered
+  const [filter, setFilter] = useState('all'); // all, assigned, accepted, picked_up, delivered, failed
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -98,6 +98,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
   const getStatusColor = (status) => {
     switch (status) {
       case 'assigned': return '#F59E0B';
+      case 'accepted': return '#10B981';
       case 'picked_up': return '#0033A0';
       case 'delivered': return '#10B981';
       case 'failed': return '#EF4444';
@@ -108,8 +109,9 @@ export default function RiderDeliveriesScreen({ navigation }) {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'assigned': return 'alert-circle';
+      case 'accepted': return 'checkmark-circle';
       case 'picked_up': return 'bicycle';
-      case 'delivered': return 'checkmark-circle';
+      case 'delivered': return 'checkmark-done';
       case 'failed': return 'close-circle';
       default: return 'help-circle';
     }
@@ -117,7 +119,8 @@ export default function RiderDeliveriesScreen({ navigation }) {
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'assigned': return 'Ready to Pick Up';
+      case 'assigned': return 'Ready to Accept';
+      case 'accepted': return 'Accepted';
       case 'picked_up': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
       case 'failed': return 'Failed';
@@ -207,6 +210,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <FilterButton title="All" value="all" />
           <FilterButton title="Ready" value="assigned" />
+          <FilterButton title="Accepted" value="accepted" />
           <FilterButton title="On Delivery" value="picked_up" />
           <FilterButton title="Delivered" value="delivered" />
           <FilterButton title="Failed" value="failed" />
