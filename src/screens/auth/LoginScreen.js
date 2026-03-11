@@ -11,10 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  Dimensions
+  Dimensions,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { height } = Dimensions.get('window');
@@ -32,6 +34,9 @@ export default function LoginScreen({ navigation }) {
     title: '',
     message: ''
   });
+  const [blockedMessage, setBlockedMessage] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -45,15 +50,75 @@ export default function LoginScreen({ navigation }) {
     }
 
     if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter a valid email address',
+      });
+      setShowAlert(true);
       return;
     }
 
     setLoading(true);
     try {
       await signIn(email, password);
+      setBlockedMessage('');
     } catch (error) {
-      Alert.alert('Login Failed', error.message || 'Invalid credentials. Please try again.');
+      const message = error?.message || 'Invalid credentials. Please try again.';
+      if (message.toLowerCase().includes('not allowed')) {
+        setBlockedMessage(message);
+      } else {
+        setAlertConfig({
+          type: 'error',
+          title: 'Login Failed',
+          message,
+        });
+        setShowAlert(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetEmail) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter your email address',
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (!resetEmail.includes('@')) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter a valid email address',
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(resetEmail);
+      setShowResetModal(false);
+      setResetEmail('');
+      setAlertConfig({
+        type: 'success',
+        title: 'Email Sent',
+        message: 'Check your inbox for a password reset link.',
+      });
+      setShowAlert(true);
+    } catch (error) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Reset Failed',
+        message: error?.message || 'Unable to send reset email. Please try again.',
+      });
+      setShowAlert(true);
     } finally {
       setLoading(false);
     }
@@ -120,15 +185,27 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             {/* Forgot Password */}
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity
+              style={styles.forgotPassword}
+              onPress={() => {
+                setResetEmail(email);
+                setShowResetModal(true);
+              }}
+            >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
             {/* Login Button */}
+            {blockedMessage ? (
+              <View style={styles.blockedMessageContainer}>
+                <Text style={styles.blockedMessageText}>{blockedMessage}</Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity 
-              style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+              style={[styles.loginButton, (loading || blockedMessage) && styles.loginButtonDisabled]}
               onPress={handleLogin}
-              disabled={loading}
+              disabled={loading || !!blockedMessage}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -151,6 +228,9 @@ export default function LoginScreen({ navigation }) {
                 <Text style={styles.registerLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.signUpNote}>
+              Sign up is for customers only. Riders should contact admin to be added.
+            </Text>
           </View>
 
           {/* Footer */}
@@ -160,6 +240,53 @@ export default function LoginScreen({ navigation }) {
           </View>
         </View>
       </KeyboardAvoidingView>
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showResetModal}
+        onRequestClose={() => setShowResetModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Reset Password</Text>
+            <Text style={styles.modalMessage}>
+              Enter your email and we’ll send a password reset link.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Email address"
+              placeholderTextColor="#999"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={resetEmail}
+              onChangeText={setResetEmail}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => {
+                  setShowResetModal(false);
+                  setResetEmail('');
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmButton]}
+                onPress={handleResetPassword}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Send</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CustomAlertModal
         visible={showAlert}
         onClose={() => setShowAlert(false)}
@@ -316,6 +443,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
+  signUpNote: {
+    color: '#555',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    lineHeight: 18,
+  },
   footer: {
     alignItems: 'center',
     flexShrink: 0,
@@ -328,5 +463,92 @@ const styles = StyleSheet.create({
   footerSubtext: {
     color: '#999',
     fontSize: 10,
+  },
+  blockedMessageContainer: {
+    backgroundColor: '#fdecea',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#f5c2c7',
+  },
+  blockedMessageText: {
+    color: '#a1201f',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0033A0',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 16,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalInput: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#f0f4ff',
+    borderWidth: 1,
+    borderColor: '#cbd6e5',
+  },
+  modalConfirmButton: {
+    backgroundColor: '#0033A0',
+  },
+  modalCancelText: {
+    color: '#0033A0',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalConfirmText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

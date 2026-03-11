@@ -21,6 +21,7 @@ import ProductCard from '../../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useProducts } from '../../context/ProductContext';
 
 const { width } = Dimensions.get('window');
 
@@ -38,9 +39,8 @@ const debounce = (func, wait) => {
 };
 
 export default function SelectionScreen({ navigation, route }) {
-  const [products, setProducts] = useState([]);
+  const { products, loading, refreshProducts, getProductsByCategory } = useProducts();
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortModalVisible, setSortModalVisible] = useState(false);
@@ -53,6 +53,12 @@ export default function SelectionScreen({ navigation, route }) {
     title: '',
     message: ''
   });
+
+  useEffect(() => {
+    if (products.length > 0) {
+      applyFilters(products, searchQuery, sortBy, selectedCategory);
+    }
+  }, [products, sortBy, selectedCategory]);
   
   // favorites handled by context
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
@@ -86,24 +92,8 @@ export default function SelectionScreen({ navigation, route }) {
     setShowAlert(true);
   };
 
-  // Fetch products
-  const fetchProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true);
-
-      if (error) throw error;
-      setProducts(data);
-      applyFilters(data, searchQuery, sortBy, selectedCategory);
-    } catch (error) {
-      console.error('Error fetching products:', error.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  // We use refreshProducts from ProductContext instead of maintaining our own product state here.
+  // That context already handles fetching + real-time updates.
 
 
   // Apply all filters and sorting
@@ -169,18 +159,18 @@ export default function SelectionScreen({ navigation, route }) {
   };
 
   useEffect(() => {
-    fetchProducts();
+    refreshProducts();
   }, [selectedCategory]);
 
   useEffect(() => {
     if (products.length > 0) {
       applyFilters(products, searchQuery, sortBy, selectedCategory);
     }
-  }, [products, sortBy, applyFilters]);
+  }, [products, sortBy, searchQuery, selectedCategory, applyFilters]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchProducts();
+    refreshProducts().finally(() => setRefreshing(false));
   };
 
   const handleProductPress = (product) => {

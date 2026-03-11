@@ -1,3 +1,4 @@
+// mobile-app/src/App.js - UPDATE THIS FILE
 import React from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { NotificationProvider } from './src/context/NotificationContext';
+import { ProductProvider } from './src/context/ProductContext'; // ADD THIS
 
 export default function App() {
   return (
@@ -19,7 +21,9 @@ export default function App() {
         <FavoritesProvider>
           <CartProvider>
             <NotificationProvider>
-              <AppNavigator />
+              <ProductProvider> 
+                <AppNavigator />
+              </ProductProvider>
             </NotificationProvider>
           </CartProvider>
         </FavoritesProvider>

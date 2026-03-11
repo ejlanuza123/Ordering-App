@@ -10,13 +10,18 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const ALLOWED_ROLES = ['customer', 'rider'];
+
   useEffect(() => {
     checkUser();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUser(session.user);
-        fetchUserProfile(session.user.id);
+        try {
+          await fetchUserProfile(session.user);
+        } catch {
+          // If role is invalid we already signed out in fetchUserProfile
+        }
       } else {
         setUser(null);
         setProfile(null);
@@ -32,30 +37,60 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        setUser(session.user);
-        await fetchUserProfile(session.user.id);
+        // Only set user after we confirm role is allowed.
+        await fetchUserProfile(session.user);
       }
     } catch (error) {
       console.log('Auth check error:', error);
+      setUser(null);
+      setProfile(null);
+      setRole(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUserProfile = async (userId) => {
+  const fetchUserProfile = async (user) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('id', user.id)
       .single();
 
-    if (data) {
-      setProfile(data);
-      setRole(data.role);
+    if (error) {
+      throw error;
     }
+
+    if (!data) {
+      throw new Error('User profile not found');
+    }
+
+    // Only allow customer/rider roles in this app.
+    if (!ALLOWED_ROLES.includes(data.role)) {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      setRole(null);
+      throw new Error('This account is not allowed to access the app.');
+    }
+
+    setUser(user);
+    setProfile(data);
+    setRole(data.role);
   };
 
   const signIn = async (email, password) => {
+    // Prevent admin or other unsupported roles from ever signing in.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .ilike('email', email)
+      .single();
+
+    if (profile && !ALLOWED_ROLES.includes(profile.role)) {
+      throw new Error('This account is not allowed to access the app.');
+    }
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -63,8 +98,7 @@ export const AuthProvider = ({ children }) => {
     if (error) throw error;
     
     if (data.user) {
-      setUser(data.user);
-      await fetchUserProfile(data.user.id);
+      await fetchUserProfile(data.user);
     }
   };
 
@@ -85,7 +119,6 @@ export const AuthProvider = ({ children }) => {
       signOut,
       isAuthenticated: !!user,
       isRider: role === 'rider',
-      isAdmin: role === 'admin',
       isCustomer: role === 'customer'
     }}>
       {children}
