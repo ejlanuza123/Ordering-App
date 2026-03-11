@@ -204,8 +204,11 @@ export default function OrderHistoryScreen({ navigation }) {
     switch(status?.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'processing': return '#0033A0';
-      case 'out for delivery': return '#10B981';
-      case 'completed': return '#333';
+      case 'out for delivery':
+      case 'out_for_delivery':
+      case 'outfordelivery':
+        return '#7e0083';
+      case 'completed': return '#10B981';
       case 'cancelled': return '#EF4444';
       default: return '#666';
     }
@@ -215,7 +218,10 @@ export default function OrderHistoryScreen({ navigation }) {
     switch(status?.toLowerCase()) {
       case 'pending': return 'time';
       case 'processing': return 'sync';
-      case 'out for delivery': return 'bicycle';
+      case 'out for delivery':
+      case 'out_for_delivery':
+      case 'outfordelivery':
+        return 'bicycle';
       case 'completed': return 'checkmark-circle';
       case 'cancelled': return 'close-circle';
       default: return 'help-circle';

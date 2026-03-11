@@ -39,7 +39,7 @@ const debounce = (func, wait) => {
 };
 
 export default function SelectionScreen({ navigation, route }) {
-  const { products, loading, refreshProducts, getProductsByCategory } = useProducts();
+  const { products, loading, refreshProducts, getProductsByCategory, hasRealtimeUpdates } = useProducts();
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,16 +54,10 @@ export default function SelectionScreen({ navigation, route }) {
     message: ''
   });
 
-  useEffect(() => {
-    if (products.length > 0) {
-      applyFilters(products, searchQuery, sortBy, selectedCategory);
-    }
-  }, [products, sortBy, selectedCategory]);
-  
+  const selectedCategory = route.params?.category || 'Fuel';
+
   // favorites handled by context
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
-
-  const selectedCategory = route.params?.category || 'Fuel';
   
   // Create a ref for the debounced function
   const debouncedSearchRef = useRef(null);
@@ -161,6 +155,17 @@ export default function SelectionScreen({ navigation, route }) {
   useEffect(() => {
     refreshProducts();
   }, [selectedCategory]);
+
+  // Auto-refresh after realtime updates arrive (auto-apply after short delay)
+  useEffect(() => {
+    if (!hasRealtimeUpdates) return;
+
+    const timer = setTimeout(() => {
+      refreshProducts();
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [hasRealtimeUpdates, refreshProducts]);
 
   useEffect(() => {
     if (products.length > 0) {
@@ -307,6 +312,15 @@ export default function SelectionScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
           </View>
+
+          {hasRealtimeUpdates && (
+            <TouchableOpacity
+              style={styles.realtimeBanner}
+              onPress={() => refreshProducts()}
+            >
+              <Text style={styles.realtimeBannerText}>New updates available — tap to refresh</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Products Section */}
@@ -749,6 +763,18 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  realtimeBanner: {
+    backgroundColor: '#0033A0',
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  realtimeBannerText: {
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '600',
   },
   // Modal Styles

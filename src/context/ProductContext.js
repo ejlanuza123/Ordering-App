@@ -12,6 +12,7 @@ export const ProductProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [subscription, setSubscription] = useState(null);
+  const [hasRealtimeUpdates, setHasRealtimeUpdates] = useState(false);
 
   // Fetch all products
   const fetchProducts = useCallback(async () => {
@@ -31,6 +32,7 @@ export const ProductProvider = ({ children }) => {
       Alert.alert('Error', 'Failed to load products');
     } finally {
       setLoading(false);
+      setHasRealtimeUpdates(false);
     }
   }, []);
 
@@ -111,27 +113,25 @@ export const ProductProvider = ({ children }) => {
           switch (payload.eventType) {
             case 'INSERT':
               addProductToState(payload.new);
-              // Show notification for new products (optional)
-              if (user) {
-                // Could show a notification for new products
-              }
+              setHasRealtimeUpdates(true);
               break;
               
             case 'UPDATE':
               updateProductInState(payload.new);
+              setHasRealtimeUpdates(true);
               
               // Check if stock changed significantly
               const oldStock = payload.old?.stock_quantity;
               const newStock = payload.new?.stock_quantity;
               
               if (oldStock !== newStock) {
-                // You could trigger a refresh or show a badge
                 console.log(`Stock updated for ${payload.new.name}: ${oldStock} → ${newStock}`);
               }
               break;
               
             case 'DELETE':
               removeProductFromState(payload.old.id);
+              setHasRealtimeUpdates(true);
               break;
               
             default:
@@ -157,13 +157,18 @@ export const ProductProvider = ({ children }) => {
     products,
     loading,
     lastUpdated,
+    hasRealtimeUpdates,
     fetchProducts,
     getProductById,
     getProductsByCategory,
     getLowStockProducts,
     getActiveProducts,
     isLowStock,
-    refreshProducts: fetchProducts
+    refreshProducts: async () => {
+      await fetchProducts();
+      setHasRealtimeUpdates(false);
+    },
+    clearRealtimeUpdates: () => setHasRealtimeUpdates(false),
   };
 
   return (
