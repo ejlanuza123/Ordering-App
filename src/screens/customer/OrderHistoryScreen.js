@@ -12,13 +12,15 @@ import {
   Modal,
   ScrollView,
   Dimensions,
-  Platform
+  Platform,
+  Linking
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets,SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import RiderInfoCard from '../../components/RiderInfoCard';
 
 const { width } = Dimensions.get('window');
 
@@ -41,7 +43,6 @@ export default function OrderHistoryScreen({ navigation }) {
     title: '',
     message: ''
   });
-
 
   const filters = [
     { id: 'all', label: 'All Orders' },
@@ -104,6 +105,62 @@ export default function OrderHistoryScreen({ navigation }) {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const fetchOrderDetails = async (orderId) => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          total_amount,
+          status,
+          delivery_address,
+          payment_method,
+          created_at,
+          order_items (
+            quantity,
+            price_at_order,
+            products (
+              id,
+              name,
+              category,
+              unit
+            )
+          ),
+          deliveries (
+            id,
+            status,
+            assigned_at,
+            accepted_at,
+            picked_up_at,
+            delivered_at,
+            failed_at,
+            rider:profiles!deliveries_rider_id_fkey (
+              id,
+              full_name,
+              phone_number
+            )
+          )
+        `)
+        .eq('id', orderId)
+        .single();
+
+      if (error) throw error;
+      
+      console.log('Fetched order details with deliveries:', data.deliveries);
+      setSelectedOrder(data);
+      setOrderDetailsModal(true);
+    } catch (error) {
+      console.log('Error fetching order details:', error.message);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load order details'
+      });
+      setShowAlert(true);
     }
   };
 
@@ -263,11 +320,6 @@ export default function OrderHistoryScreen({ navigation }) {
     return parseFloat(quantity) * parseFloat(price);
   };
 
-  const openOrderDetails = (order) => {
-    setSelectedOrder(order);
-    setOrderDetailsModal(true);
-  };
-
   const canCancelOrder = (status) => {
     const lowerStatus = status?.toLowerCase();
     return lowerStatus === 'pending' || lowerStatus === 'processing';
@@ -276,7 +328,7 @@ export default function OrderHistoryScreen({ navigation }) {
   const renderOrderItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.orderCard}
-      onPress={() => openOrderDetails(item)}
+      onPress={() => fetchOrderDetails(item.id)}
       activeOpacity={0.8}
     >
       <View style={styles.orderHeader}>
@@ -314,7 +366,6 @@ export default function OrderHistoryScreen({ navigation }) {
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
         </View>
-        {/* Removed the cancel button from here - now just the chevron */}
         <Ionicons name="chevron-forward" size={20} color="#999" />
       </View>
     </TouchableOpacity>
@@ -441,6 +492,11 @@ export default function OrderHistoryScreen({ navigation }) {
                 <Text style={styles.infoText}>Payment: {selectedOrder.payment_method}</Text>
               </View>
             </View>
+            
+            {/* Rider Information - Show when there's a delivery record */}
+            {selectedOrder.deliveries && selectedOrder.deliveries.length > 0 && (
+              <RiderInfoCard delivery={selectedOrder.deliveries[0]} />
+            )}
 
             {/* Order Timeline */}
             <View style={[styles.detailsSection, styles.lastSection]}>
@@ -463,7 +519,7 @@ export default function OrderHistoryScreen({ navigation }) {
                       {selectedOrder.status === 'Cancelled' ? 'Order Cancelled' : 'Order Delivered'}
                     </Text>
                     <Text style={styles.timelineTime}>
-                      {selectedOrder.status === 'Completed' ? formatDate(selectedOrder.created_at) : 
+                      {selectedOrder.status === 'Completed' ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
                        selectedOrder.status === 'Cancelled' ? formatDate(selectedOrder.created_at) : 'Pending'}
                     </Text>
                   </View>
@@ -587,6 +643,7 @@ export default function OrderHistoryScreen({ navigation }) {
 
       {/* Order Details Modal */}
       {renderOrderDetails()}
+      
       <CustomAlertModal
         visible={showCancelModal}
         onClose={() => {
@@ -781,25 +838,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#ED2939',
-  },
-  orderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  cancelButtonSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFE5E5',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  cancelButtonSmallText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
