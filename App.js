@@ -7,7 +7,11 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { NotificationProvider } from './src/context/NotificationContext';
-import { ProductProvider } from './src/context/ProductContext'; // ADD THIS
+import { ProductProvider } from './src/context/ProductContext';
+import { AddressProvider } from './src/context/AddressContext';
+import { DeliveryProofProvider } from './src/context/DeliveryProofContext';
+import { ReviewProvider } from './src/context/ReviewContext';
+import { RiderRatingProvider } from './src/context/RiderRatingContext';
 
 export default function App() {
   return (
@@ -21,8 +25,16 @@ export default function App() {
         <FavoritesProvider>
           <CartProvider>
             <NotificationProvider>
-              <ProductProvider> 
-                <AppNavigator />
+              <ProductProvider>
+                <AddressProvider>
+                  <DeliveryProofProvider>
+                    <ReviewProvider>
+                      <RiderRatingProvider>
+                        <AppNavigator />
+                      </RiderRatingProvider>
+                    </ReviewProvider>
+                  </DeliveryProofProvider>
+                </AddressProvider>
               </ProductProvider>
             </NotificationProvider>
           </CartProvider>
@@ -31,3 +43,4 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+

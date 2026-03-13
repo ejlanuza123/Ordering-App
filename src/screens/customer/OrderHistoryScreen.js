@@ -24,12 +24,15 @@ import RiderInfoCard from '../../components/RiderInfoCard';
 
 const { width } = Dimensions.get('window');
 
+const PAGE_SIZE = 20;
+
 export default function OrderHistoryScreen({ navigation }) {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -38,6 +41,8 @@ export default function OrderHistoryScreen({ navigation }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [showAlert, setShowAlert] = useState(false);
+  const [hasMoreData, setHasMoreData] = useState(true);
+  const [page, setPage] = useState(0);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
     title: '',

@@ -21,6 +21,7 @@ export const ProductProvider = ({ children }) => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
+        .eq('is_active', true) // Only fetch active products
         .order('name');
 
       if (error) throw error;

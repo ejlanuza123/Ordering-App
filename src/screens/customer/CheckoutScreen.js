@@ -182,7 +182,8 @@ export default function CheckoutScreen({ navigation }) {
             delivery_address: address,
             payment_method: paymentMethod,
             special_instructions: specialInstructions.trim() || null,
-            status: 'Pending'
+            status: 'Pending',
+            delivery_fee: deliveryFee // Save delivery fee to database
       };
       if (addressLat != null && addressLng != null) {
         orderInsert.delivery_lat = addressLat;

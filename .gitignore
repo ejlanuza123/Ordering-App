@@ -39,5 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-
+/database
 repomix-output.xml
+APP_IMPROVEMENTS_PLAN.md
