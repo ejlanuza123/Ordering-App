@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import * as Location from 'expo-location';
 import { requestLocationPermission } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { startLocationTracking, stopLocationTracking } from '../../utils/riderLocation';
 
 export default function RiderMapScreen({ navigation }) {
   const { profile } = useAuth();
@@ -39,6 +40,7 @@ export default function RiderMapScreen({ navigation }) {
     message: ''
   });
   const [locationSubscription, setLocationSubscription] = useState(null);
+  const [tracking, setTracking] = useState(false);
 
   // Petron San Pedro Station coordinates (default)
   const SAN_PEDRO_COORDS = {
@@ -53,25 +55,54 @@ export default function RiderMapScreen({ navigation }) {
     }
   }, [deliveries, currentLocation, loading]);
 
+  // start/stop tracking when rider toggles or logs out
+  useEffect(() => {
+    if (tracking && profile?.id) {
+      startLocationTracking(profile.id, (loc) => {
+        setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
+      }).then(res => {
+        if (res.success) setLocationSubscription(res.subscription);
+        else console.warn('tracking failed', res.error);
+      });
+    } else {
+      if (locationSubscription) {
+        stopLocationTracking(locationSubscription);
+        setLocationSubscription(null);
+      }
+    }
+    // cleanup when component unmounts
+    return () => {
+      if (locationSubscription) stopLocationTracking(locationSubscription);
+    };
+  }, [tracking, profile]);
+
   const generateMapHtml = () => {
     // Create markers array from deliveries with better validation
     const markers = deliveries
       .filter(d => {
-        const hasValidCoords = d.orders?.delivery_lat && d.orders?.delivery_lng;
+        if (!d.orders) {
+          console.warn('Delivery row has no linked order (likely RLS):', d.id);
+          return false;
+        }
+        const hasValidCoords = (d.orders.delivery_lat || d.delivery_lat) && (d.orders.delivery_lng || d.delivery_lng);
         if (!hasValidCoords) {
-          console.log('Delivery missing coordinates:', d.id, d.orders);
+          console.log('Delivery missing coordinates:', d.id, d.orders, {
+            delivery_lat: d.delivery_lat,
+            delivery_lng: d.delivery_lng
+          });
         }
         return hasValidCoords;
       })
       .map(d => ({
         id: d.id,
-        lat: parseFloat(d.orders.delivery_lat),
-        lng: parseFloat(d.orders.delivery_lng),
+        lat: parseFloat(d.orders?.delivery_lat ?? d.delivery_lat),
+        lng: parseFloat(d.orders?.delivery_lng ?? d.delivery_lng),
         title: `Order #${d.orders?.order_number || d.order_id || 'Unknown'}`,
         description: d.orders?.customer_name?.full_name || 'Customer',
         status: d.status,
         address: d.orders?.delivery_address
       }));
+        
 
     const currentLoc = currentLocation || SAN_PEDRO_COORDS;
 
@@ -722,11 +753,14 @@ export default function RiderMapScreen({ navigation }) {
           )
         `)
         .eq('rider_id', profile.id)
-        .in('status', ['assigned', 'picked_up']);
+        // show both assigned and accepted deliveries as well as picked up ones
+        .in('status', ['assigned', 'accepted', 'picked_up']);
 
       if (error) throw error;
       
       console.log('Fetched deliveries:', data?.length || 0);
+      // dump full rows so we can see if orders are being stripped by RLS
+      console.log('raw deliveries data', JSON.stringify(data, null, 2));
       setDeliveries(data || []);
     } catch (error) {
       console.error('Error fetching deliveries:', error.message);
@@ -838,6 +872,7 @@ export default function RiderMapScreen({ navigation }) {
           }
         )
         .subscribe();
+      // note: filter unchanged, but query above covers additional statuses
 
       return () => {
         channel.unsubscribe();
@@ -935,6 +970,13 @@ export default function RiderMapScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color="#0033A0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Delivery Map</Text>
+        {/* tracking toggle button */}
+        <TouchableOpacity
+          onPress={() => setTracking(prev => !prev)}
+          style={[styles.trackButton, { backgroundColor: tracking ? '#EF4444' : '#10B981' }]}
+        >
+          <Ionicons name={tracking ? 'pause' : 'play'} size={20} color="#fff" />
+        </TouchableOpacity>
         <TouchableOpacity onPress={fitAllMarkers} style={styles.fitButton}>
           <Ionicons name="expand" size={24} color="#0033A0" />
         </TouchableOpacity>
@@ -1156,6 +1198,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  trackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
   },
   fitButton: {
     width: 40,

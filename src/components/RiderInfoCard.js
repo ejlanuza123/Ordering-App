@@ -100,15 +100,30 @@ export default function RiderInfoCard({ delivery }) {
         </View>
       )}
 
-      {rider.phone_number && (
-        <TouchableOpacity 
-          style={styles.callButton}
-          onPress={() => Linking.openURL(`tel:${rider.phone_number}`)}
-        >
-          <Ionicons name="call" size={18} color="#fff" />
-          <Text style={styles.callButtonText}>Call Rider</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.bottomActions}>
+        {rider.phone_number && (
+          <TouchableOpacity 
+            style={styles.callButton}
+            onPress={() => Linking.openURL(`tel:${rider.phone_number}`)}
+          >
+            <Ionicons name="call" size={18} color="#fff" />
+            <Text style={styles.callButtonText}>Call Rider</Text>
+          </TouchableOpacity>
+        )}
+
+        {rider.address_lat && rider.address_lng && (
+          <TouchableOpacity
+            style={[styles.callButton, { backgroundColor: '#F59E0B' }]}
+            onPress={() => {
+              const url = `https://www.google.com/maps/dir/?api=1&destination=${rider.address_lat},${rider.address_lng}`;
+              Linking.openURL(url);
+            }}
+          >
+            <Ionicons name="navigate" size={18} color="#fff" />
+            <Text style={styles.callButtonText}>Track Rider</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -163,6 +178,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  bottomActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    gap: 8,
   },
   // New styles for empty state
   notAssignedContainer: {

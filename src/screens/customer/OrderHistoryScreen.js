@@ -37,6 +37,7 @@ export default function OrderHistoryScreen({ navigation }) {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
+  const [riderProfileChannel, setRiderProfileChannel] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
@@ -77,6 +78,7 @@ export default function OrderHistoryScreen({ navigation }) {
           id,
           order_number,
           total_amount,
+          delivery_fee,
           status,
           delivery_address,
           payment_method,
@@ -121,6 +123,7 @@ export default function OrderHistoryScreen({ navigation }) {
           id,
           order_number,
           total_amount,
+          delivery_fee,
           status,
           delivery_address,
           payment_method,
@@ -146,7 +149,9 @@ export default function OrderHistoryScreen({ navigation }) {
             rider:profiles!deliveries_rider_id_fkey (
               id,
               full_name,
-              phone_number
+              phone_number,
+              address_lat,
+              address_lng
             )
           )
         `)
@@ -158,6 +163,38 @@ export default function OrderHistoryScreen({ navigation }) {
       console.log('Fetched order details with deliveries:', data.deliveries);
       setSelectedOrder(data);
       setOrderDetailsModal(true);
+
+      // set up realtime subscription for rider profile updates
+      const riderId = data.deliveries?.[0]?.rider?.id;
+      if (riderId) {
+        // remove previous channel if any
+        if (riderProfileChannel) {
+          riderProfileChannel.unsubscribe();
+        }
+        const channel = supabase
+          .channel(`profile-${riderId}`)
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${riderId}` },
+            (payload) => {
+              // update rider fields in selectedOrder
+              setSelectedOrder((prev) => {
+                if (!prev) return prev;
+                const updated = { ...prev };
+                if (updated.deliveries && updated.deliveries[0]) {
+                  updated.deliveries[0].rider = {
+                    ...updated.deliveries[0].rider,
+                    ...payload.new
+                  };
+                }
+                return updated;
+              });
+            }
+          )
+          .subscribe();
+
+        setRiderProfileChannel(channel);
+      }
     } catch (error) {
       console.log('Error fetching order details:', error.message);
       setAlertConfig({
@@ -252,6 +289,14 @@ export default function OrderHistoryScreen({ navigation }) {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // cleanup rider profile subscription when modal closes
+  useEffect(() => {
+    if (!orderDetailsModal && riderProfileChannel) {
+      riderProfileChannel.unsubscribe();
+      setRiderProfileChannel(null);
+    }
+  }, [orderDetailsModal]);
 
   useEffect(() => {
     applyFilter(orders, selectedFilter);
@@ -466,19 +511,30 @@ export default function OrderHistoryScreen({ navigation }) {
             {/* Order Summary */}
             <View style={styles.detailsSection}>
               <Text style={styles.sectionTitle}>Order Summary</Text>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>₱{parseFloat(selectedOrder.total_amount).toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                <Text style={styles.summaryValue}>₱0.00</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.summaryRow}>
-                <Text style={styles.totalLabel}>Total Paid</Text>
-                <Text style={styles.totalValue}>₱{parseFloat(selectedOrder.total_amount).toFixed(2)}</Text>
-              </View>
+              {// compute using delivery_fee if available
+                (() => {
+                  const fee = parseFloat(selectedOrder.delivery_fee || 0);
+                  const total = parseFloat(selectedOrder.total_amount || 0);
+                  const subtotal = total - fee;
+                  return (
+                    <>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Subtotal</Text>
+                        <Text style={styles.summaryValue}>₱{subtotal.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Delivery Fee</Text>
+                        <Text style={styles.summaryValue}>₱{fee.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.divider} />
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.totalLabel}>Total Paid</Text>
+                        <Text style={styles.totalValue}>₱{total.toFixed(2)}</Text>
+                      </View>
+                    </>
+                  );
+                })()
+              }
             </View>
 
             {/* Delivery Information */}

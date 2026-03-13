@@ -13,20 +13,25 @@ import {
   Modal,
   TextInput,
   Share,
-  Clipboard
+  Clipboard,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
-
+import * as ImagePicker from 'expo-image-picker';
+import { useDeliveryProof } from '../../context/DeliveryProofContext';
 
 export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const { delivery } = route.params;
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
+  const [fetchingData, setFetchingData] = useState(true);
   const [deliveryData, setDeliveryData] = useState(delivery);
+  const [orderData, setOrderData] = useState(null);
+  const [customerData, setCustomerData] = useState(null);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
@@ -41,13 +46,18 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const [issueReason, setIssueReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
 
-  const order = deliveryData.orders;
+  // proof of delivery state
+  const [proofModalVisible, setProofModalVisible] = useState(false);
+  const [proofImageUri, setProofImageUri] = useState(null);
+  const { uploadProofPhoto, saveDeliveryProof } = useDeliveryProof();
 
   useEffect(() => {
-    fetchDeliveryDetails();
+    fetchAllDeliveryData();
     startDeliveryTimer();
+
+    console.log('Initial delivery data:', delivery);
     
-      // Subscribe to real-time updates
+    // Subscribe to real-time updates
     const channel = supabase
       .channel(`delivery-${delivery.id}`)
       .on(
@@ -59,9 +69,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           filter: `id=eq.${delivery.id}`
         },
         (payload) => {
-          // Fetch fresh data instead of just updating with the payload
-          // because the payload only contains the delivery row, not nested orders
-          fetchDeliveryDetails();
+          // Fetch fresh data when delivery is updated
+          fetchAllDeliveryData();
         }
       )
       .subscribe();
@@ -97,27 +106,33 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
-  const fetchDeliveryDetails = async () => {
+  const fetchAllDeliveryData = async () => {
+    setFetchingData(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch the delivery record - using maybeSingle() instead of single()
+      const { data: deliveryRecord, error: deliveryError } = await supabase
         .from('deliveries')
-        .select(`
-          *,
-          orders (
-            id,
-            order_number,
-            total_amount,
-            delivery_address,
-            delivery_lat,
-            delivery_lng,
-            customer_name:profiles!orders_user_id_fkey (
-              id,
-              full_name,
-              phone_number
-            ),
-            payment_method,
-            special_instructions,
-            created_at,
+        .select('*')
+        .eq('id', delivery.id)
+        .maybeSingle();
+
+      if (deliveryError) throw deliveryError;
+      
+      if (!deliveryRecord) {
+        console.error('No delivery found with ID:', delivery.id);
+        setFetchingData(false);
+        return;
+      }
+      
+      setDeliveryData(deliveryRecord);
+      setDeliveryNotes(deliveryRecord.notes || '');
+
+      // 2. Fetch the associated order
+      if (deliveryRecord.order_id) {
+        const { data: orderRecord, error: orderError } = await supabase
+          .from('orders')
+          .select(`
+            *,
             order_items (
               quantity,
               price_at_order,
@@ -128,27 +143,50 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                 category,
                 image_url
               )
-            ),
-            status
-          )
-        `)
-        .eq('id', delivery.id)
-        .single();
+            )
+          `)
+          .eq('id', deliveryRecord.order_id)
+          .maybeSingle(); // Use maybeSingle() here too
 
-      if (error) throw error;
-      setDeliveryData(data);
-      setDeliveryNotes(data.notes || '');
+        if (orderError) {
+          console.error('Error fetching order:', orderError);
+        } else if (orderRecord) {
+          setOrderData(orderRecord);
+
+          // 3. Fetch customer profile if user_id exists
+          if (orderRecord.user_id) {
+            const { data: profileRecord, error: profileError } = await supabase
+              .from('profiles')
+              .select('full_name, phone_number')
+              .eq('id', orderRecord.user_id)
+              .maybeSingle(); // Use maybeSingle() here too
+
+            if (!profileError && profileRecord) {
+              setCustomerData(profileRecord);
+            } else if (profileError) {
+              console.error('Error fetching profile:', profileError);
+            }
+          }
+        } else {
+          console.log('No order found for ID:', deliveryRecord.order_id);
+        }
+      }
+
+      console.log('Fetched all data:', { 
+        delivery: deliveryRecord, 
+        order: orderData, 
+        customer: customerData 
+      });
     } catch (error) {
       console.error('Error fetching delivery details:', error.message);
+      Alert.alert('Error', 'Failed to load delivery details');
+    } finally {
+      setFetchingData(false);
     }
   };
 
   const updateDeliveryStatus = async (newStatus) => {
     setLoading(true);
-    
-    // Get fresh delivery data to ensure we have the latest order info
-    const currentDelivery = deliveryData;
-    const currentOrder = currentDelivery.orders;
     
     try {
       const updates = {
@@ -163,7 +201,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       const { error: deliveryError } = await supabase
         .from('deliveries')
         .update(updates)
-        .eq('id', currentDelivery.id);
+        .eq('id', deliveryData.id);
 
       if (deliveryError) throw deliveryError;
 
@@ -176,54 +214,58 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         case 'picked_up':
           orderStatus = 'Out for Delivery';
           notificationTitle = 'Order Out for Delivery';
-          notificationMessage = `Your order #${currentOrder.order_number} is on its way!`;
+          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} is on its way!`;
           break;
         case 'delivered':
           orderStatus = 'Completed';
           notificationTitle = 'Order Delivered';
-          notificationMessage = `Your order #${currentOrder.order_number} has been delivered. Thank you!`;
+          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been delivered. Thank you!`;
           break;
         case 'failed':
           orderStatus = 'Cancelled';
           notificationTitle = 'Delivery Failed';
-          notificationMessage = `Your order #${currentOrder.order_number} delivery failed. Please contact support.`;
+          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} delivery failed. Please contact support.`;
           break;
       }
 
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({ 
-          status: orderStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', currentOrder.id);
+      if (orderData) {
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({ 
+            status: orderStatus,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', orderData.id);
 
-      if (orderError) throw orderError;
+        if (orderError) throw orderError;
+      }
 
       // Notify customer
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: order.customer_name?.id || order.user_id,
-          type: newStatus === 'delivered' ? 'order_delivered' : 'order_status',
-          title: notificationTitle,
-          message: notificationMessage,
-          data: { 
-            order_id: order.id,
-            delivery_id: delivery.id,
-            status: newStatus
-          }
-        });
+      if (orderData && orderData.user_id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: orderData.user_id,
+            type: newStatus === 'delivered' ? 'order_delivered' : 'order_status',
+            title: notificationTitle,
+            message: notificationMessage,
+            data: { 
+              order_id: orderData.id,
+              delivery_id: deliveryData.id,
+              status: newStatus
+            }
+          });
+      }
 
       // Update rider earnings if delivered
       if (newStatus === 'delivered') {
         await supabase
           .from('profiles')
           .update({
-            total_earnings: supabase.raw('total_earnings + 50'),
+            total_earnings: supabase.raw('COALESCE(total_earnings, 0) + 50'),
             updated_at: new Date().toISOString()
           })
-          .eq('id', delivery.rider_id);
+          .eq('id', deliveryData.rider_id);
       }
 
       setAlertConfig({
@@ -234,13 +276,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       });
       setShowAlert(true);
       
-      fetchDeliveryDetails();
+      await fetchAllDeliveryData(); // Refresh all data
       setShowStatusModal(false);
     } catch (error) {
+      console.error('Error updating status:', error);
       setAlertConfig({
         type: 'error',
         title: 'Error',
-        message: error.message
+        message: error.message || 'Failed to update status'
       });
       setShowAlert(true);
     } finally {
@@ -264,7 +307,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           issue_description: issueDescription,
           issue_reported_at: new Date().toISOString()
         })
-        .eq('id', delivery.id);
+        .eq('id', deliveryData.id);
 
       // Notify admin
       await supabase
@@ -273,10 +316,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           user_id: null, // Will be sent to all admins
           type: 'system',
           title: 'Delivery Issue Reported',
-          message: `Rider reported issue with delivery #${order.order_number}: ${issueReason}`,
+          message: `Rider reported issue with delivery #${orderData?.order_number || orderData?.id}: ${issueReason}`,
           data: { 
-            delivery_id: delivery.id,
-            order_id: order.id,
+            delivery_id: deliveryData.id,
+            order_id: orderData?.id,
             reason: issueReason,
             description: issueDescription
           }
@@ -289,6 +332,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       });
       setShowAlert(true);
       setShowIssueModal(false);
+      
+      await fetchAllDeliveryData(); // Refresh data
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -297,16 +342,16 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const openMaps = () => {
-    if (order.delivery_lat && order.delivery_lng) {
+    if (orderData?.delivery_lat && orderData?.delivery_lng) {
       const url = Platform.select({
-        ios: `maps:${order.delivery_lat},${order.delivery_lng}`,
-        android: `geo:${order.delivery_lat},${order.delivery_lng}`
+        ios: `maps:${orderData.delivery_lat},${orderData.delivery_lng}`,
+        android: `geo:${orderData.delivery_lat},${orderData.delivery_lng}`
       });
       
       Linking.openURL(url);
     } else {
       // Fallback to address search
-      const address = encodeURIComponent(order.delivery_address);
+      const address = encodeURIComponent(orderData?.delivery_address || '');
       const url = Platform.select({
         ios: `maps:?q=${address}`,
         android: `geo:0,0?q=${address}`
@@ -316,7 +361,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const callCustomer = () => {
-    const phone = order.customer_name?.phone_number;
+    const phone = customerData?.phone_number;
     if (phone) {
       Linking.openURL(`tel:${phone}`);
     } else {
@@ -325,7 +370,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const messageCustomer = () => {
-    const phone = order.customer_name?.phone_number;
+    const phone = customerData?.phone_number;
     if (phone) {
       const cleanPhone = phone.replace(/\D/g, '');
       Linking.openURL(`sms:${cleanPhone}`);
@@ -335,7 +380,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const whatsappCustomer = () => {
-    const phone = order.customer_name?.phone_number;
+    const phone = customerData?.phone_number;
     if (phone) {
       const cleanPhone = phone.replace(/\D/g, '');
       Linking.openURL(`whatsapp://send?phone=${cleanPhone}`);
@@ -345,14 +390,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const copyAddress = () => {
-    Clipboard.setString(order.delivery_address);
+    Clipboard.setString(orderData?.delivery_address || '');
     Alert.alert('Success', 'Address copied to clipboard');
   };
 
   const shareDelivery = async () => {
     try {
       await Share.share({
-        message: `Delivery #${order.order_number}\nAddress: ${order.delivery_address}\nTotal: ${formatCurrency(order.total_amount)}`,
+        message: `Delivery #${orderData?.order_number || orderData?.id}\nAddress: ${orderData?.delivery_address}\nTotal: ${formatCurrency(orderData?.total_amount || 0)}`,
         title: 'Delivery Details'
       });
     } catch (error) {
@@ -414,6 +459,24 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  if (fetchingData) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Delivery Details</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0033A0" />
+          <Text style={styles.loadingText}>Loading delivery details...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -426,7 +489,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           <TouchableOpacity onPress={shareDelivery} style={styles.headerButton}>
             <Ionicons name="share-outline" size={22} color="#0033A0" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={fetchDeliveryDetails} style={styles.headerButton}>
+          <TouchableOpacity onPress={fetchAllDeliveryData} style={styles.headerButton}>
             <Ionicons name="refresh" size={22} color="#0033A0" />
           </TouchableOpacity>
         </View>
@@ -464,7 +527,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
               </Text>
             </View>
             <Text style={styles.orderNumber}>
-              Order #{order?.order_number || order?.id}
+              Order #{orderData?.order_number || orderData?.id || deliveryData.order_id}
             </Text>
           </View>
 
@@ -557,21 +620,25 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
               <Ionicons name="person" size={18} color="#666" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Name</Text>
-                <Text style={styles.infoValue}>{order?.customer_name?.full_name || 'Customer'}</Text>
+                <Text style={styles.infoValue}>
+                  {customerData?.full_name || 'Customer'}
+                </Text>
               </View>
             </View>
             <View style={styles.infoRow}>
               <Ionicons name="call" size={18} color="#666" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>{order?.customer_name?.phone_number || 'Not provided'}</Text>
+                <Text style={styles.infoValue}>
+                  {customerData?.phone_number || 'Not provided'}
+                </Text>
               </View>
             </View>
             <View style={styles.infoRow}>
               <Ionicons name="location" size={18} color="#666" />
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue}>{order?.delivery_address}</Text>
+                <Text style={styles.infoValue}>{orderData?.delivery_address || 'Address not available'}</Text>
               </View>
             </View>
           </View>
@@ -581,23 +648,55 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Order Items</Text>
           <View style={styles.itemsCard}>
-            {order?.order_items?.map((item, index) => (
-              <View key={index} style={styles.itemRow}>
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.products?.name}</Text>
-                  <Text style={styles.itemQuantity}>
-                    {item.quantity} {item.products?.unit} × {formatCurrency(item.price_at_order)}
-                  </Text>
-                </View>
-                <Text style={styles.itemTotal}>
-                  {formatCurrency(item.quantity * item.price_at_order)}
-                </Text>
-              </View>
-            ))}
+            {orderData?.order_items && orderData.order_items.length > 0 ? (
+              (() => {
+                let subtotal = 0;
+                return (
+                  <>
+                    {orderData.order_items.map((item, index) => {
+                      const quantity = parseFloat(item.quantity) || 0;
+                      const price = parseFloat(item.price_at_order) || 0;
+                      const itemTotal = quantity * price;
+                      subtotal += itemTotal;
+                      
+                      return (
+                        <View key={index} style={styles.itemRow}>
+                          <View style={styles.itemInfo}>
+                            <Text style={styles.itemName}>{item.products?.name || 'Product'}</Text>
+                            <Text style={styles.itemQuantity}>
+                              {quantity} {item.products?.unit || 'unit'} × ₱{price.toFixed(2)}
+                            </Text>
+                          </View>
+                          <Text style={styles.itemTotal}>
+                            ₱{itemTotal.toFixed(2)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+
+                    {/* subtotal line to explain total */}
+                    <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#f0f4ff', paddingTop: 8, marginTop: 8 }]}> 
+                      <Text style={styles.totalLabel}>Items Subtotal</Text>
+                      <Text style={styles.totalValue}>₱{subtotal.toFixed(2)}</Text>
+                    </View>
+                    {orderData?.delivery_fee != null && (
+                      <View style={[styles.totalRow, { marginTop: 4 }]}> 
+                        <Text style={styles.totalLabel}>Delivery Fee</Text>
+                        <Text style={styles.totalValue}>₱{parseFloat(orderData.delivery_fee).toFixed(2)}</Text>
+                      </View>
+                    )}
+                  </>
+                );
+              })()
+            ) : (
+              <Text style={styles.emptyText}>No items found</Text>
+            )}
             
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Amount</Text>
-              <Text style={styles.totalValue}>{formatCurrency(order?.total_amount)}</Text>
+              <Text style={styles.totalValue}>
+                ₱{parseFloat(orderData?.total_amount || 0).toFixed(2)}
+              </Text>
             </View>
           </View>
         </View>
@@ -609,12 +708,20 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             <View style={styles.paymentRow}>
               <Ionicons name="card" size={18} color="#666" />
               <Text style={styles.paymentLabel}>Method:</Text>
-              <Text style={styles.paymentValue}>{order?.payment_method}</Text>
+              <Text style={styles.paymentValue}>{orderData?.payment_method || 'Cash on Delivery'}</Text>
             </View>
-            {order?.special_instructions && (
+            <View style={styles.paymentRow}>
+              <Ionicons name="cash" size={18} color="#666" />
+              <Text style={styles.paymentLabel}>Order Total:</Text>
+              <Text style={styles.paymentValue}>
+                ₱{parseFloat(orderData?.total_amount || 0).toFixed(2)}
+              </Text>
+            </View>
+          
+            {orderData?.special_instructions && (
               <View style={styles.instructions}>
                 <Ionicons name="document-text" size={18} color="#666" />
-                <Text style={styles.instructionsText}>{order.special_instructions}</Text>
+                <Text style={styles.instructionsText}>{orderData.special_instructions}</Text>
               </View>
             )}
           </View>
@@ -643,8 +750,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         showCancelButton={true}
         onConfirm={() => {
           const options = getNextStatusOptions();
-          if (options.length > 0 && options[0].value !== 'issue') {
-            updateDeliveryStatus(options[0].value);
+          if (options.length > 0) {
+            const val = options[0].value;
+            if (val === 'picked_up' || val === 'delivered') {
+              // open proof modal first
+              setProofModalVisible(true);
+            } else if (val !== 'issue') {
+              updateDeliveryStatus(val);
+            }
           }
         }}
         loading={loading}
@@ -691,7 +804,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     await supabase
                       .from('deliveries')
                       .update({ notes: deliveryNotes })
-                      .eq('id', delivery.id);
+                      .eq('id', deliveryData.id);
                     setShowNotesModal(false);
                     Alert.alert('Success', 'Notes saved successfully');
                   }}
@@ -699,6 +812,77 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                   <Text style={styles.saveModalButtonText}>Save Notes</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Proof of Delivery Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={proofModalVisible}
+        onRequestClose={() => setProofModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Capture Proof</Text>
+              <TouchableOpacity onPress={() => setProofModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              {!proofImageUri ? (
+                <TouchableOpacity
+                  style={styles.captureButton}
+                  onPress={async () => {
+                    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                    if (status !== 'granted') {
+                      Alert.alert('Permission required', 'Camera permission is needed');
+                      return;
+                    }
+                    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+                    if (!result.cancelled) {
+                      setProofImageUri(result.uri);
+                    }
+                  }}
+                >
+                  <Ionicons name="camera" size={48} color="#0033A0" />
+                  <Text style={styles.captureText}>Take Photo</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={{ alignItems: 'center' }}>
+                  <Image source={{ uri: proofImageUri }} style={styles.capturedImage} />
+                  <TouchableOpacity onPress={() => setProofImageUri(null)}>
+                    <Text style={{ color: '#EF4444', marginTop: 8 }}>Retake</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {proofImageUri && (
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.saveModalButton]}
+                  onPress={async () => {
+                    setProofModalVisible(false);
+                    // upload and save then update status
+                    const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
+                    if (success) {
+                      await saveDeliveryProof({ delivery_id: deliveryData.id, photo_url: photoUrl });
+                      const options = getNextStatusOptions();
+                      if (options.length > 0) {
+                        const val = options[0].value;
+                        updateDeliveryStatus(val);
+                      }
+                    } else {
+                      Alert.alert('Upload failed', error || 'Could not upload photo');
+                    }
+                    setProofImageUri(null);
+                  }}
+                >
+                  <Text style={styles.saveModalButtonText}>Upload & Continue</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -807,6 +991,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#666',
+    fontSize: 14,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#999',
+    paddingVertical: 20,
+    fontSize: 14,
   },
   header: {
     flexDirection: 'row',
@@ -1254,5 +1454,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  captureButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#0033A0',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+  },
+  captureText: {
+    marginTop: 8,
+    color: '#0033A0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  capturedImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    resizeMode: 'cover',
   },
 });

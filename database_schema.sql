@@ -96,6 +96,7 @@ CREATE TABLE public.orders (
   cancelled_by uuid,
   customer_name text,
   estimated_delivery_time timestamp with time zone,
+  rider_id uuid,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
   CONSTRAINT orders_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.profiles(id)
