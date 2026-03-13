@@ -7,7 +7,8 @@ import {
   StyleSheet, 
   Dimensions,
   ScrollView,
-  Image
+  Image,
+  StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,14 +31,29 @@ export default function HomeScreen({ navigation }) {
     return 'Customer';
   };
 
+  // Get greeting based on time of day
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Fixed Header - NOT SCROLLABLE */}
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      
+      {/* Fixed Header - Modern Design */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.userName}>{getUserFirstName()}!</Text>
+            <Text style={styles.greeting}>{getGreeting()},</Text>
+            <View style={styles.userNameContainer}>
+              <Text style={styles.userName}>{getUserFirstName()}</Text>
+              <View style={styles.greetingEmoji}>
+                <Text style={styles.greetingEmojiText}>👋</Text>
+              </View>
+            </View>
           </View>
           
           <View style={styles.headerActions}>
@@ -53,34 +69,38 @@ export default function HomeScreen({ navigation }) {
               activeOpacity={0.7}
             >
               <View style={styles.profileIcon}>
-                <Ionicons name="person" size={22} color="#0033A0" />
+                <Text style={styles.profileInitial}>
+                  {user?.email?.charAt(0)?.toUpperCase() || 'C'}
+                </Text>
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Petron Branding - NOT A BUTTON */}
+        {/* Petron Branding with Gradient Effect */}
         <View style={styles.brandContainer}>
-          <Image 
-            source={require('../../../assets/petron-logo.png')} 
-            style={styles.petronLogo}
-            resizeMode="contain"
-          />
+          <View style={styles.logoWrapper}>
+            <Image 
+              source={require('../../../assets/petron-logo.png')} 
+              style={styles.petronLogo}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.brandTextContainer}>
             <Text style={styles.brandTitle}>Petron San Pedro</Text>
             <Text style={styles.brandSubtitle}>Fuel & Lubricants Delivery</Text>
           </View>
         </View>
 
-        {/* Quick Actions - OBVIOUS BUTTONS with hover effect */}
+        {/* Quick Actions - Enhanced Buttons */}
         <View style={styles.quickActionsHeader}>
           <TouchableOpacity 
             style={styles.headerActionButton}
             onPress={() => navigation.navigate('Cart')}
             activeOpacity={0.7}
           >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#0033A020' }]}>
-              <Ionicons name="cart" size={20} color="#0033A0" />
+            <View style={[styles.headerActionIcon, { backgroundColor: '#0033A0' }]}>
+              <Ionicons name="cart" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Cart</Text>
           </TouchableOpacity>
@@ -90,8 +110,8 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('OrderHistory')}
             activeOpacity={0.7}
           >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#ED293920' }]}>
-              <Ionicons name="time" size={20} color="#ED2939" />
+            <View style={[styles.headerActionIcon, { backgroundColor: '#ED2939' }]}>
+              <Ionicons name="time" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Orders</Text>
           </TouchableOpacity>
@@ -101,8 +121,8 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('Favorites')}
             activeOpacity={0.7}
           >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#ED293920' }]}>    
-              <Ionicons name="heart" size={20} color="#ED2939" />
+            <View style={[styles.headerActionIcon, { backgroundColor: '#ED2939' }]}>    
+              <Ionicons name="heart" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Favorites</Text>
           </TouchableOpacity>
@@ -112,8 +132,8 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
             activeOpacity={0.7}
           >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#10B98120' }]}>
-              <Ionicons name="water" size={20} color="#10B981" />
+            <View style={[styles.headerActionIcon, { backgroundColor: '#10B981' }]}>
+              <Ionicons name="water" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Fuel</Text>
           </TouchableOpacity>
@@ -123,124 +143,218 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('Selection', { category: 'Motor Oil' })}
             activeOpacity={0.7}
           >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B20' }]}>
-              <Ionicons name="water" size={20} color="#F59E0B" />
+            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B' }]}>
+              <Ionicons name="water" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Oil</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Scrollable Content - Everything below the header */}
+      {/* Scrollable Content */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        bounces={true}
       >
-        {/* Main Action Section - Order Now is an OBVIOUS BUTTON */}
+        {/* Main Action Section - Enhanced Order Now Button */}
         <View style={styles.mainSection}>
-          <Text style={styles.sectionTitle}>What would you like today?</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>What would you like today?</Text>
+          </View>
           
-          {/* Order Now Button - OBVIOUS BUTTON with prominent styling */}
           <TouchableOpacity 
             style={styles.orderNowButton}
             onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
             activeOpacity={0.7}
           >
-            <View style={styles.orderNowContent}>
+            <View style={styles.orderNowGradient}>
               <View style={styles.orderNowIconContainer}>
                 <Ionicons name="flash" size={32} color="#0033A0" />
               </View>
               <View style={styles.orderNowTextContainer}>
-                <Text style={styles.orderNowTitle}>Order Now</Text>
+                <Text style={styles.orderNowTitle}>Quick Order</Text>
                 <Text style={styles.orderNowSubtitle}>
-                  Browse fuel & lubricants
+                  Get fuel delivered in 15-30 mins
                 </Text>
               </View>
               <View style={styles.orderNowArrow}>
-                <Ionicons name="arrow-forward" size={24} color="#fff" />
+                <Ionicons name="arrow-forward-circle" size={32} color="#fff" />
               </View>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Quick Stats - NOT BUTTONS (just information cards) */}
+        {/* Quick Stats - Enhanced Design */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#0033A020' }]}>
-              <Ionicons name="flash" size={18} color="#0033A0" />
+            <View style={[styles.statIcon, { backgroundColor: '#0033A0' }]}>
+              <Ionicons name="flash" size={20} color="#fff" />
             </View>
-            <Text style={styles.statValue}>15-30</Text>
-            <Text style={styles.statLabel}>Minutes</Text>
+            <View style={styles.statInfo}>
+              <Text style={styles.statValue}>15-30</Text>
+              <Text style={styles.statLabel}>Minutes</Text>
+            </View>
           </View>
           
           <View style={styles.statDivider} />
           
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#ED293920' }]}>
-              <Ionicons name="shield-checkmark" size={18} color="#ED2939" />
+            <View style={[styles.statIcon, { backgroundColor: '#ED2939' }]}>
+              <Ionicons name="shield-checkmark" size={20} color="#fff" />
             </View>
-            <Text style={styles.statValue}>100%</Text>
-            <Text style={styles.statLabel}>Authentic</Text>
+            <View style={styles.statInfo}>
+              <Text style={styles.statValue}>100%</Text>
+              <Text style={styles.statLabel}>Authentic</Text>
+            </View>
           </View>
           
           <View style={styles.statDivider} />
           
           <View style={styles.statItem}>
-            <View style={[styles.statIcon, { backgroundColor: '#10B98120' }]}>
-              <Ionicons name="location" size={18} color="#10B981" />
+            <View style={[styles.statIcon, { backgroundColor: '#10B981' }]}>
+              <Ionicons name="location" size={20} color="#fff" />
             </View>
-            <Text style={styles.statValue}>San Pedro</Text>
-            <Text style={styles.statLabel}>Area</Text>
+            <View style={styles.statInfo}>
+              <Text style={styles.statValue}>San Pedro</Text>
+              <Text style={styles.statLabel}>Coverage</Text>
+            </View>
           </View>
         </View>
 
-        {/* Services Section - Cards are NOT BUTTONS (just information) */}
-        <View style={styles.servicesSection}>
-          <Text style={styles.sectionTitle}>Our Services</Text>
+        {/* Categories Section */}
+        <View style={styles.categoriesSection}>
+          <Text style={styles.sectionTitle}>Shop by Category</Text>
           
-          <View style={styles.servicesGrid}>
-            <View style={styles.serviceCard}>
-              <View style={[styles.serviceIcon, { backgroundColor: '#0033A010' }]}>
-                <Ionicons name="car" size={20} color="#0033A0" />
+          <View style={styles.categoriesGrid}>
+            <TouchableOpacity 
+              style={styles.categoryCard}
+              onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: '#0033A015' }]}>
+                <Ionicons name="water" size={32} color="#0033A0" />
               </View>
-              <Text style={styles.serviceText}>Vehicle Fuel</Text>
+              <Text style={styles.categoryName}>Fuel</Text>
+              <Text style={styles.categoryCount}>Premium quality</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.categoryCard}
+              onPress={() => navigation.navigate('Selection', { category: 'Motor Oil' })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: '#ED293915' }]}>
+                <Ionicons name="water" size={32} color="#ED2939" />
+              </View>
+              <Text style={styles.categoryName}>Motor Oil</Text>
+              <Text style={styles.categoryCount}>Engine protection</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.categoryCard}
+              onPress={() => navigation.navigate('Selection', { category: 'Engine Oil' })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: '#F59E0B15' }]}>
+                <Ionicons name="construct" size={32} color="#F59E0B" />
+              </View>
+              <Text style={styles.categoryName}>Engine Oil</Text>
+              <Text style={styles.categoryCount}>Maximum performance</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.categoryCard}
+              onPress={() => navigation.navigate('Selection', { category: 'Lubricants' })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: '#10B98115' }]}>
+                <Ionicons name="color-palette" size={32} color="#10B981" />
+              </View>
+              <Text style={styles.categoryName}>Lubricants</Text>
+              <Text style={styles.categoryCount}>All-purpose</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Why Choose Us Section */}
+        <View style={styles.whyChooseSection}>
+          <Text style={styles.sectionTitle}>Why Choose Us</Text>
+          
+          <View style={styles.featuresGrid}>
+            <View style={styles.featureCard}>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="rocket" size={24} color="#0033A0" />
+              </View>
+              <Text style={styles.featureTitle}>Lightning Fast</Text>
+              <Text style={styles.featureDescription}>15-30 min delivery</Text>
             </View>
-            
-            <View style={styles.serviceCard}>
-              <View style={[styles.serviceIcon, { backgroundColor: '#ED293910' }]}>
-                <Ionicons name="construct" size={20} color="#ED2939" />
+
+            <View style={styles.featureCard}>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="shield" size={24} color="#ED2939" />
               </View>
-              <Text style={styles.serviceText}>Engine Oils</Text>
+              <Text style={styles.featureTitle}>100% Authentic</Text>
+              <Text style={styles.featureDescription}>Petron quality assured</Text>
             </View>
-            
-            <View style={styles.serviceCard}>
-              <View style={[styles.serviceIcon, { backgroundColor: '#10B98110' }]}>
-                <Ionicons name="home" size={20} color="#10B981" />
+
+            <View style={styles.featureCard}>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="headset" size={24} color="#10B981" />
               </View>
-              <Text style={styles.serviceText}>Home Delivery</Text>
+              <Text style={styles.featureTitle}>24/7 Support</Text>
+              <Text style={styles.featureDescription}>Always here to help</Text>
             </View>
-            
-            <View style={styles.serviceCard}>
-              <View style={[styles.serviceIcon, { backgroundColor: '#F59E0B10' }]}>
-                <Ionicons name="time" size={20} color="#F59E0B" />
+
+            <View style={styles.featureCard}>
+              <View style={styles.featureIconContainer}>
+                <Ionicons name="wallet" size={24} color="#F59E0B" />
               </View>
-              <Text style={styles.serviceText}>24/7 Service</Text>
+              <Text style={styles.featureTitle}>Best Prices</Text>
+              <Text style={styles.featureDescription}>Competitive rates</Text>
             </View>
           </View>
         </View>
 
-        {/* Footer Info - NOT A BUTTON */}
+
+        {/* Footer Info */}
         <View style={styles.footerCard}>
-          <Text style={styles.footerTitle}>Petron San Pedro</Text>
+          <View style={styles.footerHeader}>
+            <Image 
+              source={require('../../../assets/petron-logo.png')} 
+              style={styles.footerLogo}
+              resizeMode="contain"
+            />
+            <View>
+              <Text style={styles.footerTitle}>Petron San Pedro</Text>
+              <Text style={styles.footerSubtitle}>Since 1980</Text>
+            </View>
+          </View>
           <Text style={styles.footerText}>
-            Premium quality fuel and lubricants delivered to your doorstep in San Pedro area.
+            Premium quality fuel and lubricants delivered to your doorstep in San Pedro area. 
             Available 24/7 for your convenience.
           </Text>
           <View style={styles.footerContact}>
-            <Ionicons name="call" size={14} color="#666" />
-            <Text style={styles.footerContactText}> (02) 8888-9999</Text>
+            <View style={styles.footerContactItem}>
+              <Ionicons name="call" size={16} color="#0033A0" />
+              <Text style={styles.footerContactText}> (02) 8888-9999</Text>
+            </View>
+            <View style={styles.footerContactItem}>
+              <Ionicons name="mail" size={16} color="#0033A0" />
+              <Text style={styles.footerContactText}> support@petronsanpedro.com</Text>
+            </View>
+          </View>
+          <View style={styles.footerSocial}>
+            <TouchableOpacity style={styles.socialIcon}>
+              <Ionicons name="logo-facebook" size={20} color="#0033A0" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialIcon}>
+              <Ionicons name="logo-instagram" size={20} color="#0033A0" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialIcon}>
+              <Ionicons name="logo-twitter" size={20} color="#0033A0" />
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -259,19 +373,19 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  // Header Styles - FIXED, NOT SCROLLABLE
+  // Header Styles - Modern Design
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 15,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    elevation: 3,
+    paddingBottom: 5,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   headerTop: {
     flexDirection: 'row',
@@ -279,72 +393,141 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
   },
-  welcomeText: {
+  greeting: {
     fontSize: 14,
     color: '#666',
     marginBottom: 2,
   },
+  userNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   userName: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#0033A0',
   },
+  greetingEmoji: {
+    backgroundColor: '#f0f4ff',
+    borderRadius: 15,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  greetingEmojiText: {
+    fontSize: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   profileButton: {
-    padding: 6,
+    padding: 0,
   },
   profileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: '#0033A0',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  // Branding - NOT A BUTTON
+  profileInitial: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  // Branding - Enhanced
   brandContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 12,
+  },
+  logoWrapper: {
+    backgroundColor: '#0033A0',
+    borderRadius: 12,
+    padding: 5,
+    marginRight: 12,
   },
   petronLogo: {
     width: 45,
     height: 45,
     borderRadius: 8,
-    backgroundColor: '#0033A0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
   brandTextContainer: {
     flex: 1,
   },
   brandTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0033A0',
     marginBottom: 2,
   },
   brandSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666',
+    marginBottom: 4,
   },
-  // Quick Actions - OBVIOUS BUTTONS
-  quickActionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f4ff',
-  },
-  headerActions: {
+  brandBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
+  },
+  brandBadgeText: {
+    fontSize: 10,
+    color: '#999',
+  },
+  // Promo Banner
+  promoBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#10B98110',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#10B98120',
+  },
+  promoContent: {
+    flex: 1,
+  },
+  promoTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#10B981',
+    marginBottom: 2,
+  },
+  promoSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  promoBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#10B981',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Quick Actions - Enhanced
+  quickActionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
   },
   headerActionButton: {
     alignItems: 'center',
     flex: 1,
-    transform: [{ scale: 1 }],
   },
   headerActionIcon: {
     width: 44,
@@ -353,11 +536,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
   },
   headerActionText: {
     fontSize: 11,
@@ -369,32 +552,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 16,
   },
-  // Order Now Button - OBVIOUS BUTTON
+  viewAllText: {
+    fontSize: 14,
+    color: '#0033A0',
+    fontWeight: '600',
+  },
+  // Order Now Button - Enhanced
   orderNowButton: {
-    backgroundColor: '#0033A0',
-    borderRadius: 16,
+    borderRadius: 20,
     marginBottom: 20,
     elevation: 5,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    overflow: 'hidden',
   },
-  orderNowContent: {
+  orderNowGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    backgroundColor: '#0033A0',
   },
   orderNowIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -415,45 +609,39 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderNowSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
   },
   orderNowArrow: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginLeft: 8,
   },
-  // Stats - INFORMATION CARDS (NOT BUTTONS)
+  // Stats - Enhanced
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 16,
     marginHorizontal: 20,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   statItem: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
+  statInfo: {
+    flex: 1,
   },
   statValue: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 2,
   },
   statLabel: {
     fontSize: 11,
@@ -462,70 +650,212 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     backgroundColor: '#e9ecef',
+    marginHorizontal: 8,
   },
-  // Services - INFORMATION CARDS (NOT BUTTONS)
-  servicesSection: {
+  // Categories Section
+  categoriesSection: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  servicesGrid: {
+  categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginTop: 12,
   },
-  serviceCard: {
+  categoryCard: {
     width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  serviceIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  categoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginBottom: 12,
   },
-  serviceText: {
-    fontSize: 13,
-    fontWeight: '500',
+  categoryName: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
+    marginBottom: 4,
   },
-  // Footer - INFORMATION CARD (NOT A BUTTON)
-  footerCard: {
+  categoryCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  // Why Choose Us Section
+  whyChooseSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  featureCard: {
+    width: '48%',
     backgroundColor: '#fff',
     borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  featureIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  featureDescription: {
+    fontSize: 11,
+    color: '#666',
+    textAlign: 'center',
+  },
+  // Promo Section
+  promoSection: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  promoCard: {
+    backgroundColor: '#0033A0',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  promoCardContent: {
+    flex: 1,
+  },
+  promoCardTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  promoCardSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 12,
+  },
+  promoCardButton: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  promoCardButtonText: {
+    color: '#0033A0',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  promoCardImage: {
+    marginLeft: 16,
+  },
+  // Footer - Enhanced
+  footerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#e9ecef',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  footerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    gap: 12,
+  },
+  footerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
   },
   footerTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#0033A0',
-    marginBottom: 8,
+  },
+  footerSubtitle: {
+    fontSize: 11,
+    color: '#999',
   },
   footerText: {
     fontSize: 13,
     color: '#666',
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 20,
+    marginBottom: 15,
   },
   footerContact: {
+    marginBottom: 15,
+    gap: 8,
+  },
+  footerContactItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   footerContactText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666',
-    marginLeft: 6,
+  },
+  footerSocial: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  socialIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

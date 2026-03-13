@@ -15,12 +15,21 @@ export const requestLocationPermissions = async () => {
       return { success: false, error: 'Foreground location permission denied' };
     }
 
-    // Also request background permissions for better tracking
-    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+    let backgroundGranted = false;
+
+    // attempt to request background access but don't fail if the call is rejected
+    try {
+      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+      backgroundGranted = backgroundStatus === 'granted';
+    } catch (bgError) {
+      // some platforms (expo managed, simulators) may reject this call
+      // log it and continue with only foreground permissions
+      console.warn('Background permission request rejected or unavailable:', bgError);
+    }
     
     return { 
       success: true, 
-      backgroundGranted: backgroundStatus === 'granted' 
+      backgroundGranted
     };
   } catch (error) {
     console.error('Error requesting location permissions:', error);

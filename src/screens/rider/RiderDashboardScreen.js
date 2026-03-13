@@ -12,7 +12,8 @@ import {
   Dimensions,
   Alert,
   Modal,
-  TextInput
+  TextInput,
+  Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,7 +138,7 @@ export default function RiderDashboardScreen({ navigation }) {
         ? Math.round((deliveredOnTime.length / completedDeliveries.length) * 100)
         : 100;
 
-      // Calculate earnings
+      // Calculate earnings (₱50 per delivery)
       const completedDeliveriesList = deliveries?.filter(d => d.status === 'delivered') || [];
       const totalEarnings = completedDeliveriesList.length * 50;
       const todayEarnings = completedToday.length * 50;
@@ -347,8 +348,8 @@ export default function RiderDashboardScreen({ navigation }) {
       const { error } = await supabase
         .from('profiles')
         .update({ 
-          is_active: !onlineStatus,
-          updated_at: new Date().toISOString()
+          is_online: !onlineStatus,
+          last_seen: new Date().toISOString()
         })
         .eq('id', profile.id);
 
@@ -430,24 +431,36 @@ export default function RiderDashboardScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header with Online Status Toggle */}
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.greetingContainer}>
-            <Text style={styles.greeting}>Hello,</Text>
-            <Text style={styles.userName}>{profile?.full_name || 'Rider'}</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'},</Text>
+            <Text style={styles.userName}>{profile?.full_name?.split(' ')[0] || 'Rider'}</Text>
           </View>
+          
           <View style={styles.headerActions}>
             <TouchableOpacity 
-              style={[styles.onlineToggle, onlineStatus ? styles.online : styles.offline]}
+              style={[styles.statusToggle, onlineStatus ? styles.statusOnline : styles.statusOffline]}
               onPress={toggleOnlineStatus}
             >
-              <View style={[styles.statusDot, onlineStatus ? styles.onlineDot : styles.offlineDot]} />
-              <Text style={styles.onlineText}>{onlineStatus ? 'Online' : 'Offline'}</Text>
+              <View style={[styles.statusDot, onlineStatus ? styles.dotOnline : styles.dotOffline]} />
+              <Text style={[styles.statusText, onlineStatus ? styles.textOnline : styles.textOffline]}>
+                {onlineStatus ? 'Online' : 'Offline'}
+              </Text>
             </TouchableOpacity>
-            
+
+            <TouchableOpacity 
+              style={styles.iconButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color="#0033A0" />
+              {/* Unread badge - you can add logic for this */}
+              <View style={styles.badge} />
+            </TouchableOpacity>
+
             <TouchableOpacity 
               style={styles.profileButton}
               onPress={() => navigation.navigate('RiderProfile')}
@@ -460,9 +473,74 @@ export default function RiderDashboardScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.subtitle}>
-          {onlineStatus ? 'You are online and ready to deliver' : 'You are offline'}
-        </Text>
+
+        {/* Quick Stats Row */}
+        <View style={styles.quickStatsRow}>
+          <View style={styles.quickStat}>
+            <Ionicons name="bicycle" size={20} color="#0033A0" />
+            <Text style={styles.quickStatValue}>{stats.todayDeliveries}</Text>
+            <Text style={styles.quickStatLabel}>Today</Text>
+          </View>
+          
+          <View style={styles.quickStatDivider} />
+          
+          <View style={styles.quickStat}>
+            <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+            <Text style={styles.quickStatValue}>{stats.completedToday}</Text>
+            <Text style={styles.quickStatLabel}>Completed</Text>
+          </View>
+          
+          <View style={styles.quickStatDivider} />
+          
+          <View style={styles.quickStat}>
+            <Ionicons name="time" size={20} color="#F59E0B" />
+            <Text style={styles.quickStatValue}>{stats.pendingDeliveries}</Text>
+            <Text style={styles.quickStatLabel}>Pending</Text>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionItem}
+            onPress={() => navigation.navigate('RiderDeliveries')}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A015' }]}>
+              <Ionicons name="list" size={22} color="#0033A0" />
+            </View>
+            <Text style={styles.quickActionText}>All</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickActionItem}
+            onPress={() => navigation.navigate('RiderMap')}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#10B98115' }]}>
+              <Ionicons name="map" size={22} color="#10B981" />
+            </View>
+            <Text style={styles.quickActionText}>Map</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickActionItem}
+            onPress={() => navigation.navigate('RiderProfile')}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#F59E0B15' }]}>
+              <Ionicons name="person" size={22} color="#F59E0B" />
+            </View>
+            <Text style={styles.quickActionText}>Profile</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.quickActionItem}
+            onPress={() => Linking.openURL('tel:123456789')}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#ED293915' }]}>
+              <Ionicons name="headset" size={22} color="#ED2939" />
+            </View>
+            <Text style={styles.quickActionText}>Support</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -472,77 +550,61 @@ export default function RiderDashboardScreen({ navigation }) {
         }
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
       >
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: '#0033A0' }]}>
-            <Text style={styles.statValue}>{stats.todayDeliveries}</Text>
-            <Text style={styles.statLabel}>Today's Deliveries</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#ED2939' }]}>
-            <Text style={styles.statValue}>{stats.completedToday}</Text>
-            <Text style={styles.statLabel}>Completed Today</Text>
-          </View>
-          <View style={[styles.statCard, { backgroundColor: '#F59E0B' }]}>
-            <Text style={styles.statValue}>{stats.pendingDeliveries}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
-          </View>
-          <TouchableOpacity 
-            style={[styles.statCard, { backgroundColor: '#10B981' }]}
-            onPress={() => setShowEarningsModal(true)}
-          >
-            <Text style={styles.statValue}>₱{stats.todayEarnings}</Text>
-            <Text style={styles.statLabel}>Today's Earnings</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Performance Metrics */}
-        <View style={styles.performanceRow}>
-          <View style={styles.performanceItem}>
-            <Ionicons name="stats-chart" size={20} color="#0033A0" />
-            <Text style={styles.performanceLabel}>Acceptance</Text>
-            <Text style={styles.performanceValue}>{stats.acceptanceRate}%</Text>
-          </View>
-          <View style={styles.performanceDivider} />
-          <View style={styles.performanceItem}>
-            <Ionicons name="time" size={20} color="#10B981" />
-            <Text style={styles.performanceLabel}>On-Time</Text>
-            <Text style={styles.performanceValue}>{stats.onTimeRate}%</Text>
-          </View>
-          <View style={styles.performanceDivider} />
-          <View style={styles.performanceItem}>
-            <Ionicons name="star" size={20} color="#F59E0B" />
-            <Text style={styles.performanceLabel}>Rating</Text>
-            <Text style={styles.performanceValue}>{stats.rating}</Text>
-          </View>
-        </View>
-
-        {/* Earnings Summary - Clickable */}
+        {/* Earnings Card */}
         <TouchableOpacity 
           style={styles.earningsCard}
           onPress={() => setShowEarningsModal(true)}
+          activeOpacity={0.7}
         >
           <View style={styles.earningsHeader}>
-            <Text style={styles.earningsTitle}>Earnings Summary</Text>
-            <Ionicons name="chevron-forward" size={20} color="#0033A0" />
-          </View>
-          <View style={styles.earningsRow}>
-            <View style={styles.earningItem}>
-              <Text style={styles.earningLabel}>Today</Text>
-              <Text style={styles.earningValue}>{formatCurrency(stats.todayEarnings)}</Text>
+            <View>
+              <Text style={styles.earningsTitle}>Total Earnings</Text>
+              <Text style={styles.earningsAmount}>{formatCurrency(stats.totalEarnings)}</Text>
             </View>
-            <View style={styles.earningDivider} />
-            <View style={styles.earningItem}>
-              <Text style={styles.earningLabel}>This Week</Text>
-              <Text style={styles.earningValue}>{formatCurrency(earningsBreakdown.weekly)}</Text>
-            </View>
-            <View style={styles.earningDivider} />
-            <View style={styles.earningItem}>
-              <Text style={styles.earningLabel}>Total</Text>
-              <Text style={styles.earningValue}>{formatCurrency(stats.totalEarnings)}</Text>
+            <View style={styles.earningsBadge}>
+              <Text style={styles.earningsBadgeText}>+₱50/delivery</Text>
             </View>
           </View>
-          <Text style={styles.earningNote}>Tap for detailed breakdown</Text>
+          
+          <View style={styles.earningsProgress}>
+            <View style={styles.earningsProgressItem}>
+              <Text style={styles.earningsProgressLabel}>Today</Text>
+              <Text style={styles.earningsProgressValue}>{formatCurrency(stats.todayEarnings)}</Text>
+            </View>
+            <View style={styles.earningsProgressItem}>
+              <Text style={styles.earningsProgressLabel}>This Week</Text>
+              <Text style={styles.earningsProgressValue}>{formatCurrency(earningsBreakdown.weekly)}</Text>
+            </View>
+            <View style={styles.earningsProgressItem}>
+              <Text style={styles.earningsProgressLabel}>This Month</Text>
+              <Text style={styles.earningsProgressValue}>{formatCurrency(earningsBreakdown.monthly)}</Text>
+            </View>
+          </View>
         </TouchableOpacity>
+
+        {/* Performance Metrics */}
+        <View style={styles.performanceCard}>
+          <Text style={styles.sectionTitle}>Performance</Text>
+          <View style={styles.performanceGrid}>
+            <View style={styles.performanceItem}>
+              <Ionicons name="stats-chart" size={20} color="#0033A0" />
+              <Text style={styles.performanceValue}>{stats.acceptanceRate}%</Text>
+              <Text style={styles.performanceLabel}>Acceptance</Text>
+            </View>
+            
+            <View style={styles.performanceItem}>
+              <Ionicons name="time" size={20} color="#10B981" />
+              <Text style={styles.performanceValue}>{stats.onTimeRate}%</Text>
+              <Text style={styles.performanceLabel}>On-Time</Text>
+            </View>
+            
+            <View style={styles.performanceItem}>
+              <Ionicons name="star" size={20} color="#F59E0B" />
+              <Text style={styles.performanceValue}>{stats.rating}</Text>
+              <Text style={styles.performanceLabel}>Rating</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Active Deliveries */}
         {activeDeliveries.length > 0 && (
@@ -550,29 +612,24 @@ export default function RiderDashboardScreen({ navigation }) {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Active Deliveries</Text>
               <TouchableOpacity onPress={() => navigation.navigate('RiderDeliveries')}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>View All ({activeDeliveries.length})</Text>
               </TouchableOpacity>
             </View>
-            {activeDeliveries.map((delivery, index) => (
+            
+            {activeDeliveries.map((delivery) => (
               <TouchableOpacity
                 key={delivery.id}
                 style={styles.deliveryCard}
                 onPress={() => navigation.navigate('RiderDeliveryDetails', { delivery })}
+                activeOpacity={0.7}
               >
                 <View style={styles.deliveryHeader}>
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderNumber}>
+                  <View>
+                    <Text style={styles.deliveryOrderNumber}>
                       Order #{delivery.orders?.order_number || delivery.order_id}
                     </Text>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(delivery.status) + '20' }
-                    ]}>
-                      <Ionicons 
-                        name={getStatusIcon(delivery.status)} 
-                        size={12} 
-                        color={getStatusColor(delivery.status)} 
-                      />
+                    <View style={styles.deliveryStatus}>
+                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(delivery.status) }]} />
                       <Text style={[styles.statusText, { color: getStatusColor(delivery.status) }]}>
                         {getStatusText(delivery.status)}
                       </Text>
@@ -581,28 +638,27 @@ export default function RiderDashboardScreen({ navigation }) {
                   <Ionicons name="chevron-forward" size={20} color="#999" />
                 </View>
                 
-                <View style={styles.deliveryDetails}>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="location" size={16} color="#666" />
-                    <Text style={styles.detailText} numberOfLines={1}>
+                <View style={styles.deliveryInfo}>
+                  <View style={styles.deliveryInfoRow}>
+                    <Ionicons name="location-outline" size={16} color="#666" />
+                    <Text style={styles.deliveryInfoText} numberOfLines={1}>
                       {delivery.orders?.delivery_address}
                     </Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="person" size={16} color="#666" />
-                    <Text style={styles.detailText}>
+                  <View style={styles.deliveryInfoRow}>
+                    <Ionicons name="person-outline" size={16} color="#666" />
+                    <Text style={styles.deliveryInfoText}>
                       {delivery.orders?.profiles?.full_name || 'Customer'}
                     </Text>
                   </View>
-                  <View style={styles.detailRow}>
-                    <Ionicons name="time" size={16} color="#666" />
-                    <Text style={styles.detailText}>
+                  <View style={styles.deliveryInfoRow}>
+                    <Ionicons name="time-outline" size={16} color="#666" />
+                    <Text style={styles.deliveryInfoText}>
                       {delivery.timeSinceAssignment} ago
                     </Text>
                   </View>
                 </View>
 
-                {/* Accept Button for newly assigned deliveries */}
                 {delivery.status === 'assigned' && (
                   <TouchableOpacity
                     style={styles.acceptButton}
@@ -619,54 +675,6 @@ export default function RiderDashboardScreen({ navigation }) {
           </View>
         )}
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('RiderDeliveries')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#0033A020' }]}>
-                <Ionicons name="list" size={24} color="#0033A0" />
-              </View>
-              <Text style={styles.actionText}>All Deliveries</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('RiderMap')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#10B98120' }]}>
-                <Ionicons name="map" size={24} color="#10B981" />
-              </View>
-              <Text style={styles.actionText}>Map View</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('RiderProfile')}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#F59E0B20' }]}>
-                <Ionicons name="person" size={24} color="#F59E0B" />
-              </View>
-              <Text style={styles.actionText}>Profile</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={() => {
-                Linking.openURL('tel:123456789');
-              }}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: '#ED293920' }]}>
-                <Ionicons name="headset" size={24} color="#ED2939" />
-              </View>
-              <Text style={styles.actionText}>Support</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Recent Deliveries */}
         {recentDeliveries.length > 0 && (
           <View style={styles.section}>
@@ -674,7 +682,7 @@ export default function RiderDashboardScreen({ navigation }) {
             {recentDeliveries.map((delivery) => (
               <View key={delivery.id} style={styles.recentItem}>
                 <View style={styles.recentIcon}>
-                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
                 </View>
                 <View style={styles.recentInfo}>
                   <Text style={styles.recentOrder}>
@@ -684,9 +692,7 @@ export default function RiderDashboardScreen({ navigation }) {
                     {formatTimeAgo(delivery.delivered_at)}
                   </Text>
                 </View>
-                <Text style={styles.recentAmount}>
-                  +₱50.00
-                </Text>
+                <Text style={styles.recentAmount}>+₱50</Text>
               </View>
             ))}
           </View>
@@ -700,7 +706,7 @@ export default function RiderDashboardScreen({ navigation }) {
         visible={showAcceptModal}
         onRequestClose={() => setShowAcceptModal(false)}
       >
-        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
+        <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Accept Delivery?</Text>
@@ -716,24 +722,24 @@ export default function RiderDashboardScreen({ navigation }) {
                     Order #{selectedDelivery.orders?.order_number || selectedDelivery.order_id}
                   </Text>
                   
-                  <View style={styles.modalDetailRow}>
-                    <Ionicons name="location" size={18} color="#666" />
-                    <Text style={styles.modalDetailText}>
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="location-outline" size={18} color="#666" />
+                    <Text style={styles.modalInfoText}>
                       {selectedDelivery.orders?.delivery_address}
                     </Text>
                   </View>
 
-                  <View style={styles.modalDetailRow}>
-                    <Ionicons name="person" size={18} color="#666" />
-                    <Text style={styles.modalDetailText}>
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="person-outline" size={18} color="#666" />
+                    <Text style={styles.modalInfoText}>
                       {selectedDelivery.orders?.profiles?.full_name || 'Customer'}
                     </Text>
                   </View>
 
-                  <View style={styles.modalDetailRow}>
-                    <Ionicons name="cash" size={18} color="#666" />
-                    <Text style={styles.modalDetailText}>
-                      {formatCurrency(selectedDelivery.orders?.total_amount)}
+                  <View style={styles.modalInfoRow}>
+                    <Ionicons name="cash-outline" size={18} color="#666" />
+                    <Text style={styles.modalInfoText}>
+                      {formatCurrency(selectedDelivery.orders?.total_amount || 0)}
                     </Text>
                   </View>
                 </View>
@@ -766,7 +772,7 @@ export default function RiderDashboardScreen({ navigation }) {
         visible={showEarningsModal}
         onRequestClose={() => setShowEarningsModal(false)}
       >
-        <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
+        <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Earnings Breakdown</Text>
@@ -845,48 +851,49 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 12,
     color: '#666',
     fontSize: 16,
   },
+  // Header Styles
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
-    elevation: 3,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  greetingContainer: {
-    flex: 1,
+    marginBottom: 15,
   },
   greeting: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 2,
   },
   userName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#0033A0',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
-  onlineToggle: {
+  statusToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -894,12 +901,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  online: {
-    backgroundColor: '#10B98120',
+  statusOnline: {
+    backgroundColor: '#10B98110',
     borderColor: '#10B981',
   },
-  offline: {
-    backgroundColor: '#EF444420',
+  statusOffline: {
+    backgroundColor: '#EF444410',
     borderColor: '#EF4444',
   },
   statusDot: {
@@ -908,15 +915,39 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 6,
   },
-  onlineDot: {
+  dotOnline: {
     backgroundColor: '#10B981',
   },
-  offlineDot: {
+  dotOffline: {
     backgroundColor: '#EF4444',
   },
-  onlineText: {
+  statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  textOnline: {
+    color: '#10B981',
+  },
+  textOffline: {
+    color: '#EF4444',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ED2939',
   },
   profileButton: {
     marginLeft: 4,
@@ -928,85 +959,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#0033A0',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   avatarText: {
     fontSize: 18,
     color: '#fff',
     fontWeight: 'bold',
   },
-  subtitle: {
-    fontSize: 14,
+  // Quick Stats
+  quickStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 15,
+  },
+  quickStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  quickStatDivider: {
+    width: 1,
+    backgroundColor: '#e9ecef',
+  },
+  quickStatValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 4,
+  },
+  quickStatLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
+  },
+  // Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 5,
+  },
+  quickActionItem: {
+    alignItems: 'center',
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  quickActionText: {
+    fontSize: 11,
     color: '#666',
     fontWeight: '500',
   },
+  // Scroll Content
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  statCard: {
-    width: '48%',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 10,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#fff',
-    opacity: 0.9,
-  },
-  performanceRow: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 15,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  performanceItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  performanceDivider: {
-    width: 1,
-    height: '100%',
-    backgroundColor: '#e9ecef',
-  },
-  performanceLabel: {
-    fontSize: 11,
-    color: '#666',
-    marginTop: 4,
-  },
-  performanceValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 2,
-  },
+  // Earnings Card
   earningsCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 20,
     elevation: 3,
     shadowColor: '#000',
@@ -1018,44 +1040,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 15,
   },
   earningsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  earningsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  earningItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  earningLabel: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },
-  earningValue: {
-    fontSize: 18,
+  earningsAmount: {
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#0033A0',
   },
-  earningDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#e9ecef',
+  earningsBadge: {
+    backgroundColor: '#10B98110',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
   },
-  earningNote: {
+  earningsBadgeText: {
+    color: '#10B981',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  earningsProgress: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  earningsProgressItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  earningsProgressLabel: {
     fontSize: 11,
     color: '#999',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    marginBottom: 2,
   },
+  earningsProgressValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  // Performance Card
+  performanceCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  performanceGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  performanceItem: {
+    alignItems: 'center',
+  },
+  performanceValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 4,
+  },
+  performanceLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginTop: 2,
+  },
+  // Section Styles
   section: {
     marginBottom: 20,
   },
@@ -1071,67 +1131,55 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   viewAllText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#0033A0',
     fontWeight: '600',
   },
+  // Delivery Card
   deliveryCard: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   deliveryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
   },
-  orderInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginRight: 12,
-  },
-  orderNumber: {
+  deliveryOrderNumber: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 4,
   },
-  statusBadge: {
+  deliveryStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
+    gap: 6,
   },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  deliveryDetails: {
+  deliveryInfo: {
     gap: 8,
   },
-  detailRow: {
+  deliveryInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  detailText: {
+  deliveryInfoText: {
     flex: 1,
     fontSize: 13,
     color: '#666',
   },
   acceptButton: {
     backgroundColor: '#10B981',
-    padding: 12,
+    paddingVertical: 12,
     borderRadius: 10,
     marginTop: 12,
     alignItems: 'center',
@@ -1141,29 +1189,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  actionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionButton: {
-    width: '48%',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  actionText: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-  },
+  // Recent Item
   recentItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1235,13 +1261,13 @@ const styles = StyleSheet.create({
     color: '#0033A0',
     marginBottom: 12,
   },
-  modalDetailRow: {
+  modalInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
     gap: 12,
   },
-  modalDetailText: {
+  modalInfoText: {
     flex: 1,
     fontSize: 14,
     color: '#666',
@@ -1317,5 +1343,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#0033A0',
+  },
+  earningsNote: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
 });

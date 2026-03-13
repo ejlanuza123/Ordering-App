@@ -1,4 +1,4 @@
-// src\screens\auth\LoginScreen.js
+// src/screens/auth/LoginScreen.js
 import React, { useState } from 'react';
 import { 
   View, 
@@ -13,11 +13,13 @@ import {
   Image,
   Dimensions,
   Modal,
+  StatusBar
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { Ionicons } from '@expo/vector-icons';
 
 const { height } = Dimensions.get('window');
 
@@ -126,37 +128,48 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#0033A0" />
+      
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        {/* Main Content - No ScrollView */}
+        {/* Main Content - Fixed layout, no scrolling */}
         <View style={styles.content}>
+          {/* Header with decorative elements */}
+          <View style={styles.headerDecoration}>
+            <View style={styles.decorationCircle1} />
+            <View style={styles.decorationCircle2} />
+          </View>
+
           {/* Logo and Welcome Section */}
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../../assets/petron-logo.png')} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoWrapper}>
+              <Image 
+                source={require('../../../assets/petron-logo.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
             <Text style={styles.welcomeTitle}>Welcome Back!</Text>
             <Text style={styles.welcomeSubtitle}>Sign in to continue to Petron San Pedro</Text>
           </View>
 
-          {/* Form Section */}
+          {/* Form Section - Fixed height, no scrolling needed */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email Address</Text>
               <View style={styles.inputWrapper}>
+                <Ionicons name="mail-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="Enter your email"
+                  placeholderTextColor="#999"
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
                   autoComplete="email"
-                  placeholderTextColor="#999"
                 />
               </View>
             </View>
@@ -164,22 +177,25 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
               <View style={styles.inputWrapper}>
+                <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
                 <TextInput
                   style={[styles.input, styles.passwordInput]}
                   placeholder="Enter your password"
+                  placeholderTextColor="#999"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoComplete="password"
-                  placeholderTextColor="#999"
                 />
                 <TouchableOpacity 
                   style={styles.eyeIcon}
                   onPress={() => setShowPassword(!showPassword)}
                 >
-                  <Text style={styles.eyeIconText}>
-                    {showPassword ? '👁️' : '👁️‍🗨️'}
-                  </Text>
+                  <Ionicons 
+                    name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                    size={20} 
+                    color="#0033A0" 
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -198,6 +214,7 @@ export default function LoginScreen({ navigation }) {
             {/* Login Button */}
             {blockedMessage ? (
               <View style={styles.blockedMessageContainer}>
+                <Ionicons name="alert-circle" size={20} color="#a1201f" />
                 <Text style={styles.blockedMessageText}>{blockedMessage}</Text>
               </View>
             ) : null}
@@ -206,11 +223,15 @@ export default function LoginScreen({ navigation }) {
               style={[styles.loginButton, (loading || blockedMessage) && styles.loginButtonDisabled]}
               onPress={handleLogin}
               disabled={loading || !!blockedMessage}
+              activeOpacity={0.8}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.loginButtonText}>LOGIN</Text>
+                <>
+                  <Text style={styles.loginButtonText}>LOGIN</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#fff" style={styles.loginButtonIcon} />
+                </>
               )}
             </TouchableOpacity>
 
@@ -228,9 +249,13 @@ export default function LoginScreen({ navigation }) {
                 <Text style={styles.registerLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.signUpNote}>
-              Sign up is for customers only. Riders should contact admin to be added.
-            </Text>
+            
+            <View style={styles.infoBadge}>
+              <Ionicons name="information-circle-outline" size={14} color="#0033A0" />
+              <Text style={styles.signUpNote}>
+                Sign up is for customers only. Riders contact admin.
+              </Text>
+            </View>
           </View>
 
           {/* Footer */}
@@ -240,27 +265,49 @@ export default function LoginScreen({ navigation }) {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Reset Password Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={showResetModal}
         onRequestClose={() => setShowResetModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name="key-outline" size={30} color="#fff" />
+              </View>
+              <TouchableOpacity 
+                style={styles.modalCloseButton}
+                onPress={() => {
+                  setShowResetModal(false);
+                  setResetEmail('');
+                }}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            
             <Text style={styles.modalTitle}>Reset Password</Text>
             <Text style={styles.modalMessage}>
-              Enter your email and we’ll send a password reset link.
+              Enter your email and we'll send you a password reset link.
             </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Email address"
-              placeholderTextColor="#999"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={resetEmail}
-              onChangeText={setResetEmail}
-            />
+            
+            <View style={styles.modalInputContainer}>
+              <Ionicons name="mail-outline" size={20} color="#999" style={styles.modalInputIcon} />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Email address"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={resetEmail}
+                onChangeText={setResetEmail}
+              />
+            </View>
+            
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalCancelButton]}
@@ -277,9 +324,9 @@ export default function LoginScreen({ navigation }) {
                 disabled={loading}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.modalConfirmText}>Send</Text>
+                  <Text style={styles.modalConfirmText}>Send Reset Link</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -302,7 +349,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#e6f2ff',
+    backgroundColor: '#0033A0', // Changed to Petron blue for gradient effect
   },
   keyboardView: {
     flex: 1,
@@ -310,44 +357,87 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 20,
   },
-  logo: {
+  // Decorative elements
+  headerDecoration: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    overflow: 'hidden',
+  },
+  decorationCircle1: {
+    position: 'absolute',
+    top: -50,
+    right: -30,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  decorationCircle2: {
+    position: 'absolute',
+    top: 20,
+    left: -40,
     width: 100,
     height: 100,
-    borderRadius: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#ED2939',
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
+  // Logo Section
   logoContainer: {
     alignItems: 'center',
-    flexShrink: 0,
+    marginTop: 20,
+  },
+  logoWrapper: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  logo: {
+    width: 114,
+    height: 114,
+    borderRadius: 16,
   },
   welcomeTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#0033A0',
-    marginBottom: 6,
+    color: '#fff',
+    marginBottom: 8,
     textAlign: 'center',
   },
   welcomeSubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
   },
+  // Form Container
   formContainer: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 5,
+    borderRadius: 24,
+    padding: 24,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
     width: '100%',
     alignSelf: 'center',
+    marginVertical: 20,
   },
   inputGroup: {
     marginBottom: 16,
@@ -357,17 +447,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 6,
+    marginLeft: 4,
   },
   inputWrapper: {
     position: 'relative',
-  },
-  input: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8f9fa',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
+  },
+  inputIcon: {
+    marginLeft: 12,
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
     fontSize: 15,
     color: '#333',
   },
@@ -376,13 +473,11 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     position: 'absolute',
-    right: 14,
+    right: 12,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
-  },
-  eyeIconText: {
-    fontSize: 18,
+    paddingHorizontal: 4,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
@@ -395,29 +490,35 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     backgroundColor: '#0033A0',
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     elevation: 3,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   loginButtonDisabled: {
     backgroundColor: '#8da2c0',
+    shadowOpacity: 0,
   },
   loginButtonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+  },
+  loginButtonIcon: {
+    marginLeft: 8,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   dividerLine: {
     flex: 1,
@@ -426,61 +527,74 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     paddingHorizontal: 12,
-    color: '#666',
+    color: '#999',
     fontSize: 13,
+    fontWeight: '500',
   },
   registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8,
   },
   registerText: {
     color: '#666',
-    fontSize: 13,
+    fontSize: 14,
   },
   registerLink: {
     color: '#0033A0',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
-  signUpNote: {
-    color: '#555',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 10,
-    lineHeight: 18,
-  },
-  footer: {
+  infoBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 0,
+    justifyContent: 'center',
+    backgroundColor: '#f0f4ff',
+    padding: 8,
+    borderRadius: 20,
+    marginTop: 8,
   },
-  footerText: {
-    color: '#666',
+  signUpNote: {
+    color: '#0033A0',
     fontSize: 11,
-    marginBottom: 2,
+    marginLeft: 4,
   },
-  footerSubtext: {
-    color: '#999',
-    fontSize: 10,
-  },
+  // Blocked Message
   blockedMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fdecea',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#f5c2c7',
+    gap: 8,
   },
   blockedMessageText: {
     color: '#a1201f',
     fontSize: 13,
     fontWeight: '600',
-    textAlign: 'center',
+    flex: 1,
   },
+  // Footer
+  footer: {
+    alignItems: 'center',
+  },
+  footerText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  footerSubtext: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 10,
+  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -489,38 +603,61 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360,
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    elevation: 6,
+    borderRadius: 28,
+    padding: 24,
+    elevation: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#0033A0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseButton: {
+    padding: 4,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: 'bold',
     color: '#0033A0',
     marginBottom: 8,
-    textAlign: 'center',
   },
   modalMessage: {
     fontSize: 14,
-    color: '#555',
-    marginBottom: 16,
-    textAlign: 'center',
+    color: '#666',
+    marginBottom: 20,
     lineHeight: 20,
   },
-  modalInput: {
+  modalInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    marginBottom: 20,
+  },
+  modalInputIcon: {
+    marginLeft: 12,
+  },
+  modalInput: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     fontSize: 14,
     color: '#333',
-    marginBottom: 16,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -528,7 +665,7 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
