@@ -127,27 +127,6 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.headerActionText}>Favorites</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.headerActionButton}
-            onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#10B981' }]}>
-              <Ionicons name="water" size={20} color="#fff" />
-            </View>
-            <Text style={styles.headerActionText}>Fuel</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.headerActionButton}
-            onPress={() => navigation.navigate('Selection', { category: 'Motor Oil' })}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B' }]}>
-              <Ionicons name="water" size={20} color="#fff" />
-            </View>
-            <Text style={styles.headerActionText}>Oil</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -220,61 +199,6 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.statValue}>San Pedro</Text>
               <Text style={styles.statLabel}>Coverage</Text>
             </View>
-          </View>
-        </View>
-
-        {/* Categories Section */}
-        <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>Shop by Category</Text>
-          
-          <View style={styles.categoriesGrid}>
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: '#0033A015' }]}>
-                <Ionicons name="water" size={32} color="#0033A0" />
-              </View>
-              <Text style={styles.categoryName}>Fuel</Text>
-              <Text style={styles.categoryCount}>Premium quality</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              onPress={() => navigation.navigate('Selection', { category: 'Motor Oil' })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: '#ED293915' }]}>
-                <Ionicons name="water" size={32} color="#ED2939" />
-              </View>
-              <Text style={styles.categoryName}>Motor Oil</Text>
-              <Text style={styles.categoryCount}>Engine protection</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              onPress={() => navigation.navigate('Selection', { category: 'Engine Oil' })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: '#F59E0B15' }]}>
-                <Ionicons name="construct" size={32} color="#F59E0B" />
-              </View>
-              <Text style={styles.categoryName}>Engine Oil</Text>
-              <Text style={styles.categoryCount}>Maximum performance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              onPress={() => navigation.navigate('Selection', { category: 'Lubricants' })}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: '#10B98115' }]}>
-                <Ionicons name="color-palette" size={32} color="#10B981" />
-              </View>
-              <Text style={styles.categoryName}>Lubricants</Text>
-              <Text style={styles.categoryCount}>All-purpose</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -572,7 +496,7 @@ const styles = StyleSheet.create({
   orderNowButton: {
     borderRadius: 20,
     marginBottom: 20,
-    elevation: 5,
+    elevation: 20,
     shadowColor: '#0033A0',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
