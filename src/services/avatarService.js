@@ -1,6 +1,6 @@
 // src/services/avatarService.js
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 import { Platform } from 'react-native';
@@ -87,7 +87,7 @@ export const avatarService = {
 
       // 1. Read the image as a base64 string using Expo FileSystem
       const base64 = await FileSystem.readAsStringAsync(imageUri, { 
-        encoding: FileSystem.EncodingType.Base64 
+        encoding: 'base64' 
       });
 
       // 2. Upload the decoded base64 arraybuffer to Supabase

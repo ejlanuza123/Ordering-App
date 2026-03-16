@@ -21,6 +21,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useFocusEffect } from '@react-navigation/native';
+import Avatar from '../../components/Avatar';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +31,7 @@ export default function RiderDashboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
   const [stats, setStats] = useState({
     todayDeliveries: 0,
     completedToday: 0,
@@ -52,6 +55,30 @@ export default function RiderDashboardScreen({ navigation }) {
     monthly: 0,
     pending: 0
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLatestAvatar = async () => {
+        if (!profile) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', profile.id)
+            .single();
+            
+          if (!error && data?.avatar_url) {
+            setCurrentAvatarUrl(data.avatar_url);
+          }
+        } catch (error) {
+          console.error('Error fetching latest avatar:', error);
+        }
+      };
+
+      fetchLatestAvatar();
+    }, [profile])
+  );
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -465,11 +492,12 @@ export default function RiderDashboardScreen({ navigation }) {
               style={styles.profileButton}
               onPress={() => navigation.navigate('RiderProfile')}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {profile?.full_name?.charAt(0)?.toUpperCase() || 'R'}
-                </Text>
-              </View>
+              <Avatar 
+                size={44} 
+                avatarUrl={currentAvatarUrl} 
+                editable={false}
+                showEditButton={false}
+              />
             </TouchableOpacity>
           </View>
         </View>

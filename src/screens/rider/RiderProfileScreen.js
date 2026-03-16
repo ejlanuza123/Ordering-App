@@ -1,5 +1,5 @@
 // src/screens/rider/RiderProfileScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { useFocusEffect } from '@react-navigation/native';
+import Avatar from '../../components/Avatar';
 
 export default function RiderProfileScreen({ navigation }) {
   const { profile, signOut } = useAuth();
@@ -23,6 +25,7 @@ export default function RiderProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [formData, setFormData] = useState({
     full_name: '',
     phone_number: '',
@@ -51,9 +54,34 @@ export default function RiderProfileScreen({ navigation }) {
         vehicle_type: profile.vehicle_type || '',
         vehicle_plate: profile.vehicle_plate || ''
       });
+      setAvatarUrl(profile.avatar_url || '');
     }
     fetchRiderStats();
   }, [profile]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLatestAvatar = async () => {
+        if (!profile?.id) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', profile.id)
+            .single();
+            
+          if (!error && data?.avatar_url) {
+            setAvatarUrl(data.avatar_url);
+          }
+        } catch (error) {
+          console.error('Error fetching latest avatar:', error);
+        }
+      };
+
+      fetchLatestAvatar();
+    }, [profile?.id])
+  );
 
   const fetchRiderStats = async () => {
     try {
@@ -156,11 +184,12 @@ export default function RiderProfileScreen({ navigation }) {
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {formData.full_name?.charAt(0)?.toUpperCase() || 'R'}
-            </Text>
-          </View>
+          <Avatar 
+            size={70}
+            avatarUrl={avatarUrl}
+            onUploadSuccess={(url) => setAvatarUrl(url)}
+            editable={true} // Allows uploading anytime, just like the customer side
+          />
           {!editing ? (
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{formData.full_name || 'Rider'}</Text>

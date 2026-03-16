@@ -1,5 +1,5 @@
 // src/screens/customer/HomeScreen.js
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -16,7 +16,8 @@ import { useAuth } from '../../context/AuthContext';
 import NotificationIcon from '../../components/NotificationIcon';
 import { useNotifications } from '../../context/NotificationContext';
 import Avatar from '../../components/Avatar';
-
+import { useFocusEffect } from '@react-navigation/native';
+import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +25,31 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLatestAvatar = async () => {
+        if (!user) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .single();
+            
+          if (!error && data?.avatar_url) {
+            setCurrentAvatarUrl(data.avatar_url);
+          }
+        } catch (error) {
+          console.error('Error fetching latest avatar:', error);
+        }
+      };
+
+      fetchLatestAvatar();
+    }, [user])
+  );
 
   // Extract first name from email or full name
   const getUserFirstName = () => {
@@ -71,6 +97,7 @@ export default function HomeScreen({ navigation }) {
             >
               <Avatar 
                 size={40} 
+                avatarUrl={currentAvatarUrl}
                 editable={false}
                 showEditButton={false}
               />
