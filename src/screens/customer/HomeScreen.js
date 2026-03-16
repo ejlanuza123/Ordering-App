@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import NotificationIcon from '../../components/NotificationIcon';
 import { useNotifications } from '../../context/NotificationContext';
-import Avatar from '../components/Avatar';
+import Avatar from '../../components/Avatar';
 
 
 const { width } = Dimensions.get('window');

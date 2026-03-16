@@ -29,7 +29,7 @@ export default function ProfileScreen({ navigation }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url);
+  const [avatarUrl, setAvatarUrl] = useState('');
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -54,50 +54,51 @@ export default function ProfileScreen({ navigation }) {
   // alertConfig was initialized above with empty object; leave as-is
 
   // 1. Fetch Profile Data and Stats
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        if (!user) return;
+  const fetchProfileData = async () => {
+    try {
+      if (!user) return;
 
-        // Fetch profile data
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+      // Fetch profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-        if (profileError) throw profileError;
+      if (profileError) throw profileError;
 
-        if (profileData) {
-          setFullName(profileData.full_name || '');
-          setPhone(profileData.phone_number || '');
-          setAddress(profileData.address || '');
-          if (profileData.address_lat != null) setAddressLat(profileData.address_lat);
-          if (profileData.address_lng != null) setAddressLng(profileData.address_lng);
-        }
-
-        // Fetch user stats
-        const { data: ordersData, error: ordersError } = await supabase
-          .from('orders')
-          .select('id, total_amount, status')
-          .eq('user_id', user.id);
-
-        if (!ordersError && ordersData) {
-          setOrderCount(ordersData.length);
-          
-          const spent = ordersData
-            .filter(order => order.status === 'Completed')
-            .reduce((sum, order) => sum + parseFloat(order.total_amount), 0);
-          setTotalSpent(spent);
-        }
-
-      } catch (error) {
-        console.error('Error fetching profile:', error.message);
-      } finally {
-        setLoading(false);
+      if (profileData) {
+        setFullName(profileData.full_name || '');
+        setPhone(profileData.phone_number || '');
+        setAddress(profileData.address || '');
+        if (profileData.address_lat != null) setAddressLat(profileData.address_lat);
+        if (profileData.address_lng != null) setAddressLng(profileData.address_lng);
+        setAvatarUrl(profileData.avatar_url || '');
       }
-    };
 
+      // Fetch user stats
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, total_amount, status')
+        .eq('user_id', user.id);
+
+      if (!ordersError && ordersData) {
+        setOrderCount(ordersData.length);
+        
+        const spent = ordersData
+          .filter(order => order.status === 'Completed')
+          .reduce((sum, order) => sum + parseFloat(order.total_amount), 0);
+        setTotalSpent(spent);
+      }
+
+    } catch (error) {
+      console.error('Error fetching profile:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchProfileData();
   }, [user]);
 
@@ -293,9 +294,10 @@ export default function ProfileScreen({ navigation }) {
           <View style={styles.profileHeader}>
             <Avatar 
               size={80}
-              onUploadSuccess={(url) => {
+              avatarUrl={avatarUrl}
+              onUploadSuccess={async (url) => {
                 setAvatarUrl(url);
-                // Refresh profile data
+                await fetchProfileData();
               }}
             />
             <View style={styles.profileInfo}>

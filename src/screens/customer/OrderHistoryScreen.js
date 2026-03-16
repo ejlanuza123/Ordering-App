@@ -436,18 +436,12 @@ export default function OrderHistoryScreen({ navigation }) {
     return lowerStatus === 'pending' || lowerStatus === 'processing';
   };
 
-  const canArchiveOrder = (status) => {
-    const lowerStatus = status?.toLowerCase();
-    return lowerStatus === 'completed' || lowerStatus === 'cancelled';
-  };
-
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
     const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
     const displayStatus = isArchived ? 'Archived' : item.status;
     const statusColor = getStatusColor(statusKey);
     const statusIcon = getStatusIcon(statusKey);
-    const showArchiveButton = isArchived || canArchiveOrder(item.status);
 
     return (
       <TouchableOpacity 
@@ -491,22 +485,20 @@ export default function OrderHistoryScreen({ navigation }) {
             <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.orderActions}>
-            {showArchiveButton && (
-              <TouchableOpacity
-                style={[
-                  styles.archiveButton,
-                  isArchived ? styles.restoreButton : styles.archiveButton,
-                ]}
-                onPress={() => handleArchivePress(item)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={isArchived ? 'reload' : 'archive'}
-                  size={18}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.archiveButton,
+                isArchived ? styles.restoreButton : styles.archiveButton,
+              ]}
+              onPress={() => handleArchivePress(item)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={isArchived ? 'reload' : 'archive'}
+                size={18}
+                color="#fff"
+              />
+            </TouchableOpacity>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </View>
         </View>
@@ -588,31 +580,29 @@ export default function OrderHistoryScreen({ navigation }) {
             )}
 
             {/* Archive / Restore Button */}
-            {(selectedOrder.archived || canArchiveOrder(selectedOrder.status)) && (
-              <TouchableOpacity
-                style={[
-                  styles.cancelButtonFull,
-                  selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
-                ]}
-                onPress={() => handleArchivePress(selectedOrder)}
-                disabled={archiving}
-              >
-                {archiving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={selectedOrder.archived ? 'reload' : 'archive'}
-                      size={20}
-                      color="#fff"
-                    />
-                    <Text style={styles.cancelButtonFullText}>
-                      {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.cancelButtonFull,
+                selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
+              ]}
+              onPress={() => handleArchivePress(selectedOrder)}
+              disabled={archiving}
+            >
+              {archiving ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={selectedOrder.archived ? 'reload' : 'archive'}
+                    size={20}
+                    color="#fff"
+                  />
+                  <Text style={styles.cancelButtonFullText}>
+                    {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             {/* Order Items */}
             <View style={styles.detailsSection}>

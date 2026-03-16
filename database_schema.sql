@@ -97,6 +97,7 @@ CREATE TABLE public.orders (
   customer_name text,
   estimated_delivery_time timestamp with time zone,
   rider_id uuid,
+  archived boolean NOT NULL DEFAULT false,
   CONSTRAINT orders_pkey PRIMARY KEY (id),
   CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id),
   CONSTRAINT orders_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.profiles(id)
@@ -148,6 +149,8 @@ CREATE TABLE public.profiles (
   fcm_token text,
   is_online boolean DEFAULT false,
   last_seen timestamp with time zone,
+  avatar_url text,
+  avatar_updated_at timestamp with time zone,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

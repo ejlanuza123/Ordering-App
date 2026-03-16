@@ -38,7 +38,8 @@ const CustomAlertModal = ({
       case 'info':
         return { name: 'information-circle', color: '#0033A0' };
       case 'confirm':
-        return { name: 'help-circle', color: '#0033A0' };
+        // For confirmation dialogs (like removing an item), show a warning-style appearance
+        return { name: 'help-circle', color: '#F59E0B' };
       default:
         return { name: iconName || 'information-circle', color: iconColor || '#0033A0' };
     }
@@ -95,7 +96,8 @@ const CustomAlertModal = ({
                 type === 'warning' && { backgroundColor: '#F59E0B' },
                 type === 'success' && { backgroundColor: '#10B981' },
                 type === 'info' && { backgroundColor: '#0033A0' },
-                type === 'confirm' && { backgroundColor: '#0033A0' },
+                // Confirm dialogs (remove item, etc.) should use warning color
+                type === 'confirm' && { backgroundColor: '#F59E0B' },
                 showCancelButton && styles.flexButton,
               ]}
               onPress={handleConfirm}

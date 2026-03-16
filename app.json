@@ -14,7 +14,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Petron San Pedro App to access your camera to take profile pictures.",
+        "NSPhotoLibraryUsageDescription": "Allow Petron San Pedro App to access your photos to set your profile picture."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +29,10 @@
       "package": "com.ejlanuza124.PetronSanPedroApp",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -36,6 +43,13 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Petron San Pedro App to use your location to accurately pinpoint your delivery address."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Petron San Pedro App to access your photos to set your profile picture.",
+          "cameraPermission": "Allow Petron San Pedro App to access your camera to take profile pictures."
         }
       ]
     ]

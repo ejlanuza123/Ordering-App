@@ -8,8 +8,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Platform
+  Platform,
+  Animated,
+  Easing
 } from 'react-native';
+import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { avatarService } from '../services/avatarService';
 import { useAuth } from '../context/AuthContext';
@@ -17,18 +20,52 @@ import CustomAlertModal from './CustomAlertModal';
 
 const Avatar = ({ 
   size = 60, 
+  avatarUrl,
   onUploadSuccess,
   editable = true,
   showEditButton = true
 }) => {
-  const { user, profile, updateProfile } = useAuth(); // Assuming you have updateProfile
+  const { user, profile } = useAuth();
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('preparing'); // preparing, uploading, success, error
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
     title: '',
     message: ''
+  });
+
+  // Animation values
+  const progressAnimation = useState(new Animated.Value(0))[0];
+  const rotateAnimation = useState(new Animated.Value(0))[0];
+
+  // Rotate animation for loading
+  const startRotateAnimation = () => {
+    Animated.loop(
+      Animated.timing(rotateAnimation, {
+        toValue: 1,
+        duration: 2000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  // Progress bar animation
+  const animateProgress = (toValue) => {
+    Animated.timing(progressAnimation, {
+      toValue,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const rotate = rotateAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
   });
 
   const handleAvatarPress = async () => {
@@ -52,7 +89,7 @@ const Avatar = ({
 
     const image = await avatarService.pickImage();
     if (image) {
-      await uploadAvatar(image.uri);
+      await uploadWithProgress(image.uri);
     }
   };
 
@@ -61,9 +98,80 @@ const Avatar = ({
     
     const image = await avatarService.takePhoto();
     if (image) {
-      await uploadAvatar(image.uri);
+      await uploadWithProgress(image.uri);
     }
   };
+
+    const uploadWithProgress = async (uri) => {
+    try {
+        console.log('📸 STEP 1: Starting upload process for URI:', uri);
+        
+        // Reset states
+        setUploadProgress(0);
+        setUploadStatus('preparing');
+        setShowUploadModal(true);
+        console.log('📸 STEP 2: Upload modal should be visible now');
+        
+        animateProgress(0);
+        startRotateAnimation();
+
+        // Simulate preparation
+        console.log('📸 STEP 3: Preparing image...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setUploadStatus('uploading');
+        
+        // Animate to 30% - preparing
+        animateProgress(0.3);
+        
+        // Simulate processing
+        await new Promise(resolve => setTimeout(resolve, 300));
+        animateProgress(0.5);
+
+        // Actual upload
+        console.log('📸 STEP 4: Calling avatarService.uploadAvatar...');
+        setUploading(true);
+        
+        const publicUrl = await avatarService.uploadAvatar(user.id, uri);
+        console.log('📸 STEP 5: Upload successful, URL:', publicUrl);
+        
+        // Animate to 90% - upload complete
+        animateProgress(0.9);
+        
+        // Simulate finalizing
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Success!
+        animateProgress(1);
+        setUploadStatus('success');
+        
+        // Close modal after showing success
+        setTimeout(() => {
+        console.log('📸 STEP 6: Closing modal and calling onUploadSuccess');
+        setShowUploadModal(false);
+        if (onUploadSuccess) onUploadSuccess(publicUrl);
+        }, 1500);
+
+    } catch (error) {
+        console.log('📸 ERROR: Upload failed at step:', error);
+        console.log('📸 Error details:', error.message);
+        console.log('📸 Full error:', error);
+        
+        setUploadStatus('error');
+        animateProgress(0);
+        
+        setTimeout(() => {
+        setShowUploadModal(false);
+        setAlertConfig({
+            type: 'error',
+            title: 'Upload Failed',
+            message: error.message || 'Failed to upload avatar'
+        });
+        setShowAlert(true);
+        }, 1500);
+    } finally {
+        setUploading(false);
+    }
+    };
 
   const handleRemoveAvatar = async () => {
     setShowOptions(false);
@@ -79,15 +187,31 @@ const Avatar = ({
           onPress: async () => {
             try {
               setUploading(true);
+              setUploadStatus('uploading');
+              setShowUploadModal(true);
+              animateProgress(0.3);
+              
               await avatarService.deleteAvatar(user.id, profile?.avatar_url);
-              if (onUploadSuccess) onUploadSuccess(null);
+              
+              animateProgress(1);
+              setUploadStatus('success');
+              
+              setTimeout(() => {
+                setShowUploadModal(false);
+                if (onUploadSuccess) onUploadSuccess(null);
+              }, 1000);
+              
             } catch (error) {
-              setAlertConfig({
-                type: 'error',
-                title: 'Error',
-                message: 'Failed to remove avatar'
-              });
-              setShowAlert(true);
+              setUploadStatus('error');
+              setTimeout(() => {
+                setShowUploadModal(false);
+                setAlertConfig({
+                  type: 'error',
+                  title: 'Error',
+                  message: error.message || 'Failed to remove avatar'
+                });
+                setShowAlert(true);
+              }, 1000);
             } finally {
               setUploading(false);
             }
@@ -95,23 +219,6 @@ const Avatar = ({
         }
       ]
     );
-  };
-
-  const uploadAvatar = async (uri) => {
-    try {
-      setUploading(true);
-      const publicUrl = await avatarService.uploadAvatar(user.id, uri);
-      if (onUploadSuccess) onUploadSuccess(publicUrl);
-    } catch (error) {
-      setAlertConfig({
-        type: 'error',
-        title: 'Upload Failed',
-        message: error.message || 'Failed to upload avatar'
-      });
-      setShowAlert(true);
-    } finally {
-      setUploading(false);
-    }
   };
 
   const getInitials = () => {
@@ -126,6 +233,42 @@ const Avatar = ({
     return user?.email?.charAt(0)?.toUpperCase() || 'U';
   };
 
+  // Get status message
+  const getStatusMessage = () => {
+    switch(uploadStatus) {
+      case 'preparing':
+        return 'Preparing image...';
+      case 'uploading':
+        return 'Uploading to server...';
+      case 'success':
+        return 'Upload Successful!';
+      case 'error':
+        return 'Upload Failed';
+      default:
+        return 'Processing...';
+    }
+  };
+
+  // Get status icon
+  const getStatusIcon = () => {
+    switch(uploadStatus) {
+      case 'preparing':
+        return <Ionicons name="image-outline" size={40} color="#0033A0" />;
+      case 'uploading':
+        return (
+          <Animated.View style={{ transform: [{ rotate }] }}>
+            <Ionicons name="cloud-upload-outline" size={40} color="#0033A0" />
+          </Animated.View>
+        );
+      case 'success':
+        return <Ionicons name="checkmark-circle" size={40} color="#10B981" />;
+      case 'error':
+        return <Ionicons name="close-circle" size={40} color="#EF4444" />;
+      default:
+        return <Ionicons name="cloud-outline" size={40} color="#0033A0" />;
+    }
+  };
+
   return (
     <>
       <TouchableOpacity
@@ -134,10 +277,11 @@ const Avatar = ({
         activeOpacity={0.7}
       >
         <View style={[styles.container, { width: size, height: size }]}>
-          {uploading ? (
-            <View style={[styles.avatar, { backgroundColor: '#f0f4ff' }]}>
-              <ActivityIndicator size="small" color="#0033A0" />
-            </View>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={[styles.avatar, { width: size, height: size }]}
+            />
           ) : profile?.avatar_url ? (
             <Image
               source={{ uri: profile.avatar_url }}
@@ -208,6 +352,62 @@ const Avatar = ({
             )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Upload Progress Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showUploadModal}
+        onRequestClose={() => {}}
+      >
+        <View style={styles.uploadModalOverlay}>
+          <View style={styles.uploadModalContent}>
+            <View style={styles.uploadIconContainer}>
+              {getStatusIcon()}
+            </View>
+            
+            <Text style={styles.uploadTitle}>
+              {getStatusMessage()}
+            </Text>
+            
+            <Text style={styles.uploadSubtitle}>
+              {uploadStatus === 'preparing' && 'Please wait...'}
+              {uploadStatus === 'uploading' && `${Math.round(progressAnimation.__getValue() * 100)}% complete`}
+              {uploadStatus === 'success' && 'Your profile picture has been updated'}
+              {uploadStatus === 'error' && 'Please try again'}
+            </Text>
+
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <Animated.View 
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: progressAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%']
+                    }),
+                    backgroundColor: uploadStatus === 'error' ? '#EF4444' : '#0033A0'
+                  }
+                ]} 
+              />
+            </View>
+
+            {uploadStatus === 'success' && (
+              <Text style={styles.successMessage}>✓</Text>
+            )}
+
+            {uploadStatus === 'error' && (
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={() => setShowUploadModal(false)}
+              >
+                <Text style={styles.retryButtonText}>Close</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </Modal>
 
       <CustomAlertModal
@@ -305,6 +505,78 @@ const styles = StyleSheet.create({
   },
   removeText: {
     color: '#ED2939',
+  },
+  // Upload Modal Styles
+  uploadModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  uploadModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 30,
+    width: '100%',
+    maxWidth: 300,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  uploadIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  uploadTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  uploadSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: '#e9ecef',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  successMessage: {
+    fontSize: 40,
+    color: '#10B981',
+    marginTop: 10,
+  },
+  retryButton: {
+    backgroundColor: '#0033A0',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
