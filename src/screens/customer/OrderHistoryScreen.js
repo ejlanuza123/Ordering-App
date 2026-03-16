@@ -41,6 +41,11 @@ export default function OrderHistoryScreen({ navigation }) {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
+
+  const [archiving, setArchiving] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [orderToArchive, setOrderToArchive] = useState(null);
+
   const [showAlert, setShowAlert] = useState(false);
   const [hasMoreData, setHasMoreData] = useState(true);
   const [page, setPage] = useState(0);
@@ -58,6 +63,8 @@ export default function OrderHistoryScreen({ navigation }) {
     { id: 'completed', label: 'Completed' },
     { id: 'cancelled', label: 'Cancelled' },
   ];
+
+  const isArchivedView = selectedFilter === 'archived';
 
   // helper removes leading zeros after prefix (e.g. ORD-000010 -> ORD-10)
   const formatOrderNumber = (num) => {
@@ -83,6 +90,7 @@ export default function OrderHistoryScreen({ navigation }) {
           delivery_address,
           payment_method,
           created_at,
+          archived,
           order_items (
             quantity,
             price_at_order,
@@ -128,6 +136,7 @@ export default function OrderHistoryScreen({ navigation }) {
           delivery_address,
           payment_method,
           created_at,
+          archived,
           order_items (
             quantity,
             price_at_order,
@@ -213,21 +222,28 @@ export default function OrderHistoryScreen({ navigation }) {
     }
 
     if (filter === 'all') {
-      setFilteredOrders(ordersList);
-    } else {
-      const filtered = ordersList.filter(order => {
-        const status = order.status?.toLowerCase() || '';
-        switch (filter) {
-          case 'pending': return status === 'pending';
-          case 'processing': return status === 'processing';
-          case 'delivery': return status === 'out for delivery';
-          case 'completed': return status === 'completed';
-          case 'cancelled': return status === 'cancelled';
-          default: return true;
-        }
-      });
-      setFilteredOrders(filtered);
+      setFilteredOrders(ordersList.filter((o) => !o.archived));
+      return;
     }
+
+    if (filter === 'archived') {
+      setFilteredOrders(ordersList.filter((o) => o.archived));
+      return;
+    }
+
+    const filtered = ordersList.filter(order => {
+      if (order.archived) return false;
+      const status = order.status?.toLowerCase() || '';
+      switch (filter) {
+        case 'pending': return status === 'pending';
+        case 'processing': return status === 'processing';
+        case 'delivery': return status === 'out for delivery';
+        case 'completed': return status === 'completed';
+        case 'cancelled': return status === 'cancelled';
+        default: return true;
+      }
+    });
+    setFilteredOrders(filtered);
   };
 
   const handleCancelPress = (order) => {
@@ -246,6 +262,49 @@ export default function OrderHistoryScreen({ navigation }) {
     setShowCancelModal(true);
   };
 
+  const handleArchivePress = (order) => {
+    setOrderToArchive(order);
+    setShowArchiveModal(true);
+  };
+
+  const confirmArchive = async () => {
+    if (!orderToArchive) return;
+
+    setArchiving(true);
+    try {
+      const newArchiveState = !orderToArchive.archived;
+      const { error } = await supabase
+        .from('orders')
+        .update({ archived: newArchiveState })
+        .eq('id', orderToArchive.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setAlertConfig({
+        type: 'success',
+        title: newArchiveState ? 'Order Hidden' : 'Order Restored',
+        message: newArchiveState
+          ? 'This order has been hidden from your history.'
+          : 'This order has been restored to your history.'
+      });
+      setShowAlert(true);
+      fetchOrders();
+      setOrderDetailsModal(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update order visibility. Please try again.'
+      });
+      setShowAlert(true);
+    } finally {
+      setArchiving(false);
+      setShowArchiveModal(false);
+      setOrderToArchive(null);
+    }
+  };
   const confirmCancelOrder = async () => {
     if (!orderToCancel) return;
     
@@ -317,6 +376,7 @@ export default function OrderHistoryScreen({ navigation }) {
         return '#7e0083';
       case 'completed': return '#10B981';
       case 'cancelled': return '#EF4444';
+      case 'archived': return '#F59E0B';
       default: return '#666';
     }
   };
@@ -331,6 +391,7 @@ export default function OrderHistoryScreen({ navigation }) {
         return 'bicycle';
       case 'completed': return 'checkmark-circle';
       case 'cancelled': return 'close-circle';
+      case 'archived': return 'archive';
       default: return 'help-circle';
     }
   };
@@ -375,54 +436,90 @@ export default function OrderHistoryScreen({ navigation }) {
     return lowerStatus === 'pending' || lowerStatus === 'processing';
   };
 
-  const renderOrderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.orderCard}
-      onPress={() => fetchOrderDetails(item.id)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.orderHeader}>
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderNumber}>
-            {formatOrderNumber(item.order_number) || `Order #${item.id}`}
-          </Text>
-          <Text style={styles.orderDate}>{formatTimeAgo(item.created_at)}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-          <Ionicons 
-            name={getStatusIcon(item.status)} 
-            size={14} 
-            color={getStatusColor(item.status)} 
-          />
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status}
-          </Text>
-        </View>
-      </View>
+  const canArchiveOrder = (status) => {
+    const lowerStatus = status?.toLowerCase();
+    return lowerStatus === 'completed' || lowerStatus === 'cancelled';
+  };
 
-      <View style={styles.orderItemsPreview}>
-        {item.order_items && item.order_items.slice(0, 2).map((orderItem, index) => (
-          <Text key={index} style={styles.previewItem} numberOfLines={1}>
-            • {orderItem.products?.name || 'Product'} ({orderItem.quantity} {orderItem.products?.unit || 'unit'})
-          </Text>
-        ))}
-        {item.order_items && item.order_items.length > 2 && (
-          <Text style={styles.moreItems}>+{item.order_items.length - 2} more items</Text>
-        )}
-      </View>
+  const renderOrderItem = ({ item }) => {
+    const isArchived = !!item.archived;
+    const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
+    const displayStatus = isArchived ? 'Archived' : item.status;
+    const statusColor = getStatusColor(statusKey);
+    const statusIcon = getStatusIcon(statusKey);
+    const showArchiveButton = isArchived || canArchiveOrder(item.status);
 
-      <View style={styles.orderFooter}>
-        <View style={styles.orderTotal}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
+    return (
+      <TouchableOpacity 
+        style={styles.orderCard}
+        onPress={() => fetchOrderDetails(item.id)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.orderHeader}>
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderNumber}>
+              {formatOrderNumber(item.order_number) || `Order #${item.id}`}
+            </Text>
+            <Text style={styles.orderDate}>{formatTimeAgo(item.created_at)}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+            <Ionicons 
+              name={statusIcon} 
+              size={14} 
+              color={statusColor} 
+            />
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {displayStatus}
+            </Text>
+          </View>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#999" />
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.orderItemsPreview}>
+          {item.order_items && item.order_items.slice(0, 2).map((orderItem, index) => (
+            <Text key={index} style={styles.previewItem} numberOfLines={1}>
+              • {orderItem.products?.name || 'Product'} ({orderItem.quantity} {orderItem.products?.unit || 'unit'})
+            </Text>
+          ))}
+          {item.order_items && item.order_items.length > 2 && (
+            <Text style={styles.moreItems}>+{item.order_items.length - 2} more items</Text>
+          )}
+        </View>
+
+        <View style={styles.orderFooter}>
+          <View style={styles.orderTotal}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
+          </View>
+          <View style={styles.orderActions}>
+            {showArchiveButton && (
+              <TouchableOpacity
+                style={[
+                  styles.archiveButton,
+                  isArchived ? styles.restoreButton : styles.archiveButton,
+                ]}
+                onPress={() => handleArchivePress(item)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isArchived ? 'reload' : 'archive'}
+                  size={18}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            )}
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderOrderDetails = () => {
     if (!selectedOrder) return null;
+
+    const isArchived = !!selectedOrder.archived;
+    const statusKey = isArchived ? 'archived' : selectedOrder.status;
+    const displayStatus = isArchived ? 'Archived' : selectedOrder.status;
 
     return (
       <Modal
@@ -460,14 +557,14 @@ export default function OrderHistoryScreen({ navigation }) {
                 </Text>
                 <Text style={styles.detailsDate}>{formatDate(selectedOrder.created_at)}</Text>
               </View>
-              <View style={[styles.detailsStatus, { backgroundColor: getStatusColor(selectedOrder.status) + '20' }]}>
+              <View style={[styles.detailsStatus, { backgroundColor: getStatusColor(statusKey) + '20' }]}>
                 <Ionicons 
-                  name={getStatusIcon(selectedOrder.status)} 
+                  name={getStatusIcon(statusKey)} 
                   size={16} 
-                  color={getStatusColor(selectedOrder.status)} 
+                  color={getStatusColor(statusKey)} 
                 />
-                <Text style={[styles.detailsStatusText, { color: getStatusColor(selectedOrder.status) }]}>
-                  {selectedOrder.status}
+                <Text style={[styles.detailsStatusText, { color: getStatusColor(statusKey) }]}>
+                  {displayStatus}
                 </Text>
               </View>
             </View>
@@ -485,6 +582,33 @@ export default function OrderHistoryScreen({ navigation }) {
                   <>
                     <Ionicons name="close-circle" size={20} color="#fff" />
                     <Text style={styles.cancelButtonFullText}>Cancel Order</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* Archive / Restore Button */}
+            {(selectedOrder.archived || canArchiveOrder(selectedOrder.status)) && (
+              <TouchableOpacity
+                style={[
+                  styles.cancelButtonFull,
+                  selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
+                ]}
+                onPress={() => handleArchivePress(selectedOrder)}
+                disabled={archiving}
+              >
+                {archiving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={selectedOrder.archived ? 'reload' : 'archive'}
+                      size={20}
+                      color="#fff"
+                    />
+                    <Text style={styles.cancelButtonFullText}>
+                      {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -619,38 +743,57 @@ export default function OrderHistoryScreen({ navigation }) {
           >
             <Ionicons name="arrow-back" size={24} color="#0033A0" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Orders</Text>
-          <View style={{width: 40}} />
+          <Text style={styles.headerTitle}>
+            {isArchivedView ? 'Archived Orders' : 'My Orders'}
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.archiveHeaderButton,
+              isArchivedView && styles.archiveHeaderButtonActive,
+            ]}
+            onPress={() => setSelectedFilter(isArchivedView ? 'all' : 'archived')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isArchivedView ? 'list' : 'archive'}
+              size={22}
+              color={isArchivedView ? '#fff' : '#0033A0'}
+            />
+            {isArchivedView && <Text style={styles.archiveHeaderLabel}>ARCHIVED</Text>}
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterWrapper}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContent}
-        >
-          {filters.map((filter) => (
-            <TouchableOpacity
-              key={filter.id}
-              style={[
-                styles.filterTab,
-                selectedFilter === filter.id && styles.filterTabActive
-              ]}
-              onPress={() => setSelectedFilter(filter.id)}
-              activeOpacity={0.7}
-            >
-              <Text style={[
-                styles.filterText,
-                selectedFilter === filter.id && styles.filterTextActive
-              ]}>
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+      {!isArchivedView && (
+        <View style={styles.filterWrapper}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
+          >
+            {filters.map((filter) => (
+              <TouchableOpacity
+                key={filter.id}
+                style={[
+                  styles.filterTab,
+                  selectedFilter === filter.id && styles.filterTabActive
+                ]}
+                onPress={() => setSelectedFilter(filter.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[
+                  styles.filterText,
+                  selectedFilter === filter.id && styles.filterTextActive
+                ]}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Orders List */}
       <FlatList
@@ -721,6 +864,26 @@ export default function OrderHistoryScreen({ navigation }) {
         loading={cancelling}
       />
 
+      <CustomAlertModal
+        visible={showArchiveModal}
+        onClose={() => {
+          setShowArchiveModal(false);
+          setOrderToArchive(null);
+        }}
+        type="confirm"
+        title={orderToArchive?.archived ? 'Restore Order' : 'Hide Order'}
+        message={`${
+          orderToArchive?.archived
+            ? 'This order will be visible in your history again.'
+            : 'This will hide the order from your history. You can restore it anytime.'
+        }`}
+        confirmText={orderToArchive?.archived ? 'Restore' : 'Hide'}
+        cancelText="Cancel"
+        showCancelButton={true}
+        onConfirm={confirmArchive}
+        loading={archiving}
+      />
+
       {/* Success/Error Alert */}
       <CustomAlertModal
         visible={showAlert}
@@ -769,6 +932,23 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#0033A0',
+  },
+  archiveHeaderButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f4ff',
+  },
+  archiveHeaderButtonActive: {
+    backgroundColor: '#0033A0',
+  },
+  archiveHeaderLabel: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: 'bold',
+    marginTop: 2,
   },
   filterWrapper: {
     backgroundColor: '#fff',
@@ -885,6 +1065,27 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f4ff',
+  },
+  orderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  archiveButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
+  restoreButton: {
+    backgroundColor: '#10B981',
   },
   orderTotal: {
     flexDirection: 'row',
@@ -1032,6 +1233,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  archiveButtonFull: {
+    backgroundColor: '#F59E0B',
+  },
+  restoreButtonFull: {
+    backgroundColor: '#10B981',
   },
   cancelButtonFullText: {
     color: '#fff',
