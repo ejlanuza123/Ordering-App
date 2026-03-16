@@ -23,6 +23,10 @@ npx expo prebuild --platform android --clean
 npm run android
 ```
 
+``` bash
+npx expo run:android
+```
+
 ------------------------------------------------------------------------
 
 ## Generate APK

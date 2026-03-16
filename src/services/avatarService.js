@@ -18,38 +18,58 @@ export const avatarService = {
 
   // Pick image from gallery
   async pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-      base64: false, // Don't get base64 to save memory here, we handle it in upload
-    });
+    try {
+      console.log('📷 Attempting to open Image Library...');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], // 🟢 The correct, warning-free modern syntax
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false, 
+      });
+      
+      console.log('📷 Image Library Result:', JSON.stringify(result, null, 2));
 
-    if (!result.canceled) {
-      return result.assets[0];
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        return result.assets[0];
+      } else {
+        console.log('📷 Upload cancelled or no assets found');
+        return null;
+      }
+    } catch (error) {
+      console.error('📷 ImagePicker Gallery Error:', error);
+      return null;
     }
-    return null;
   },
 
   // Take photo with camera
   async takePhoto() {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      throw new Error('Camera permission required');
-    }
+    try {
+      console.log('📷 Attempting to open Camera...');
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        throw new Error('Camera permission required');
+      }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'], // 🟢 The correct, warning-free modern syntax
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!result.canceled) {
-      return result.assets[0];
+      console.log('📷 Camera Result:', JSON.stringify(result, null, 2));
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        return result.assets[0];
+      } else {
+        console.log('📷 Upload cancelled or no assets found');
+        return null;
+      }
+    } catch (error) {
+      console.error('📷 ImagePicker Camera Error:', error);
+      return null;
     }
-    return null;
   },
 
   // Upload avatar to Supabase
