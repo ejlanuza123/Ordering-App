@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import NotificationIcon from '../../components/NotificationIcon';
 import { useNotifications } from '../../context/NotificationContext';
+import Avatar from '../components/Avatar';
+
 
 const { width } = Dimensions.get('window');
 
@@ -66,13 +68,12 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity 
               style={styles.profileButton}
               onPress={() => navigation.navigate('Profile')}
-              activeOpacity={0.7}
             >
-              <View style={styles.profileIcon}>
-                <Text style={styles.profileInitial}>
-                  {user?.email?.charAt(0)?.toUpperCase() || 'C'}
-                </Text>
-              </View>
+              <Avatar 
+                size={40} 
+                editable={false}
+                showEditButton={false}
+              />
             </TouchableOpacity>
           </View>
         </View>

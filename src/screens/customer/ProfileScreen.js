@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import Avatar from '../../components/Avatar';
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
@@ -28,6 +29,7 @@ export default function ProfileScreen({ navigation }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -288,18 +290,19 @@ export default function ProfileScreen({ navigation }) {
         >
           {/* Profile Card */}
           <View style={styles.profileCard}>
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <Text style={styles.avatarText}>
-                  {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-                </Text>
-              </View>
-              <View style={styles.profileInfo}>
-                <Text style={styles.profileName}>{fullName || 'User'}</Text>
-                <Text style={styles.profileEmail}>{user.email}</Text>
-                <Text style={styles.profileMember}>Member since {new Date(user.created_at).getFullYear()}</Text>
-              </View>
+          <View style={styles.profileHeader}>
+            <Avatar 
+              size={80}
+              onUploadSuccess={(url) => {
+                setAvatarUrl(url);
+                // Refresh profile data
+              }}
+            />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{fullName || 'User'}</Text>
+              <Text style={styles.profileEmail}>{user.email}</Text>
             </View>
+          </View>
 
             {/* User Stats */}
             <View style={styles.statsContainer}>
