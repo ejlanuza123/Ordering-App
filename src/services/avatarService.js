@@ -143,29 +143,40 @@ export const avatarService = {
         return;
       }
 
-      console.log('Deleting avatar:', avatarUrl);
+      console.log('🔴 DELETE: Starting delete for user:', userId, 'URL:', avatarUrl);
 
-      // Extract file path from URL
+      // Improved URL parsing with regex fallback
+      let filePath = null;
       const urlParts = avatarUrl.split('/avatars/');
-      if (urlParts.length < 2) {
-        console.log('Could not extract file path from URL');
-        return;
+      if (urlParts.length >= 2) {
+        filePath = urlParts[1];
+      } else {
+        // Regex fallback for different URL formats
+        const match = avatarUrl.match(/\/avatars\/(.*)$/);
+        if (match) {
+          filePath = match[1];
+        }
       }
-      
-      const filePath = urlParts[1];
-      console.log('Extracted file path:', filePath);
+
+      if (!filePath) {
+        const err = new Error('Could not extract file path from avatar URL: ' + avatarUrl);
+        console.error('🔴 DELETE ERROR:', err.message);
+        throw err;
+      }
+
+      console.log('🔴 DELETE: File path extracted:', filePath);
 
       // Delete from storage
-      const { error } = await supabase.storage
+      const { error: deleteError } = await supabase.storage
         .from(AVATAR_BUCKET)
         .remove([filePath]);
 
-      if (error) {
-        console.error('Delete error:', error);
-        throw error;
+      if (deleteError) {
+        console.error('🔴 DELETE STORAGE ERROR:', deleteError);
+        throw new Error(`Storage delete failed: ${deleteError.message}`);
       }
 
-      console.log('File deleted from storage');
+      console.log('🔴 DELETE: File successfully deleted from storage');
 
       // Update profile
       const { error: updateError } = await supabase
@@ -177,13 +188,13 @@ export const avatarService = {
         .eq('id', userId);
 
       if (updateError) {
-        console.error('Profile update error:', updateError);
-        throw updateError;
+        console.error('🔴 DELETE PROFILE ERROR:', updateError);
+        throw new Error(`Profile update failed: ${updateError.message}`);
       }
 
-      console.log('Profile updated successfully');
+      console.log('✅ DELETE: Profile updated - avatar removed successfully');
     } catch (error) {
-      console.error('Error deleting avatar:', error);
+      console.error('💥 FULL DELETE ERROR:', error);
       throw error;
     }
   }

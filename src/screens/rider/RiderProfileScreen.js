@@ -184,11 +184,31 @@ export default function RiderProfileScreen({ navigation }) {
         
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <Avatar 
+  <Avatar 
             size={70}
             avatarUrl={avatarUrl}
-            onUploadSuccess={(url) => setAvatarUrl(url)}
-            editable={true} // Allows uploading anytime, just like the customer side
+            onUploadSuccess={async (url) => {
+              setAvatarUrl(url);
+              // Refetch full profile data for realtime update
+              if (profile?.id) {
+                const { data, error } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', profile.id)
+                  .single();
+                if (!error && data) {
+                  setFormData({
+                    full_name: data.full_name || '',
+                    phone_number: data.phone_number || '',
+                    address: data.address || '',
+                    vehicle_type: data.vehicle_type || '',
+                    vehicle_plate: data.vehicle_plate || ''
+                  });
+                  setAvatarUrl(data.avatar_url || null);
+                }
+              }
+            }}
+            editable={true}
           />
           {!editing ? (
             <View style={styles.profileInfo}>

@@ -25,6 +25,7 @@ const Avatar = ({
   editable = true,
   showEditButton = true
 }) => {
+  const [showConfirmRemove, setShowConfirmRemove] = useState(false);
   const { user, profile } = useAuth();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -173,52 +174,46 @@ const Avatar = ({
     }
     };
 
-  const handleRemoveAvatar = async () => {
+  const handleRemoveAvatar = () => {
     setShowOptions(false);
-    
-    Alert.alert(
-      'Remove Avatar',
-      'Are you sure you want to remove your profile picture?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setUploading(true);
-              setUploadStatus('uploading');
-              setShowUploadModal(true);
-              animateProgress(0.3);
-              
-              await avatarService.deleteAvatar(user.id, profile?.avatar_url);
-              
-              animateProgress(1);
-              setUploadStatus('success');
-              
-              setTimeout(() => {
-                setShowUploadModal(false);
-                if (onUploadSuccess) onUploadSuccess(null);
-              }, 1000);
-              
-            } catch (error) {
-              setUploadStatus('error');
-              setTimeout(() => {
-                setShowUploadModal(false);
-                setAlertConfig({
-                  type: 'error',
-                  title: 'Error',
-                  message: error.message || 'Failed to remove avatar'
-                });
-                setShowAlert(true);
-              }, 1000);
-            } finally {
-              setUploading(false);
-            }
-          }
-        }
-      ]
-    );
+    setShowConfirmRemove(true);
+  };
+
+  const confirmRemoveAvatar = async () => {
+    setShowConfirmRemove(false);
+    try {
+      setUploadStatus('removing');
+      setShowUploadModal(true);
+      animateProgress(0);
+      
+      setUploading(true);
+      animateProgress(0.5);
+      
+      await avatarService.deleteAvatar(user.id, profile?.avatar_url);
+      
+      animateProgress(1);
+      setUploadStatus('success');
+      
+      setTimeout(() => {
+        setShowUploadModal(false);
+        if (onUploadSuccess) onUploadSuccess(null);
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Remove avatar error:', error);
+      setUploadStatus('error');
+      setTimeout(() => {
+        setShowUploadModal(false);
+        setAlertConfig({
+          type: 'error',
+          title: 'Error',
+          message: error.message || 'Failed to remove avatar'
+        });
+        setShowAlert(true);
+      }, 1500);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const getInitials = () => {
@@ -258,6 +253,12 @@ const Avatar = ({
         return (
           <Animated.View style={{ transform: [{ rotate }] }}>
             <Ionicons name="cloud-upload-outline" size={40} color="#0033A0" />
+          </Animated.View>
+        );
+      case 'removing':
+        return (
+          <Animated.View style={{ transform: [{ rotate }] }}>
+            <Ionicons name="trash-outline" size={40} color="#ED2939" />
           </Animated.View>
         );
       case 'success':
@@ -374,7 +375,8 @@ const Avatar = ({
             <Text style={styles.uploadSubtitle}>
               {uploadStatus === 'preparing' && 'Please wait...'}
               {uploadStatus === 'uploading' && `${Math.round(progressAnimation.__getValue() * 100)}% complete`}
-              {uploadStatus === 'success' && 'Your profile picture has been updated'}
+              {uploadStatus === 'removing' && 'Deleting from server...'}
+              {uploadStatus === 'success' && (uploadStatus === 'removing' ? 'Your profile picture has been removed' : 'Your profile picture has been updated')}
               {uploadStatus === 'error' && 'Please try again'}
             </Text>
 
@@ -410,6 +412,17 @@ const Avatar = ({
         </View>
       </Modal>
 
+      <CustomAlertModal
+        visible={showConfirmRemove}
+        onClose={() => setShowConfirmRemove(false)}
+        type="confirm"
+        title="Remove Profile Photo"
+        message="Are you sure you want to remove your profile picture?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        showCancelButton={true}
+        onConfirm={confirmRemoveAvatar}
+      />
       <CustomAlertModal
         visible={showAlert}
         onClose={() => setShowAlert(false)}
@@ -473,7 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 20,
+    paddingBottom: 50,
   },
   modalHeader: {
     flexDirection: 'row',
