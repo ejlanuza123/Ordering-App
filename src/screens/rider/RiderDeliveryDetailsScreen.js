@@ -23,9 +23,11 @@ import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const { delivery } = route.params;
+  const { profile } = useAuth(); // Get current rider profile
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
@@ -45,6 +47,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueReason, setIssueReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
+  const [selectedAction, setSelectedAction] = useState(null);
 
   // proof of delivery state
   const [proofModalVisible, setProofModalVisible] = useState(false);
@@ -109,7 +112,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const fetchAllDeliveryData = async () => {
     setFetchingData(true);
     try {
-      // 1. Fetch the delivery record - using maybeSingle() instead of single()
+      // 1. Fetch the delivery record
       const { data: deliveryRecord, error: deliveryError } = await supabase
         .from('deliveries')
         .select('*')
@@ -146,7 +149,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             )
           `)
           .eq('id', deliveryRecord.order_id)
-          .maybeSingle(); // Use maybeSingle() here too
+          .maybeSingle();
 
         if (orderError) {
           console.error('Error fetching order:', orderError);
@@ -159,7 +162,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
               .from('profiles')
               .select('full_name, phone_number')
               .eq('id', orderRecord.user_id)
-              .maybeSingle(); // Use maybeSingle() here too
+              .maybeSingle();
 
             if (!profileError && profileRecord) {
               setCustomerData(profileRecord);
@@ -185,6 +188,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  // FIXED: Updated function to set rider_id when accepting
   const updateDeliveryStatus = async (newStatus) => {
     setLoading(true);
     
@@ -197,6 +201,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         ...(newStatus === 'failed' && { failed_at: new Date().toISOString() })
       };
 
+      // Set rider_id when accepting
+      if (newStatus === 'accepted' && profile?.id) {
+        updates.rider_id = profile.id;
+      }
+
       // Update delivery
       const { error: deliveryError } = await supabase
         .from('deliveries')
@@ -205,43 +214,60 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
       if (deliveryError) throw deliveryError;
 
-      // Update order status accordingly
-      let orderStatus = 'Processing';
-      let notificationMessage = '';
+      // ONLY update order for non-acceptance statuses
+      // IMPORTANT: Don't update order status when accepting to avoid triggering the database trigger again
+      if (orderData && newStatus !== 'accepted') {
+        const orderUpdates = { 
+          updated_at: new Date().toISOString()
+        };
+        
+        switch(newStatus) {
+          case 'picked_up':
+            orderUpdates.status = 'Out for Delivery';
+            break;
+          case 'delivered':
+            orderUpdates.status = 'Completed';
+            break;
+          case 'failed':
+            orderUpdates.status = 'Cancelled';
+            break;
+        }
+        
+        // Only update if we're changing the status
+        if (orderUpdates.status) {
+          const { error: orderError } = await supabase
+            .from('orders')
+            .update(orderUpdates)
+            .eq('id', orderData.id);
+
+          if (orderError) throw orderError;
+        }
+      }
+
+      // Handle notifications
       let notificationTitle = '';
+      let notificationMessage = '';
 
       switch(newStatus) {
+        case 'accepted':
+          notificationTitle = 'Order Accepted';
+          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been accepted by a rider.`;
+          break;
         case 'picked_up':
-          orderStatus = 'Out for Delivery';
           notificationTitle = 'Order Out for Delivery';
           notificationMessage = `Your order #${orderData?.order_number || orderData?.id} is on its way!`;
           break;
         case 'delivered':
-          orderStatus = 'Completed';
           notificationTitle = 'Order Delivered';
           notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been delivered. Thank you!`;
           break;
         case 'failed':
-          orderStatus = 'Cancelled';
           notificationTitle = 'Delivery Failed';
           notificationMessage = `Your order #${orderData?.order_number || orderData?.id} delivery failed. Please contact support.`;
           break;
       }
 
-      if (orderData) {
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ 
-            status: orderStatus,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', orderData.id);
-
-        if (orderError) throw orderError;
-      }
-
-      // Notify customer
-      if (orderData && orderData.user_id) {
+      if (orderData && orderData.user_id && notificationTitle) {
         await supabase
           .from('notifications')
           .insert({
@@ -258,26 +284,30 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       }
 
       // Update rider earnings if delivered
-      if (newStatus === 'delivered') {
+      if (newStatus === 'delivered' && profile?.id) {
         await supabase
           .from('profiles')
           .update({
             total_earnings: supabase.raw('COALESCE(total_earnings, 0) + 50'),
             updated_at: new Date().toISOString()
           })
-          .eq('id', deliveryData.rider_id);
+          .eq('id', profile.id);
       }
 
       setAlertConfig({
         type: 'success',
         title: 'Success!',
-        message: `Delivery status updated to ${newStatus === 'picked_up' ? 'Picked Up' : 
-                  newStatus === 'delivered' ? 'Delivered' : 'Failed'}`
+        message: `Delivery status updated to ${
+          newStatus === 'accepted' ? 'Accepted' :
+          newStatus === 'picked_up' ? 'Picked Up' : 
+          newStatus === 'delivered' ? 'Delivered' : 'Failed'
+        }`
       });
       setShowAlert(true);
       
-      await fetchAllDeliveryData(); // Refresh all data
+      await fetchAllDeliveryData();
       setShowStatusModal(false);
+      setSelectedAction(null);
     } catch (error) {
       console.error('Error updating status:', error);
       setAlertConfig({
@@ -441,9 +471,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  // FIXED: Updated to include 'accepted' as an option when status is 'assigned'
   const getNextStatusOptions = () => {
     switch (deliveryData.status) {
       case 'assigned':
+        return [
+          { label: 'Accept Delivery', value: 'accepted', icon: 'checkmark-circle', color: '#10B981' },
+          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#EF4444' }
+        ];
       case 'accepted':
         return [
           { label: 'Picked Up Order', value: 'picked_up', icon: 'bicycle', color: '#0033A0' },
@@ -556,6 +591,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     if (option.value === 'issue') {
                       setShowIssueModal(true);
                     } else {
+                      // Show confirmation modal before proceeding
+                      setSelectedAction(option);
                       setShowStatusModal(true);
                     }
                   }}
@@ -739,29 +776,33 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       </ScrollView>
 
       {/* Status Update Modal */}
-      <CustomAlertModal
-        visible={showStatusModal}
-        onClose={() => setShowStatusModal(false)}
-        type="confirm"
-        title="Update Delivery Status"
-        message="Are you sure you want to update this delivery status?"
-        confirmText="Confirm"
-        cancelText="Cancel"
-        showCancelButton={true}
-        onConfirm={() => {
-          const options = getNextStatusOptions();
-          if (options.length > 0) {
-            const val = options[0].value;
+      {selectedAction && (
+        <CustomAlertModal
+          visible={showStatusModal}
+          onClose={() => {
+            setShowStatusModal(false);
+            setSelectedAction(null);
+          }}
+          type="confirm"
+          title={`Update to ${selectedAction.label}?`}
+          message={`Are you sure you want to mark this delivery as ${selectedAction.label.toLowerCase()}?`}
+          confirmText="Confirm"
+          cancelText="Cancel"
+          showCancelButton={true}
+          onConfirm={() => {
+            const val = selectedAction.value;
             if (val === 'picked_up' || val === 'delivered') {
               // open proof modal first
               setProofModalVisible(true);
-            } else if (val !== 'issue') {
+            } else {
               updateDeliveryStatus(val);
             }
-          }
-        }}
-        loading={loading}
-      />
+            setShowStatusModal(false);
+            setSelectedAction(null);
+          }}
+          loading={loading}
+        />
+      )}
 
       {/* Add Notes Modal */}
       <Modal
@@ -842,9 +883,12 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                       Alert.alert('Permission required', 'Camera permission is needed');
                       return;
                     }
-                    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-                    if (!result.cancelled) {
-                      setProofImageUri(result.uri);
+                    const result = await ImagePicker.launchCameraAsync({ 
+                      mediaTypes: ['images'],
+                      quality: 0.7 
+                    });
+                    if (!result.canceled) {
+                      setProofImageUri(result.assets[0].uri);
                     }
                   }}
                 >
@@ -869,10 +913,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
                     if (success) {
                       await saveDeliveryProof({ delivery_id: deliveryData.id, photo_url: photoUrl });
-                      const options = getNextStatusOptions();
-                      if (options.length > 0) {
-                        const val = options[0].value;
-                        updateDeliveryStatus(val);
+                      if (selectedAction) {
+                        updateDeliveryStatus(selectedAction.value);
                       }
                     } else {
                       Alert.alert('Upload failed', error || 'Could not upload photo');
@@ -986,6 +1028,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     </View>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
