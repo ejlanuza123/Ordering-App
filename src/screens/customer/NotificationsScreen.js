@@ -12,11 +12,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatDistanceToNow } from '../../utils/dateFormatter';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 export default function NotificationsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { role } = useAuth();
   const {
     notifications,
     unreadCount,
@@ -50,24 +52,41 @@ export default function NotificationsScreen({ navigation }) {
       await markAsRead(notification.id);
     }
 
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'order_status':
-        navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
-        break;
-      case 'order_delivered':
-        navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
-        break;
-      case 'order_cancelled':
-        navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
-        break;
-      case 'promo':
-        // Navigate to promotions or products
-        navigation.navigate('Selection');
-        break;
-      default:
-        // Do nothing
-        break;
+    // Handle navigation based on user role
+    if (role === 'rider') {
+      // For riders, navigate to deliveries screen
+      switch (notification.type) {
+        case 'order_status':
+        case 'order_delivered':
+        case 'order_cancelled':
+          // Navigate to deliveries list screen
+          navigation.navigate('RiderDeliveries');
+          break;
+        default:
+          // For other notifications, go to dashboard
+          navigation.navigate('RiderDashboard');
+          break;
+      }
+    } else {
+      // For customers, navigate to order-related screens
+      switch (notification.type) {
+        case 'order_status':
+          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
+          break;
+        case 'order_delivered':
+          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
+          break;
+        case 'order_cancelled':
+          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
+          break;
+        case 'promo':
+          // Navigate to promotions or products
+          navigation.navigate('Selection');
+          break;
+        default:
+          // Do nothing
+          break;
+      }
     }
   };
 

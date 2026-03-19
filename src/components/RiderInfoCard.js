@@ -1,6 +1,6 @@
 // src/components/RiderInfoCard.js
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function RiderInfoCard({ delivery }) {
@@ -47,6 +47,31 @@ export default function RiderInfoCard({ delivery }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Rider Information</Text>
+      
+      {/* Profile Picture */}
+      <View style={styles.profileSection}>
+        {rider.avatar_url ? (
+          <Image
+            source={{ uri: rider.avatar_url }}
+            style={styles.profileImage}
+          />
+        ) : (
+          <View style={styles.profileImagePlaceholder}>
+            <Ionicons name="person" size={40} color="#999" />
+          </View>
+        )}
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>{rider.full_name}</Text>
+          {rider.rating && (
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={14} color="#F59E0B" />
+              <Text style={styles.ratingText}>{rider.rating.toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+      
+      <View style={styles.divider} />
       
       <View style={styles.infoRow}>
         <Ionicons name="person" size={18} color="#666" />
@@ -144,6 +169,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 16,
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  profileImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    marginRight: 16,
+    backgroundColor: '#f0f0f0',
+  },
+  profileImagePlaceholder: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    marginRight: 16,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
     marginBottom: 16,
   },
   infoRow: {

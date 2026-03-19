@@ -308,11 +308,25 @@ export default function CheckoutScreen({ navigation }) {
         totalAmount={grandTotal}
         onTrackOrder={() => {
           setShowSuccessModal(false);
-          navigation.navigate('OrderHistory');
+          // Reset the navigation stack so Back goes to Home, then open OrderHistory
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'Home' },
+              { name: 'OrderHistory', params: { orderId: lastOrderId } }
+            ]
+          });
         }}
         onContinueShopping={() => {
           setShowSuccessModal(false);
-          navigation.navigate('Selection');
+          // Replace stack with Home -> Selection so user returns to Home on Back
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'Home' },
+              { name: 'Selection' }
+            ]
+          });
         }}
       />
 

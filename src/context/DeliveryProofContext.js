@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
@@ -22,14 +24,14 @@ export const DeliveryProofProvider = ({ children }) => {
       // Generate unique filename
       const filename = `delivery_proofs/${deliveryId}_${Date.now()}.${extension}`;
 
-      // Read the file
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // Read the file as base64 (works more reliably in React Native / Expo)
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const buffer = decode(base64);
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('delivery-proofs')
-        .upload(filename, blob, {
+        .upload(filename, buffer, {
           contentType: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
           upsert: false
         });
@@ -55,6 +57,32 @@ export const DeliveryProofProvider = ({ children }) => {
     if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
+      // Debug info: check what Supabase sees for auth.uid() and related delivery/order rows
+      const { data: deliveryRow, error: deliveryError } = await supabase
+        .from('deliveries')
+        .select('id, rider_id, order_id')
+        .eq('id', proofData.delivery_id)
+        .single();
+
+      const { data: orderRow, error: orderError } = await supabase
+        .from('orders')
+        .select('id, rider_id')
+        .eq('id', deliveryRow?.order_id)
+        .single();
+
+      console.log('✅ Delivery proof debug:', {
+        authUid: user?.id,
+        deliveryRow,
+        orderRow
+      });
+
+      if (deliveryError) {
+        console.warn('Delivery lookup error (for proof insert):', deliveryError);
+      }
+      if (orderError) {
+        console.warn('Order lookup error (for proof insert):', orderError);
+      }
+
       const { data, error } = await supabase
         .from('delivery_proofs')
         .insert([{

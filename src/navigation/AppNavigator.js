@@ -20,6 +20,9 @@ import ProfileScreen from '../screens/customer/ProfileScreen';
 import SelectionScreen from '../screens/customer/SelectionScreen';
 import MyFavoritesScreen from '../screens/customer/MyFavoritesScreen';
 import NotificationsScreen from '../screens/customer/NotificationsScreen';
+import ReviewsChoiceScreen from '../screens/customer/ReviewsChoiceScreen';
+import RiderReviewsScreen from '../screens/customer/RiderReviewsScreen';
+import ProductReviewsScreen from '../screens/customer/ProductReviewsScreen';
 
 // Rider Screens
 import RiderDashboardScreen from '../screens/rider/RiderDashboardScreen';
@@ -40,6 +43,9 @@ const CustomerStack = () => (
     <Stack.Screen name="Cart" component={CartScreen} />
     <Stack.Screen name="Checkout" component={CheckoutScreen} />
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+    <Stack.Screen name="ReviewsChoice" component={ReviewsChoiceScreen} />
+    <Stack.Screen name="RiderReviews" component={RiderReviewsScreen} />
+    <Stack.Screen name="ProductReviews" component={ProductReviewsScreen} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
   </Stack.Navigator>
@@ -53,6 +59,7 @@ const RiderStack = () => (
     <Stack.Screen name="RiderDeliveryDetails" component={RiderDeliveryDetailsScreen} />
     <Stack.Screen name="RiderMap" component={RiderMapScreen} />
     <Stack.Screen name="RiderProfile" component={RiderProfileScreen} />
+    <Stack.Screen name="Notifications" component={NotificationsScreen} />
   </Stack.Navigator>
 );
 

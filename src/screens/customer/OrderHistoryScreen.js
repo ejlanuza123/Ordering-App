@@ -13,10 +13,12 @@ import {
   ScrollView,
   Dimensions,
   Platform,
-  Linking
+  Linking,
+  TextInput
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useRiderRatings } from '../../context/RiderRatingContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -28,6 +30,7 @@ const PAGE_SIZE = 20;
 
 export default function OrderHistoryScreen({ navigation }) {
   const { user } = useAuth();
+  const { rateRider, hasUserRated, getUserRating } = useRiderRatings();
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -45,6 +48,14 @@ export default function OrderHistoryScreen({ navigation }) {
   const [archiving, setArchiving] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [orderToArchive, setOrderToArchive] = useState(null);
+
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [userHasRated, setUserHasRated] = useState(false);
+  const [existingRating, setExistingRating] = useState(null);
 
   const [showAlert, setShowAlert] = useState(false);
   const [hasMoreData, setHasMoreData] = useState(true);
@@ -159,6 +170,7 @@ export default function OrderHistoryScreen({ navigation }) {
               id,
               full_name,
               phone_number,
+              avatar_url,
               address_lat,
               address_lng
             )
@@ -345,6 +357,93 @@ export default function OrderHistoryScreen({ navigation }) {
     }
   };
 
+  const handleRatePress = async (order) => {
+    if (!order.deliveries || order.deliveries.length === 0) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'No Rider',
+        message: 'This order does not have a rider assigned.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    const deliveryId = order.deliveries[0].id;
+    
+    // Check if user already rated this delivery
+    const hasRated = await hasUserRated(deliveryId);
+    setUserHasRated(hasRated);
+
+    if (hasRated) {
+      // Get existing rating
+      const existing = await getUserRating(deliveryId);
+      setExistingRating(existing);
+      setSelectedRating(existing?.rating || 0);
+      setRatingComment(existing?.comment || '');
+    } else {
+      setSelectedRating(0);
+      setRatingComment('');
+      setExistingRating(null);
+    }
+
+    setRatingOrder(order);
+    setShowRatingModal(true);
+  };
+
+  const submitRating = async () => {
+    if (selectedRating === 0) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Rating Required',
+        message: 'Please select a star rating.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (!ratingOrder || !ratingOrder.deliveries || ratingOrder.deliveries.length === 0) {
+      return;
+    }
+
+    setSubmittingRating(true);
+    try {
+      const deliveryId = ratingOrder.deliveries[0].id;
+      const riderId = ratingOrder.deliveries[0].rider_id;
+
+      let result;
+      if (userHasRated && existingRating) {
+        // Update existing rating
+        result = await rateRider(riderId, deliveryId, selectedRating, ratingComment);
+      } else {
+        // Create new rating
+        result = await rateRider(riderId, deliveryId, selectedRating, ratingComment);
+      }
+
+      if (result.success) {
+        setAlertConfig({
+          type: 'success',
+          title: 'Thank you!',
+          message: userHasRated ? 'Your rating has been updated.' : 'Your rating has been submitted.'
+        });
+        setShowAlert(true);
+        setShowRatingModal(false);
+        fetchOrders();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to submit rating. Please try again.'
+      });
+      setShowAlert(true);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -436,6 +535,11 @@ export default function OrderHistoryScreen({ navigation }) {
     return lowerStatus === 'pending' || lowerStatus === 'processing';
   };
 
+  const canArchiveOrder = (status) => {
+    const lowerStatus = status?.toLowerCase();
+    return lowerStatus === 'completed' || lowerStatus === 'delivered';
+  };
+
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
     const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
@@ -485,20 +589,22 @@ export default function OrderHistoryScreen({ navigation }) {
             <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.orderActions}>
-            <TouchableOpacity
-              style={[
-                styles.archiveButton,
-                isArchived ? styles.restoreButton : styles.archiveButton,
-              ]}
-              onPress={() => handleArchivePress(item)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={isArchived ? 'reload' : 'archive'}
-                size={18}
-                color="#fff"
-              />
-            </TouchableOpacity>
+            {canArchiveOrder(item.status) && (
+              <TouchableOpacity
+                style={[
+                  styles.archiveButton,
+                  item.archived ? styles.restoreButton : styles.archiveButton,
+                ]}
+                onPress={() => handleArchivePress(item)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={item.archived ? 'reload' : 'archive'}
+                  size={18}
+                  color="#fff"
+                />
+              </TouchableOpacity>
+            )}
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </View>
         </View>
@@ -579,30 +685,32 @@ export default function OrderHistoryScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* Archive / Restore Button */}
-            <TouchableOpacity
-              style={[
-                styles.cancelButtonFull,
-                selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
-              ]}
-              onPress={() => handleArchivePress(selectedOrder)}
-              disabled={archiving}
-            >
-              {archiving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <Ionicons
-                    name={selectedOrder.archived ? 'reload' : 'archive'}
-                    size={20}
-                    color="#fff"
-                  />
-                  <Text style={styles.cancelButtonFullText}>
-                    {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            {/* Archive / Restore Button - Show only if order is completed or delivered */}
+            {canArchiveOrder(selectedOrder.status) && (
+              <TouchableOpacity
+                style={[
+                  styles.cancelButtonFull,
+                  selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
+                ]}
+                onPress={() => handleArchivePress(selectedOrder)}
+                disabled={archiving}
+              >
+                {archiving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons
+                      name={selectedOrder.archived ? 'reload' : 'archive'}
+                      size={20}
+                      color="#fff"
+                    />
+                    <Text style={styles.cancelButtonFullText}>
+                      {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             {/* Order Items */}
             <View style={styles.detailsSection}>
@@ -670,7 +778,21 @@ export default function OrderHistoryScreen({ navigation }) {
             
             {/* Rider Information - Show when there's a delivery record */}
             {selectedOrder.deliveries && selectedOrder.deliveries.length > 0 && (
-              <RiderInfoCard delivery={selectedOrder.deliveries[0]} />
+              <>
+                <RiderInfoCard delivery={selectedOrder.deliveries[0]} />
+                
+                {/* Rate Rider Button - Show only for completed/delivered orders */}
+                {canArchiveOrder(selectedOrder.status) && (
+                  <TouchableOpacity
+                    style={styles.rateRiderButton}
+                    onPress={() => handleRatePress(selectedOrder)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="star" size={20} color="#fff" />
+                    <Text style={styles.rateRiderButtonText}>Rate This Rider</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             )}
 
             {/* Order Timeline */}
@@ -873,6 +995,105 @@ export default function OrderHistoryScreen({ navigation }) {
         onConfirm={confirmArchive}
         loading={archiving}
       />
+
+      {/* Rating Modal */}
+      <Modal
+        visible={showRatingModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRatingModal(false)}
+      >
+        <View style={styles.ratingModalOverlay}>
+          <View style={styles.ratingModalContent}>
+            <View style={styles.ratingModalHeader}>
+              <Text style={styles.ratingModalTitle}>Rate Your Rider</Text>
+              <TouchableOpacity
+                onPress={() => setShowRatingModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            {ratingOrder?.deliveries && ratingOrder.deliveries[0].rider && (
+              <Text style={styles.ratingRiderName}>
+                {ratingOrder.deliveries[0].rider.full_name}
+              </Text>
+            )}
+
+            {/* Star Rating Selector */}
+            <View style={styles.starRatingContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setSelectedRating(star)}
+                  style={styles.starButton}
+                >
+                  <Ionicons
+                    name={star <= selectedRating ? 'star' : 'star-outline'}
+                    size={40}
+                    color={star <= selectedRating ? '#F59E0B' : '#ccc'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Rating Label */}
+            {selectedRating > 0 && (
+              <Text style={styles.ratingLabel}>
+                {selectedRating === 1 && 'Poor'}
+                {selectedRating === 2 && 'Fair'}
+                {selectedRating === 3 && 'Good'}
+                {selectedRating === 4 && 'Very Good'}
+                {selectedRating === 5 && 'Excellent'}
+              </Text>
+            )}
+
+            {/* Comment Input */}
+            <View style={styles.commentInputContainer}>
+              <Text style={styles.commentLabel}>Additional comments (optional)</Text>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Share your experience with this rider..."
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+                maxLength={500}
+                value={ratingComment}
+                onChangeText={setRatingComment}
+                editable={!submittingRating}
+              />
+              <Text style={styles.commentLength}>
+                {ratingComment.length}/500
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.ratingModalActions}>
+              <TouchableOpacity
+                style={[styles.ratingButton, styles.cancelRatingButton]}
+                onPress={() => setShowRatingModal(false)}
+                disabled={submittingRating}
+              >
+                <Text style={styles.cancelRatingButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ratingButton, styles.submitRatingButton]}
+                onPress={submitRating}
+                disabled={submittingRating || selectedRating === 0}
+              >
+                {submittingRating ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitRatingButtonText}>
+                    {userHasRated ? 'Update Rating' : 'Submit Rating'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Success/Error Alert */}
       <CustomAlertModal
@@ -1352,5 +1573,132 @@ const styles = StyleSheet.create({
   timelineTime: {
     fontSize: 12,
     color: '#666',
+  },
+  rateRiderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 12,
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  rateRiderButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  ratingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  ratingModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    maxHeight: '90%',
+    width: '100%',
+  },
+  ratingModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  ratingModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  ratingRiderName: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 16,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  starRatingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  starButton: {
+    padding: 4,
+  },
+  ratingLabel: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#F59E0B',
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  commentInputContainer: {
+    marginBottom: 20,
+  },
+  commentLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 8,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#333',
+    textAlignVertical: 'top',
+    marginBottom: 4,
+  },
+  commentLength: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'right',
+  },
+  ratingModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  ratingButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelRatingButton: {
+    backgroundColor: '#f0f4ff',
+    borderWidth: 1,
+    borderColor: '#0033A0',
+  },
+  cancelRatingButtonText: {
+    color: '#0033A0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  submitRatingButton: {
+    backgroundColor: '#0033A0',
+  },
+  submitRatingButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

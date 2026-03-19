@@ -11,6 +11,28 @@ export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [subscription, setSubscription] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  // Load user's notification preference
+  const loadNotificationPreference = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('notifications_enabled')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      // Default to true if not set
+      setNotificationsEnabled(data?.notifications_enabled !== false);
+    } catch (error) {
+      console.error('Error loading notification preference:', error.message);
+      setNotificationsEnabled(true); // Default to enabled on error
+    }
+  };
 
   // Load notifications
   const loadNotifications = async () => {
@@ -43,6 +65,7 @@ export const NotificationProvider = ({ children }) => {
       return;
     }
 
+    loadNotificationPreference();
     loadNotifications();
 
     // Subscribe to new notifications
@@ -57,8 +80,11 @@ export const NotificationProvider = ({ children }) => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          setNotifications(prev => [payload.new, ...prev]);
-          setUnreadCount(prev => prev + 1);
+          // Only add notification if user has notifications enabled
+          if (notificationsEnabled) {
+            setNotifications(prev => [payload.new, ...prev]);
+            setUnreadCount(prev => prev + 1);
+          }
         }
       )
       .subscribe();
@@ -69,6 +95,7 @@ export const NotificationProvider = ({ children }) => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         loadNotifications();
+        loadNotificationPreference();
       }
     });
 
@@ -76,7 +103,7 @@ export const NotificationProvider = ({ children }) => {
       if (channel) channel.unsubscribe();
       subscription.remove();
     };
-  }, [user]);
+  }, [user, notificationsEnabled]);
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
@@ -167,6 +194,7 @@ export const NotificationProvider = ({ children }) => {
         notifications,
         unreadCount,
         loading,
+        notificationsEnabled,
         loadNotifications,
         markAsRead,
         markAllAsRead,

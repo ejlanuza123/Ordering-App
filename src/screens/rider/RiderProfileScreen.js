@@ -15,12 +15,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useRiderRatings } from '../../context/RiderRatingContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 
 export default function RiderProfileScreen({ navigation }) {
   const { profile, signOut } = useAuth();
+  const { getRiderStats } = useRiderRatings();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,7 +42,8 @@ export default function RiderProfileScreen({ navigation }) {
     totalEarnings: 0,
     rating: 4.8
   });
-  const [notifications, setNotifications] = useState(true);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [togglingNotifications, setTogglingNotifications] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
@@ -55,6 +58,8 @@ export default function RiderProfileScreen({ navigation }) {
         vehicle_plate: profile.vehicle_plate || ''
       });
       setAvatarUrl(profile.avatar_url || '');
+      // Load notification preference
+      setNotificationsEnabled(profile.notifications_enabled !== false); // Default to true
     }
     fetchRiderStats();
   }, [profile]);
@@ -87,24 +92,74 @@ export default function RiderProfileScreen({ navigation }) {
     try {
       const { data, error } = await supabase
         .from('deliveries')
-        .select('*')
+        .select(`
+          id,
+          status,
+          orders:order_id (
+            delivery_fee
+          )
+        `)
         .eq('rider_id', profile.id);
 
       if (error) throw error;
 
       const completed = data?.filter(d => d.status === 'delivered') || [];
       const failed = data?.filter(d => d.status === 'failed') || [];
-      const earnings = completed.length * 50; // ₱50 per delivery
+      // Calculate earnings based on delivery fees from completed deliveries
+      const earnings = completed.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
+
+      // Fetch rider rating from database
+      const riderStatsData = await getRiderStats(profile.id);
+      const riderRating = riderStatsData?.averageRating || 0;
 
       setStats({
         totalDeliveries: data?.length || 0,
         completedDeliveries: completed.length,
         failedDeliveries: failed.length,
         totalEarnings: earnings,
-        rating: 4.8 // You can calculate from ratings table
+        rating: riderRating
       });
     } catch (error) {
       console.error('Error fetching stats:', error.message);
+    }
+  };
+
+  const handleNotificationsToggle = async (newValue) => {
+    try {
+      setTogglingNotifications(true);
+      setNotificationsEnabled(newValue);
+
+      // Save notification preference to database
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          notifications_enabled: newValue,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      setAlertConfig({
+        type: 'success',
+        title: 'Success',
+        message: newValue ? 'Notifications enabled' : 'Notifications disabled'
+      });
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      // Revert the toggle on error
+      setNotificationsEnabled(!newValue);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update notification settings'
+      });
+      setShowAlert(true);
+    } finally {
+      setTogglingNotifications(false);
     }
   };
 
@@ -346,8 +401,9 @@ export default function RiderProfileScreen({ navigation }) {
               <Text style={styles.preferenceText}>Push Notifications</Text>
             </View>
             <Switch
-              value={notifications}
-              onValueChange={setNotifications}
+              value={notificationsEnabled}
+              onValueChange={handleNotificationsToggle}
+              disabled={togglingNotifications}
               trackColor={{ false: '#e9ecef', true: '#0033A0' }}
               thumbColor="#fff"
             />

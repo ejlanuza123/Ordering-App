@@ -52,6 +52,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   // proof of delivery state
   const [proofModalVisible, setProofModalVisible] = useState(false);
   const [proofImageUri, setProofImageUri] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const { uploadProofPhoto, saveDeliveryProof } = useDeliveryProof();
 
   useEffect(() => {
@@ -201,8 +202,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         ...(newStatus === 'failed' && { failed_at: new Date().toISOString() })
       };
 
-      // Set rider_id when accepting
-      if (newStatus === 'accepted' && profile?.id) {
+      // Ensure rider_id is set for this rider to satisfy RLS policies
+      // (especially important when saving delivery proof).
+      // Only set if it is currently missing so we don't overwrite an existing assignment.
+      if (profile?.id && !deliveryData.rider_id) {
         updates.rider_id = profile.id;
       }
 
@@ -285,13 +288,30 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
       // Update rider earnings if delivered
       if (newStatus === 'delivered' && profile?.id) {
-        await supabase
-          .from('profiles')
-          .update({
-            total_earnings: supabase.raw('COALESCE(total_earnings, 0) + 50'),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', profile.id);
+        try {
+          // Get the delivery fee from the order
+          const deliveryFee = parseFloat(orderData?.delivery_fee) || 0;
+          
+          const { data: profileRow, error: profileError } = await supabase
+            .from('profiles')
+            .select('total_earnings')
+            .eq('id', profile.id)
+            .single();
+
+          if (!profileError && profileRow) {
+            // Earnings = delivery fee from the order (dynamic, not hardcoded)
+            const newTotal = (parseFloat(profileRow.total_earnings) || 0) + deliveryFee;
+            await supabase
+              .from('profiles')
+              .update({
+                total_earnings: newTotal,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', profile.id);
+          }
+        } catch (err) {
+          console.error('Error updating rider earnings:', err);
+        }
       }
 
       setAlertConfig({
@@ -792,11 +812,13 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           onConfirm={() => {
             const val = selectedAction.value;
             if (val === 'picked_up' || val === 'delivered') {
-              // open proof modal first
+              // open proof modal first (keep selected action for later)
               setProofModalVisible(true);
-            } else {
-              updateDeliveryStatus(val);
+              setShowStatusModal(false);
+              return;
             }
+
+            updateDeliveryStatus(val);
             setShowStatusModal(false);
             setSelectedAction(null);
           }}
@@ -866,7 +888,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setProofModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}> 
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Capture Proof</Text>
               <TouchableOpacity onPress={() => setProofModalVisible(false)}>
@@ -898,32 +920,59 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
               ) : (
                 <View style={{ alignItems: 'center' }}>
                   <Image source={{ uri: proofImageUri }} style={styles.capturedImage} />
-                  <TouchableOpacity onPress={() => setProofImageUri(null)}>
-                    <Text style={{ color: '#EF4444', marginTop: 8 }}>Retake</Text>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelModalButton, styles.retakeButton]}
+                    onPress={() => setProofImageUri(null)}
+                  >
+                    <Text style={[styles.cancelModalButtonText, styles.retakeButtonText]}>Retake</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {proofImageUri && (
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.saveModalButton]}
-                  onPress={async () => {
-                    setProofModalVisible(false);
-                    // upload and save then update status
-                    const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
-                    if (success) {
-                      await saveDeliveryProof({ delivery_id: deliveryData.id, photo_url: photoUrl });
-                      if (selectedAction) {
-                        updateDeliveryStatus(selectedAction.value);
-                      }
-                    } else {
-                      Alert.alert('Upload failed', error || 'Could not upload photo');
-                    }
-                    setProofImageUri(null);
-                  }}
-                >
-                  <Text style={styles.saveModalButtonText}>Upload & Continue</Text>
-                </TouchableOpacity>
+              {uploadingProof ? (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="large" color="#0033A0" />
+                  <Text style={styles.uploadingText}>Uploading proof...</Text>
+                </View>
+              ) : (
+                proofImageUri && (
+                  <View style={styles.proofModalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.saveModalButton, styles.fullWidthModalButton]}
+                      onPress={async () => {
+                        setUploadingProof(true);
+                        try {
+                          // upload and save then update status
+                          const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
+                          if (!success) throw new Error(error || 'Could not upload photo');
+
+                          const { success: saved, error: saveError } = await saveDeliveryProof({
+                            delivery_id: deliveryData.id,
+                            photo_url: photoUrl
+                          });
+
+                          if (!saved) throw new Error(saveError || 'Could not save proof data');
+
+                          if (selectedAction) {
+                            await updateDeliveryStatus(selectedAction.value);
+                            setSelectedAction(null);
+                          }
+
+                          setProofImageUri(null);
+                          setProofModalVisible(false);
+                        } catch (err) {
+                          console.error('Proof upload/save error:', err);
+                          Alert.alert('Error', err.message || 'Failed to upload proof');
+                        } finally {
+                          setUploadingProof(false);
+                        }
+                      }}
+                      disabled={uploadingProof}
+                    >
+                      <Text style={styles.saveModalButtonText}>Upload & Continue</Text>
+                    </TouchableOpacity>
+                  </View>
+                )
               )}
             </View>
           </View>
@@ -1462,16 +1511,35 @@ const styles = StyleSheet.create({
     minHeight: 80,
     marginBottom: 20,
   },
+  uploadingOverlay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  uploadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#333',
+  },
   modalActions: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
   },
+  proofModalActions: {
+    marginTop: 20,
+  },
   modalButton: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  fullWidthModalButton: {
+    width: '100%',
   },
   cancelModalButton: {
     backgroundColor: '#f8f9fa',
@@ -1482,6 +1550,8 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
   },
   saveModalButton: {
     backgroundColor: '#0033A0',
@@ -1490,6 +1560,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  retakeButton: {
+    marginTop: 12,
+    marginBottom: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFF1F1',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
+  retakeButtonText: {
+    fontSize: 14,
+    lineHeight: 18,
+    color: '#EF4444',
+    fontWeight: '600',
   },
   reportModalButton: {
     backgroundColor: '#EF4444',

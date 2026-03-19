@@ -12,6 +12,15 @@ CREATE TABLE public.admin_logs (
   CONSTRAINT admin_logs_pkey PRIMARY KEY (id),
   CONSTRAINT admin_logs_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.profiles(id)
 );
+CREATE TABLE public.app_settings (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  key text NOT NULL UNIQUE,
+  value text NOT NULL,
+  description text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT app_settings_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.deliveries (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
   order_id bigint,
@@ -151,6 +160,7 @@ CREATE TABLE public.profiles (
   last_seen timestamp with time zone,
   avatar_url text,
   avatar_updated_at timestamp with time zone,
+  notifications_enabled boolean DEFAULT true,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

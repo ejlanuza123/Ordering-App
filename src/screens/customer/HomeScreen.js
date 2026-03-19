@@ -8,7 +8,8 @@ import {
   Dimensions,
   ScrollView,
   Image,
-  StatusBar
+  StatusBar,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ export default function HomeScreen({ navigation }) {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -153,6 +155,17 @@ export default function HomeScreen({ navigation }) {
               <Ionicons name="heart" size={20} color="#fff" />
             </View>
             <Text style={styles.headerActionText}>Favorites</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.headerActionButton}
+            onPress={() => setShowReviewModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B' }]}>
+              <Ionicons name="star" size={20} color="#fff" />
+            </View>
+            <Text style={styles.headerActionText}>Reviews</Text>
           </TouchableOpacity>
           
         </View>
@@ -310,6 +323,72 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Review Choice Modal */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>What would you like to review?</Text>
+              <TouchableOpacity 
+                onPress={() => setShowReviewModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={28} color="#1F2937" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalChoices}>
+              {/* Rate Rider Option */}
+              <TouchableOpacity
+                style={styles.choiceCard}
+                onPress={() => {
+                  setShowReviewModal(false);
+                  navigation.navigate('RiderReviews');
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.choiceIcon, { backgroundColor: '#FEE2E2' }]}>
+                  <Ionicons name="person" size={32} color="#DC2626" />
+                </View>
+                <View style={styles.choiceTextContainer}>
+                  <Text style={styles.choiceTitle}>Rate a Rider</Text>
+                  <Text style={styles.choiceSubtitle}>
+                    Share your experience with the delivery rider
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+
+              {/* Rate Product Option */}
+              <TouchableOpacity
+                style={styles.choiceCard}
+                onPress={() => {
+                  setShowReviewModal(false);
+                  navigation.navigate('ProductReviews');
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.choiceIcon, { backgroundColor: '#FEF3C7' }]}>
+                  <Ionicons name="cube" size={32} color="#D97706" />
+                </View>
+                <View style={styles.choiceTextContainer}>
+                  <Text style={styles.choiceTitle}>Rate a Product</Text>
+                  <Text style={styles.choiceSubtitle}>
+                    Share your feedback about the fuel or lubricants
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -809,5 +888,74 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Review Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    paddingTop: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    flex: 1,
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalChoices: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  choiceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  choiceIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  choiceTextContainer: {
+    flex: 1,
+  },
+  choiceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  choiceSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
   },
 });

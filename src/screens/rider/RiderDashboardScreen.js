@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
+import { useRiderRatings } from '../../context/RiderRatingContext';
 import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
@@ -28,6 +30,8 @@ const { width } = Dimensions.get('window');
 
 export default function RiderDashboardScreen({ navigation }) {
   const { profile } = useAuth();
+  const { unreadCount } = useNotifications();
+  const { getRiderStats } = useRiderRatings();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -112,6 +116,7 @@ export default function RiderDashboardScreen({ navigation }) {
               id,
               order_number,
               total_amount,
+              delivery_fee,
               delivery_address,
               delivery_lat,
               delivery_lng,
@@ -165,25 +170,35 @@ export default function RiderDashboardScreen({ navigation }) {
         ? Math.round((deliveredOnTime.length / completedDeliveries.length) * 100)
         : 100;
 
-      // Calculate earnings (₱50 per delivery)
+      // Calculate earnings based on delivery fees
       const completedDeliveriesList = deliveries?.filter(d => d.status === 'delivered') || [];
-      const totalEarnings = completedDeliveriesList.length * 50;
-      const todayEarnings = completedToday.length * 50;
+      const totalEarnings = completedDeliveriesList.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
+      const todayEarnings = completedToday.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
       
       // Weekly earnings
       const weeklyDeliveries = deliveries?.filter(d => 
         d.status === 'delivered' && new Date(d.delivered_at) >= startOfWeek
       ) || [];
-      const weeklyEarnings = weeklyDeliveries.length * 50;
+      const weeklyEarnings = weeklyDeliveries.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
       
       // Monthly earnings
       const monthlyDeliveries = deliveries?.filter(d => 
         d.status === 'delivered' && new Date(d.delivered_at) >= startOfMonth
       ) || [];
-      const monthlyEarnings = monthlyDeliveries.length * 50;
+      const monthlyEarnings = monthlyDeliveries.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
       
       // Pending earnings (deliveries in progress)
-      const pendingEarnings = pending.length * 50;
+      const pendingEarnings = pending.reduce((sum, d) => 
+        sum + (parseFloat(d.orders?.delivery_fee) || 0), 0
+      );
 
       // Get active deliveries (assigned, accepted, or picked up)
       const activeList = pending.map(delivery => ({
@@ -198,13 +213,17 @@ export default function RiderDashboardScreen({ navigation }) {
           .slice(0, 5) || []
       );
 
+      // Fetch rider rating from database
+      const riderStatsData = await getRiderStats(profile.id);
+      const riderRating = riderStatsData?.averageRating || 0;
+
       setStats({
         todayDeliveries: todayDeliveries.length,
         completedToday: completedToday.length,
         pendingDeliveries: pending.length,
         totalEarnings,
         todayEarnings,
-        rating: 4.8, // You can calculate this from ratings table
+        rating: riderRating,
         acceptanceRate,
         onTimeRate
       });
@@ -484,8 +503,8 @@ export default function RiderDashboardScreen({ navigation }) {
               onPress={() => navigation.navigate('Notifications')}
             >
               <Ionicons name="notifications-outline" size={22} color="#0033A0" />
-              {/* Unread badge - you can add logic for this */}
-              <View style={styles.badge} />
+              {/* Unread badge - displays only when there are unread notifications */}
+              {unreadCount > 0 && <View style={styles.badge} />}
             </TouchableOpacity>
 
             <TouchableOpacity 
