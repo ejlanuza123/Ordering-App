@@ -145,7 +145,7 @@ export default function RiderDashboardScreen({ navigation }) {
       ) || [];
 
       const pending = deliveries?.filter(d => 
-        d.status === 'assigned' || d.status === 'accepted' || d.status === 'picked_up'
+        d.status === 'assigned' || d.status === 'accepted' || d.status === 'picked_up' || d.status === 'out_for_delivery'
       ) || [];
 
       const accepted = deliveries?.filter(d => d.status === 'accepted') || [];
@@ -357,16 +357,9 @@ export default function RiderDashboardScreen({ navigation }) {
 
       if (error) throw error;
 
-      // Notify admin that rider declined
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: null, // Will be sent to all admins
-          type: 'system',
-          title: 'Delivery Declined',
-          message: `Rider ${profile.full_name} declined delivery #${selectedDelivery.order_id}`,
-          data: { delivery_id: selectedDelivery.id }
-        });
+      // Admin notifications are generated server-side under hardened RLS.
+      // Rider clients should not insert directly into notifications.
+      console.log('Delivery declined; admin notification should be handled server-side.');
 
       setAlertConfig({
         type: 'info',
@@ -438,6 +431,7 @@ export default function RiderDashboardScreen({ navigation }) {
       case 'assigned': return 'alert-circle';
       case 'accepted': return 'checkmark-circle';
       case 'picked_up': return 'bicycle';
+      case 'out_for_delivery': return 'navigate';
       case 'delivered': return 'checkmark-done';
       case 'failed': return 'close-circle';
       default: return 'help-circle';
@@ -449,6 +443,7 @@ export default function RiderDashboardScreen({ navigation }) {
       case 'assigned': return '#F59E0B';
       case 'accepted': return '#10B981';
       case 'picked_up': return '#0033A0';
+      case 'out_for_delivery': return '#0033A0';
       case 'delivered': return '#10B981';
       case 'failed': return '#EF4444';
       default: return '#666';
@@ -459,7 +454,8 @@ export default function RiderDashboardScreen({ navigation }) {
     switch(status) {
       case 'assigned': return 'Ready to Accept';
       case 'accepted': return 'Accepted';
-      case 'picked_up': return 'On Delivery';
+      case 'picked_up': return 'Picked Up';
+      case 'out_for_delivery': return 'On Delivery';
       case 'delivered': return 'Delivered';
       case 'failed': return 'Failed';
       default: return status;

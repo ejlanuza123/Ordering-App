@@ -23,6 +23,7 @@ import NotificationsScreen from '../screens/customer/NotificationsScreen';
 import ReviewsChoiceScreen from '../screens/customer/ReviewsChoiceScreen';
 import RiderReviewsScreen from '../screens/customer/RiderReviewsScreen';
 import ProductReviewsScreen from '../screens/customer/ProductReviewsScreen';
+import CustomerDeliveryTrackingScreen from '../screens/customer/CustomerDeliveryTrackingScreen';
 
 // Rider Screens
 import RiderDashboardScreen from '../screens/rider/RiderDashboardScreen';
@@ -43,6 +44,7 @@ const CustomerStack = () => (
     <Stack.Screen name="Cart" component={CartScreen} />
     <Stack.Screen name="Checkout" component={CheckoutScreen} />
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+    <Stack.Screen name="CustomerDeliveryTracking" component={CustomerDeliveryTrackingScreen} />
     <Stack.Screen name="ReviewsChoice" component={ReviewsChoiceScreen} />
     <Stack.Screen name="RiderReviews" component={RiderReviewsScreen} />
     <Stack.Screen name="ProductReviews" component={ProductReviewsScreen} />

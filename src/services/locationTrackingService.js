@@ -112,7 +112,7 @@ export const locationTrackingService = {
         .from('deliveries')
         .select('id')
         .eq('rider_id', riderId)
-        .in('status', ['accepted', 'picked_up'])
+        .in('status', ['accepted', 'picked_up', 'out_for_delivery'])
         .order('assigned_at', { ascending: false })
         .limit(1)
         .single();

@@ -23,7 +23,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, assigned, accepted, picked_up, delivered, failed
+  const [filter, setFilter] = useState('all'); // all, assigned, accepted, on_delivery, delivered, failed
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -50,7 +50,9 @@ export default function RiderDeliveriesScreen({ navigation }) {
         .eq('rider_id', profile.id)
         .order('assigned_at', { ascending: false });
 
-      if (filter !== 'all') {
+      if (filter === 'on_delivery') {
+        query = query.in('status', ['picked_up', 'out_for_delivery']);
+      } else if (filter !== 'all') {
         query = query.eq('status', filter);
       }
 
@@ -100,6 +102,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
       case 'assigned': return '#F59E0B';
       case 'accepted': return '#10B981';
       case 'picked_up': return '#0033A0';
+      case 'out_for_delivery': return '#0033A0';
       case 'delivered': return '#10B981';
       case 'failed': return '#EF4444';
       default: return '#666';
@@ -111,6 +114,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
       case 'assigned': return 'alert-circle';
       case 'accepted': return 'checkmark-circle';
       case 'picked_up': return 'bicycle';
+      case 'out_for_delivery': return 'navigate';
       case 'delivered': return 'checkmark-done';
       case 'failed': return 'close-circle';
       default: return 'help-circle';
@@ -121,7 +125,8 @@ export default function RiderDeliveriesScreen({ navigation }) {
     switch (status) {
       case 'assigned': return 'Ready to Accept';
       case 'accepted': return 'Accepted';
-      case 'picked_up': return 'Out for Delivery';
+      case 'picked_up': return 'Picked Up';
+      case 'out_for_delivery': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
       case 'failed': return 'Failed';
       default: return status;
@@ -211,7 +216,7 @@ export default function RiderDeliveriesScreen({ navigation }) {
           <FilterButton title="All" value="all" />
           <FilterButton title="Ready" value="assigned" />
           <FilterButton title="Accepted" value="accepted" />
-          <FilterButton title="On Delivery" value="picked_up" />
+          <FilterButton title="On Delivery" value="on_delivery" />
           <FilterButton title="Delivered" value="delivered" />
           <FilterButton title="Failed" value="failed" />
         </ScrollView>

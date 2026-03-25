@@ -27,6 +27,7 @@ export default function RiderInfoCard({ delivery }) {
       case 'assigned': return '#F59E0B';
       case 'accepted': return '#10B981';
       case 'picked_up': return '#0033A0';
+      case 'out_for_delivery': return '#0033A0';
       case 'delivered': return '#10B981';
       case 'failed': return '#EF4444';
       default: return '#666';
@@ -37,7 +38,8 @@ export default function RiderInfoCard({ delivery }) {
     switch(status) {
       case 'assigned': return 'Ready to Pick Up';
       case 'accepted': return 'Accepted by Rider';
-      case 'picked_up': return 'Out for Delivery';
+      case 'picked_up': return 'Picked Up';
+      case 'out_for_delivery': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
       case 'failed': return 'Failed';
       default: return status;

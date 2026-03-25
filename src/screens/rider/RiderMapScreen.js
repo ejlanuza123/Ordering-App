@@ -22,16 +22,27 @@ import { requestLocationPermission } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { startLocationTracking, stopLocationTracking } from '../../utils/riderLocation';
 
+const devLog = (...args) => {
+  if (__DEV__) {
+    console.log(...args);
+  }
+};
+
 export default function RiderMapScreen({ navigation }) {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
+  const trackingSubscriptionRef = useRef(null);
   
   const [loading, setLoading] = useState(true);
   const [mapHtml, setMapHtml] = useState('');
   const [currentLocation, setCurrentLocation] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [focusedDeliveryId, setFocusedDeliveryId] = useState(null);
+  const [mapViewMode, setMapViewMode] = useState('all');
+  const [routeEtaMinutes, setRouteEtaMinutes] = useState(null);
+  const [routeDistanceKm, setRouteDistanceKm] = useState(null);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
@@ -39,7 +50,6 @@ export default function RiderMapScreen({ navigation }) {
     title: '',
     message: ''
   });
-  const [locationSubscription, setLocationSubscription] = useState(null);
   const [tracking, setTracking] = useState(false);
 
   // Petron San Pedro Station coordinates (default)
@@ -53,32 +63,65 @@ export default function RiderMapScreen({ navigation }) {
     if (!loading) {
       generateMapHtml();
     }
-  }, [deliveries, currentLocation, loading]);
+  }, [deliveries, currentLocation, loading, mapViewMode, focusedDeliveryId]);
 
   // start/stop tracking when rider toggles or logs out
   useEffect(() => {
-    if (tracking && profile?.id) {
-      startLocationTracking(profile.id, (loc) => {
-        setCurrentLocation({ latitude: loc.latitude, longitude: loc.longitude });
-      }).then(res => {
-        if (res.success) setLocationSubscription(res.subscription);
-        else console.warn('tracking failed', res.error);
-      });
-    } else {
-      if (locationSubscription) {
-        stopLocationTracking(locationSubscription);
-        setLocationSubscription(null);
+    let isActive = true;
+
+    const startTrackingSession = async () => {
+      if (!tracking || !profile?.id) {
+        if (trackingSubscriptionRef.current) {
+          stopLocationTracking(trackingSubscriptionRef.current);
+          trackingSubscriptionRef.current = null;
+        }
+        return;
       }
-    }
-    // cleanup when component unmounts
+
+      if (trackingSubscriptionRef.current) {
+        stopLocationTracking(trackingSubscriptionRef.current);
+        trackingSubscriptionRef.current = null;
+      }
+
+      const result = await startLocationTracking(profile.id, (loc) => {
+        if (!isActive) return;
+
+        setCurrentLocation({
+          lat: loc.latitude,
+          lng: loc.longitude
+        });
+
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'UPDATE_LOCATION',
+            lat: loc.latitude,
+            lon: loc.longitude,
+            shouldCenter: false
+          }));
+        }
+      });
+
+      if (result.success && isActive) {
+        trackingSubscriptionRef.current = result.subscription;
+      } else if (!result.success) {
+        console.warn('tracking failed', result.error);
+      }
+    };
+
+    startTrackingSession();
+
     return () => {
-      if (locationSubscription) stopLocationTracking(locationSubscription);
+      isActive = false;
     };
   }, [tracking, profile]);
 
   const generateMapHtml = () => {
+    const deliveriesForMap = mapViewMode === 'focused' && focusedDeliveryId
+      ? deliveries.filter(d => d.id === focusedDeliveryId)
+      : deliveries;
+
     // Create markers array from deliveries with better validation
-    const markers = deliveries
+    const markers = deliveriesForMap
       .filter(d => {
         if (!d.orders) {
           console.warn('Delivery row has no linked order (likely RLS):', d.id);
@@ -86,22 +129,27 @@ export default function RiderMapScreen({ navigation }) {
         }
         const hasValidCoords = (d.orders.delivery_lat || d.delivery_lat) && (d.orders.delivery_lng || d.delivery_lng);
         if (!hasValidCoords) {
-          console.log('Delivery missing coordinates:', d.id, d.orders, {
+          devLog('Delivery missing coordinates:', d.id, d.orders, {
             delivery_lat: d.delivery_lat,
             delivery_lng: d.delivery_lng
           });
         }
         return hasValidCoords;
       })
-      .map(d => ({
+      .map((d, index) => {
+        const originalIndex = deliveries.findIndex((item) => item.id === d.id);
+
+        return ({
         id: d.id,
         lat: parseFloat(d.orders?.delivery_lat ?? d.delivery_lat),
         lng: parseFloat(d.orders?.delivery_lng ?? d.delivery_lng),
         title: `Order #${d.orders?.order_number || d.order_id || 'Unknown'}`,
         description: d.orders?.customer_name?.full_name || 'Customer',
         status: d.status,
-        address: d.orders?.delivery_address
-      }));
+        address: d.orders?.delivery_address,
+        displayIndex: originalIndex >= 0 ? originalIndex + 1 : index + 1,
+      });
+      });
         
 
     const currentLoc = currentLocation || SAN_PEDRO_COORDS;
@@ -422,10 +470,27 @@ export default function RiderMapScreen({ navigation }) {
           window.riderMarker = null;
           window.deliveryMarkers = [];
           window.routeLine = null;
+          window.routeArrows = [];
+          window.routeMode = '${mapViewMode === 'focused' ? 'focused' : 'none'}';
+          window.lastRouteOrigin = null;
+          window.lastRerouteAt = 0;
           window.currentLocation = { lat: ${currentLoc.lat}, lng: ${currentLoc.lng} };
           
           // Delivery markers data
           window.deliveries = ${JSON.stringify(markers)};
+          window.allDeliveries = ${JSON.stringify(markers)};
+          const DEV_MODE = ${__DEV__ ? 'true' : 'false'};
+          const log = (...args) => {
+            if (DEV_MODE) {
+              console.log(...args);
+            }
+          };
+
+          const OSRM_BASE_URL = 'https://router.project-osrm.org';
+          const REROUTE_MIN_INTERVAL_MS = 10000;
+          const REROUTE_MIN_DISTANCE_METERS = 25;
+          const START_STRAIGHT_MAX_METERS = 120;
+          const FINAL_STRAIGHT_MAX_METERS = 120;
           
           function initMap() {
             try {
@@ -449,8 +514,10 @@ export default function RiderMapScreen({ navigation }) {
               addDeliveryMarkers();
               
               // Draw optimized route line if there are deliveries
-              if (window.deliveries.length > 0) {
+              if (window.routeMode === 'focused' && window.deliveries.length > 0) {
                 drawOptimizedRoute();
+              } else {
+                clearRouteLine();
               }
               
               // Fit all markers after a short delay
@@ -458,7 +525,7 @@ export default function RiderMapScreen({ navigation }) {
                 window.fitAllMarkers();
               }, 500);
               
-              console.log('Map initialized successfully');
+              log('Map initialized successfully');
             } catch (error) {
               console.error('Map initialization error:', error);
             }
@@ -487,7 +554,7 @@ export default function RiderMapScreen({ navigation }) {
               }).addTo(window.map);
               
               window.riderMarker.bindPopup('<b>Your Location</b>');
-              console.log('Rider marker added');
+              log('Rider marker added');
             } catch (error) {
               console.error('Error adding rider marker:', error);
             }
@@ -499,21 +566,21 @@ export default function RiderMapScreen({ navigation }) {
               
               window.deliveries.forEach((delivery, index) => {
                 if (!delivery.lat || !delivery.lng) {
-                  console.log('Skipping delivery with missing coordinates:', delivery);
+                  log('Skipping delivery with missing coordinates:', delivery);
                   return;
                 }
                 
                 const color = delivery.status === 'assigned' ? '#F59E0B' : 
-                             delivery.status === 'picked_up' ? '#0033A0' : '#10B981';
+                             (delivery.status === 'picked_up' || delivery.status === 'out_for_delivery') ? '#0033A0' : '#10B981';
                 
                 const deliveryIcon = L.divIcon({
                   html: \`
                     <div style="position: relative;">
                       <div class="delivery-pin-numbered" style="background: \${color};">
-                        <span>\${index + 1}</span>
+                        <span>\${delivery.displayIndex}</span>
                       </div>
                       <div class="delivery-label">
-                        Order #\${delivery.title.split('#')[1] || index + 1}
+                        Order #\${delivery.title.split('#')[1] || delivery.displayIndex}
                       </div>
                     </div>
                   \`,
@@ -547,10 +614,13 @@ export default function RiderMapScreen({ navigation }) {
                   e.preventDefault();
                   e.stopPropagation();
                   
-                  console.log('Popup button clicked for delivery:', delivery.id);
+                  log('Popup button clicked for delivery:', delivery.id);
                   
                   // Close the popup
                   marker.closePopup();
+
+                  // Focus this delivery and draw only its route
+                  focusSingleDelivery(delivery.id);
                   
                   // Send message to React Native
                   if (window.ReactNativeWebView) {
@@ -579,9 +649,12 @@ export default function RiderMapScreen({ navigation }) {
                   closeOnClick: true
                 });
                 
-                // Handle marker click separately
+                // Marker tap should only focus route.
+                // Details are opened from active list or explicit "View Details" action.
                 marker.on('click', function(e) {
-                  console.log('Marker clicked:', delivery.id);
+                  log('Marker clicked:', delivery.id);
+
+                  focusSingleDelivery(delivery.id);
                 });
                 
                 window.deliveryMarkers.push({
@@ -590,44 +663,340 @@ export default function RiderMapScreen({ navigation }) {
                 });
               });
               
-              console.log('Delivery markers added:', window.deliveryMarkers.length);
+              log('Delivery markers added:', window.deliveryMarkers.length);
             } catch (error) {
               console.error('Error adding delivery markers:', error);
             }
           }
+
+          function clearRouteLine() {
+            if (window.routeLine && window.map) {
+              window.map.removeLayer(window.routeLine);
+              window.routeLine = null;
+            }
+
+            if (window.routeArrows?.length && window.map) {
+              window.routeArrows.forEach((marker) => window.map.removeLayer(marker));
+              window.routeArrows = [];
+            }
+
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'ROUTE_CLEARED'
+              }));
+            }
+          }
+
+          function focusSingleDelivery(deliveryId) {
+            const focused = window.allDeliveries.filter((d) => d.id === deliveryId);
+            if (focused.length === 0) {
+              return;
+            }
+
+            window.deliveries = focused;
+            window.routeMode = 'focused';
+            addDeliveryMarkers();
+            drawOptimizedRoute(true);
+            window.fitAllMarkers();
+          }
           
-          function drawOptimizedRoute() {
+          function getDistanceMeters(a, b) {
+            const toRad = (deg) => deg * Math.PI / 180;
+            const earthRadius = 6371000;
+            const dLat = toRad(b.lat - a.lat);
+            const dLng = toRad(b.lng - a.lng);
+
+            const h =
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+            return 2 * earthRadius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+          }
+
+          function publishRouteMetrics(distanceMeters, durationSeconds, mode = 'focused') {
+            if (!window.ReactNativeWebView) {
+              return;
+            }
+
+            const distanceKm = distanceMeters / 1000;
+            const etaMinutes = Math.max(1, Math.round(durationSeconds / 60));
+
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'ROUTE_METRICS',
+              mode,
+              etaMinutes,
+              distanceKm: Number(distanceKm.toFixed(2))
+            }));
+          }
+
+          function estimateFallbackDurationSeconds(distanceMeters) {
+            // Approximate urban rider speed ~24 kph
+            const metersPerSecond = 24 / 3.6;
+            return distanceMeters / metersPerSecond;
+          }
+
+          function getManeuverCount(route) {
+            if (!route?.legs) {
+              return 0;
+            }
+
+            return route.legs.reduce((count, leg) => count + (leg.steps?.length || 0), 0);
+          }
+
+          function pickBestRoute(routes) {
+            if (!Array.isArray(routes) || routes.length === 0) {
+              return null;
+            }
+
+            const minDistance = Math.min(...routes.map((r) => r.distance || Number.POSITIVE_INFINITY));
+
+            let bestRoute = routes[0];
+            let bestScore = Number.POSITIVE_INFINITY;
+
+            routes.forEach((route) => {
+              const duration = route.duration || Number.POSITIVE_INFINITY;
+              const distance = route.distance || Number.POSITIVE_INFINITY;
+              const maneuvers = getManeuverCount(route);
+
+              // Prioritize fast routes, prefer closer routes, and lightly penalize too many turns.
+              const distancePenalty = distance > minDistance * 1.15 ? (distance - minDistance) * 0.03 : 0;
+              const score = duration + maneuvers * 8 + distancePenalty;
+
+              if (score < bestScore) {
+                bestScore = score;
+                bestRoute = route;
+              }
+            });
+
+            return bestRoute;
+          }
+
+          function drawFallbackRoute(waypoints) {
+            if (window.routeMode !== 'focused') {
+              clearRouteLine();
+              return;
+            }
+
+            if (window.routeLine) {
+              window.map.removeLayer(window.routeLine);
+            }
+
+            window.routeLine = L.polyline(waypoints, {
+              color: '#0033A0',
+              weight: 4,
+              opacity: 0.6,
+              dashArray: '8, 8',
+              lineJoin: 'round'
+            }).addTo(window.map);
+
+            drawRouteArrows(waypoints);
+
+            const fallbackDistance = waypoints.slice(1).reduce((sum, point, idx) => {
+              const prev = waypoints[idx];
+              return sum + getDistanceMeters(
+                { lat: prev[0], lng: prev[1] },
+                { lat: point[0], lng: point[1] }
+              );
+            }, 0);
+
+            publishRouteMetrics(
+              fallbackDistance,
+              estimateFallbackDurationSeconds(fallbackDistance),
+              'fallback'
+            );
+          }
+
+          function getBearingDeg(from, to) {
+            const y = to.lng - from.lng;
+            const x = to.lat - from.lat;
+            return (Math.atan2(y, x) * 180 / Math.PI) + 90;
+          }
+
+          function drawRouteArrows(routePoints) {
+            if (!window.map) {
+              return;
+            }
+
+            if (window.routeArrows?.length) {
+              window.routeArrows.forEach((marker) => window.map.removeLayer(marker));
+            }
+            window.routeArrows = [];
+
+            if (!Array.isArray(routePoints) || routePoints.length < 3) {
+              return;
+            }
+
+            const arrowStep = Math.max(10, Math.floor(routePoints.length / 10));
+
+            for (let i = arrowStep; i < routePoints.length - 1; i += arrowStep) {
+              const prev = routePoints[i - 1];
+              const curr = routePoints[i];
+              const next = routePoints[i + 1];
+              const bearing = getBearingDeg(
+                { lat: prev[0], lng: prev[1] },
+                { lat: next[0], lng: next[1] }
+              );
+
+              const arrowIcon = L.divIcon({
+                className: '',
+                html:
+                  '<div style="' +
+                  'transform: rotate(' + bearing + 'deg);' +
+                  'color:#0033A0;' +
+                  'font-size:14px;' +
+                  'font-weight:700;' +
+                  'text-shadow:0 0 2px rgba(255,255,255,0.9);' +
+                  '">➤</div>',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+              });
+
+              const arrowMarker = L.marker([curr[0], curr[1]], {
+                icon: arrowIcon,
+                interactive: false,
+                keyboard: false,
+                zIndexOffset: 500
+              }).addTo(window.map);
+
+              window.routeArrows.push(arrowMarker);
+            }
+          }
+
+          async function drawOptimizedRoute(force = false) {
             try {
+              if (window.routeMode !== 'focused') {
+                clearRouteLine();
+                return;
+              }
+
               // Create waypoints: current location + all delivery locations
               const waypoints = [
                 [window.currentLocation.lat, window.currentLocation.lng],
                 ...window.deliveries.map(d => [d.lat, d.lng])
               ];
+
+              if (waypoints.length < 2) {
+                return;
+              }
+
+              const now = Date.now();
+              const currentOrigin = {
+                lat: window.currentLocation.lat,
+                lng: window.currentLocation.lng
+              };
+
+              const movedDistance = window.lastRouteOrigin
+                ? getDistanceMeters(window.lastRouteOrigin, currentOrigin)
+                : Number.POSITIVE_INFINITY;
+
+              const isTooSoon = (now - window.lastRerouteAt) < REROUTE_MIN_INTERVAL_MS;
+              if (!force && isTooSoon && movedDistance < REROUTE_MIN_DISTANCE_METERS) {
+                return;
+              }
+
+              const coordinateString = [
+                window.currentLocation.lng + ',' + window.currentLocation.lat,
+                ...window.deliveries.map((d) => d.lng + ',' + d.lat)
+              ].join(';');
+
+              const routeUrl = OSRM_BASE_URL + '/route/v1/driving/' + coordinateString + '?overview=full&geometries=geojson&continue_straight=true&alternatives=true&steps=true';
+              const response = await fetch(routeUrl);
+              if (!response.ok) {
+                throw new Error('OSRM request failed with ' + response.status);
+              }
+
+              const routeResult = await response.json();
+              const selectedRoute = pickBestRoute(routeResult?.routes || []);
+              const routeCoordinates = selectedRoute?.geometry?.coordinates;
+
+              if (!Array.isArray(routeCoordinates) || routeCoordinates.length === 0) {
+                throw new Error('OSRM returned empty route geometry');
+              }
               
               // Remove existing route line
               if (window.routeLine) {
                 window.map.removeLayer(window.routeLine);
               }
-              
-              // Draw a dashed line connecting all points in order
-              window.routeLine = L.polyline(waypoints, {
+
+              const snappedRoute = routeCoordinates.map(([lng, lat]) => [lat, lng]);
+              let renderedRoute = snappedRoute;
+              let initialStraightMeters = 0;
+              let additionalStraightMeters = 0;
+
+              // If snapped route starts near the rider, prepend a short straight
+              // segment so the route visually starts exactly from rider position.
+              if (snappedRoute.length > 1) {
+                const routeStart = snappedRoute[0];
+                const startDistance = getDistanceMeters(
+                  { lat: window.currentLocation.lat, lng: window.currentLocation.lng },
+                  { lat: routeStart[0], lng: routeStart[1] }
+                );
+
+                if (startDistance > 3 && startDistance <= START_STRAIGHT_MAX_METERS) {
+                  renderedRoute = [
+                    [window.currentLocation.lat, window.currentLocation.lng],
+                    ...renderedRoute
+                  ];
+                  initialStraightMeters = startDistance;
+                }
+              }
+
+              // If the snapped road endpoint is close to the order, extend with a short
+              // straight segment so the line reaches the exact drop-off pin.
+              const lastDelivery = window.deliveries[window.deliveries.length - 1];
+              if (lastDelivery && renderedRoute.length > 1) {
+                const routeEnd = renderedRoute[renderedRoute.length - 1];
+                const endDistance = getDistanceMeters(
+                  { lat: routeEnd[0], lng: routeEnd[1] },
+                  { lat: lastDelivery.lat, lng: lastDelivery.lng }
+                );
+
+                if (endDistance > 3 && endDistance <= FINAL_STRAIGHT_MAX_METERS) {
+                  renderedRoute = [
+                    ...renderedRoute,
+                    [lastDelivery.lat, lastDelivery.lng]
+                  ];
+                  additionalStraightMeters = endDistance;
+                }
+              }
+
+              window.routeLine = L.polyline(renderedRoute, {
                 color: '#0033A0',
                 weight: 4,
                 opacity: 0.6,
                 dashArray: '8, 8',
                 lineJoin: 'round'
               }).addTo(window.map);
+
+              drawRouteArrows(renderedRoute);
+
+              window.lastRouteOrigin = currentOrigin;
+              window.lastRerouteAt = now;
+
+              const baseDistance = selectedRoute?.distance || 0;
+              const baseDuration = selectedRoute?.duration || 0;
+              const connectorDistance = initialStraightMeters + additionalStraightMeters;
+              const extraDuration = estimateFallbackDurationSeconds(connectorDistance);
+              publishRouteMetrics(baseDistance + connectorDistance, baseDuration + extraDuration, 'focused');
               
-              console.log('Route line drawn');
+              log('Road-snapped route line drawn');
             } catch (error) {
-              console.error('Error drawing route:', error);
+              console.warn('Road route unavailable, using fallback line:', error.message || error);
+
+              // Create waypoints again for safe fallback
+              const fallbackWaypoints = [
+                [window.currentLocation.lat, window.currentLocation.lng],
+                ...window.deliveries.map(d => [d.lat, d.lng])
+              ];
+              drawFallbackRoute(fallbackWaypoints);
             }
           }
           
           window.fitAllMarkers = function() {
-            console.log('fitAllMarkers called');
+            log('fitAllMarkers called');
             if (!window.map) {
-              console.log('Map not initialized');
+              log('Map not initialized');
               return;
             }
             
@@ -644,7 +1013,7 @@ export default function RiderMapScreen({ navigation }) {
               points.push([latLng.lat, latLng.lng]);
             });
             
-            console.log('Points to fit:', points.length);
+            log('Points to fit:', points.length);
             
             if (points.length > 0) {
               const bounds = L.latLngBounds(points);
@@ -653,7 +1022,7 @@ export default function RiderMapScreen({ navigation }) {
                 duration: 1.5,
                 maxZoom: 15
               });
-              console.log('Fitting bounds:', points.length, 'points');
+              log('Fitting bounds:', points.length, 'points');
             } else {
               // If no points, just center on current location
               window.map.setView([window.currentLocation.lat, window.currentLocation.lng], 14);
@@ -661,7 +1030,7 @@ export default function RiderMapScreen({ navigation }) {
           };
           
           window.centerOnMe = function() {
-            console.log('centerOnMe called');
+            log('centerOnMe called');
             if (window.map && window.currentLocation) {
               window.map.flyTo([window.currentLocation.lat, window.currentLocation.lng], 16, {
                 duration: 1.5
@@ -673,7 +1042,7 @@ export default function RiderMapScreen({ navigation }) {
           window.addEventListener('message', function(event) {
             try {
               const data = JSON.parse(event.data);
-              console.log('Message received in WebView:', data);
+              log('Message received in WebView:', data);
               
               if (data.type === 'UPDATE_LOCATION') {
                 window.currentLocation = { lat: data.lat, lng: data.lon };
@@ -682,8 +1051,8 @@ export default function RiderMapScreen({ navigation }) {
                   window.riderMarker.setLatLng([data.lat, data.lon]);
                   
                   // Update route line
-                  if (window.deliveryMarkers.length > 0) {
-                    drawOptimizedRoute();
+                  if (window.routeMode === 'focused' && window.deliveryMarkers.length > 0) {
+                    drawOptimizedRoute(false);
                   }
                   
                   // Update map view if needed
@@ -701,6 +1070,14 @@ export default function RiderMapScreen({ navigation }) {
                     duration: 1
                   });
                 }
+              } else if (data.type === 'FOCUS_DELIVERY') {
+                focusSingleDelivery(data.deliveryId);
+              } else if (data.type === 'SHOW_ALL_DELIVERIES') {
+                window.deliveries = window.allDeliveries.slice();
+                window.routeMode = 'none';
+                addDeliveryMarkers();
+                clearRouteLine();
+                window.fitAllMarkers();
               }
             } catch (error) {
               console.error('Error processing message:', error);
@@ -753,14 +1130,14 @@ export default function RiderMapScreen({ navigation }) {
           )
         `)
         .eq('rider_id', profile.id)
-        // show both assigned and accepted deliveries as well as picked up ones
-        .in('status', ['assigned', 'accepted', 'picked_up']);
+        // show active delivery states in rider map
+        .in('status', ['assigned', 'accepted', 'picked_up', 'out_for_delivery']);
 
       if (error) throw error;
       
-      console.log('Fetched deliveries:', data?.length || 0);
+      devLog('Fetched deliveries:', data?.length || 0);
       // dump full rows so we can see if orders are being stripped by RLS
-      console.log('raw deliveries data', JSON.stringify(data, null, 2));
+      devLog('raw deliveries data', JSON.stringify(data, null, 2));
       setDeliveries(data || []);
     } catch (error) {
       console.error('Error fetching deliveries:', error.message);
@@ -785,7 +1162,7 @@ export default function RiderMapScreen({ navigation }) {
 
       const { latitude, longitude } = location.coords;
       
-      console.log('Current location:', latitude, longitude);
+      devLog('Current location:', latitude, longitude);
       
       setCurrentLocation({
         lat: latitude,
@@ -806,50 +1183,13 @@ export default function RiderMapScreen({ navigation }) {
     }
   };
 
-  // Start watching location
-  const startWatchingLocation = async () => {
-    try {
-      const hasPermission = await requestLocationPermission();
-      if (!hasPermission) return;
-
-      const subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Highest,
-          timeInterval: 5000,
-          distanceInterval: 10
-        },
-        (location) => {
-          const { latitude, longitude } = location.coords;
-          
-          setCurrentLocation({
-            lat: latitude,
-            lng: longitude
-          });
-
-          if (webViewRef.current) {
-            webViewRef.current.postMessage(JSON.stringify({
-              type: 'UPDATE_LOCATION',
-              lat: latitude,
-              lon: longitude,
-              shouldCenter: false
-            }));
-          }
-        }
-      );
-
-      setLocationSubscription(subscription);
-    } catch (error) {
-      console.error('Error watching location:', error);
-    }
-  };
-
   // Initial load
   useEffect(() => {
     const initialize = async () => {
       setLoading(true);
       await getCurrentLocation(true);
       await fetchActiveDeliveries();
-      await startWatchingLocation();
+      setTracking(true);
       setLoading(false);
     };
 
@@ -876,8 +1216,10 @@ export default function RiderMapScreen({ navigation }) {
 
       return () => {
         channel.unsubscribe();
-        if (locationSubscription) {
-          locationSubscription.remove();
+
+        if (trackingSubscriptionRef.current) {
+          stopLocationTracking(trackingSubscriptionRef.current);
+          trackingSubscriptionRef.current = null;
         }
       };
     }
@@ -886,18 +1228,26 @@ export default function RiderMapScreen({ navigation }) {
   const handleWebViewMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('WebView message received:', data);
+      devLog('WebView message received:', data);
       
       if (data.type === 'DELIVERY_SELECTED') {
         const delivery = deliveries.find(d => d.id === data.deliveryId);
-        console.log('Found delivery:', delivery);
+        devLog('Found delivery:', delivery);
         
         if (delivery) {
           setSelectedDelivery(delivery);
+          setFocusedDeliveryId(delivery.id);
+          setMapViewMode('focused');
           setShowDeliveryModal(true);
         } else {
-          console.log('Delivery not found with ID:', data.deliveryId);
+          devLog('Delivery not found with ID:', data.deliveryId);
         }
+      } else if (data.type === 'ROUTE_METRICS') {
+        setRouteEtaMinutes(data.etaMinutes ?? null);
+        setRouteDistanceKm(data.distanceKm ?? null);
+      } else if (data.type === 'ROUTE_CLEARED') {
+        setRouteEtaMinutes(null);
+        setRouteDistanceKm(null);
       }
     } catch (error) {
       console.error('Error parsing WebView message:', error);
@@ -906,7 +1256,16 @@ export default function RiderMapScreen({ navigation }) {
 
   const handleDeliveryPress = (delivery) => {
     setSelectedDelivery(delivery);
+    setFocusedDeliveryId(delivery.id);
+    setMapViewMode('focused');
     setShowDeliveryModal(true);
+
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'FOCUS_DELIVERY',
+        deliveryId: delivery.id,
+      }));
+    }
     
     // Center map on this delivery
     if (webViewRef.current && delivery.orders?.delivery_lat && delivery.orders?.delivery_lng) {
@@ -916,6 +1275,8 @@ export default function RiderMapScreen({ navigation }) {
         lng: parseFloat(delivery.orders.delivery_lng)
       }));
     }
+
+    // Active delivery list tap matches map "View Details": show drop-up first.
   };
 
   const openNavigation = () => {
@@ -939,18 +1300,45 @@ export default function RiderMapScreen({ navigation }) {
   };
 
   const fitAllMarkers = () => {
-    console.log('fitAllMarkers called from React Native');
+    devLog('fitAllMarkers called from React Native');
     if (webViewRef.current) {
       webViewRef.current.postMessage(JSON.stringify({
         type: 'FIT_ALL'
       }));
     } else {
-      console.log('WebView ref not available');
+      devLog('WebView ref not available');
     }
   };
 
   const refreshLocation = () => {
     getCurrentLocation(true);
+  };
+
+  const showAllDeliveriesOnMap = () => {
+    setMapViewMode('all');
+    setFocusedDeliveryId(null);
+    setRouteEtaMinutes(null);
+    setRouteDistanceKm(null);
+
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'SHOW_ALL_DELIVERIES'
+      }));
+    }
+  };
+
+  const showFocusedDeliveryOnMap = () => {
+    if (selectedDelivery?.id) {
+      setFocusedDeliveryId(selectedDelivery.id);
+      setMapViewMode('focused');
+
+      if (webViewRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'FOCUS_DELIVERY',
+          deliveryId: selectedDelivery.id,
+        }));
+      }
+    }
   };
 
   if (loading) {
@@ -996,20 +1384,68 @@ export default function RiderMapScreen({ navigation }) {
             const { nativeEvent } = syntheticEvent;
             console.warn('WebView error: ', nativeEvent);
           }}
-          onLoadStart={() => console.log('WebView loading started')}
-          onLoad={() => console.log('WebView loaded')}
+          onLoadStart={() => devLog('WebView loading started')}
+          onLoad={() => devLog('WebView loaded')}
         />
       </View>
 
       {/* Bottom Panel - Active Deliveries List */}
       <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 20, paddingTop: 12 }]}>
         <View style={styles.panelHeader}>
-          <Text style={styles.panelTitle}>
-            Active Deliveries ({deliveries.length})
-          </Text>
-          <TouchableOpacity onPress={refreshLocation} style={styles.locateButton}>
-            <Ionicons name="locate" size={22} color="#0033A0" />
-          </TouchableOpacity>
+          <View>
+            <Text style={styles.panelTitle}>
+              Active Deliveries ({deliveries.length})
+            </Text>
+            {mapViewMode === 'focused' && routeEtaMinutes !== null && routeDistanceKm !== null && (
+              <Text style={styles.routeMetaText}>
+                ETA {routeEtaMinutes} min • {routeDistanceKm} km
+              </Text>
+            )}
+          </View>
+          <View style={styles.panelActions}>
+            <View style={styles.modeSwitch}>
+              <TouchableOpacity
+                onPress={showAllDeliveriesOnMap}
+                style={[
+                  styles.modeButton,
+                  mapViewMode === 'all' && styles.modeButtonActive
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeButtonText,
+                    mapViewMode === 'all' && styles.modeButtonTextActive
+                  ]}
+                >
+                  All
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={showFocusedDeliveryOnMap}
+                disabled={!selectedDelivery?.id}
+                style={[
+                  styles.modeButton,
+                  mapViewMode === 'focused' && styles.modeButtonActive,
+                  !selectedDelivery?.id && styles.modeButtonDisabled
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.modeButtonText,
+                    mapViewMode === 'focused' && styles.modeButtonTextActive,
+                    !selectedDelivery?.id && styles.modeButtonTextDisabled
+                  ]}
+                >
+                  Focus
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={refreshLocation} style={styles.locateButton}>
+              <Ionicons name="locate" size={22} color="#0033A0" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView 
@@ -1252,10 +1688,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  panelActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d8e1f2',
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#f8fbff',
+  },
+  modeButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: 'transparent',
+  },
+  modeButtonActive: {
+    backgroundColor: '#0033A0',
+  },
+  modeButtonDisabled: {
+    opacity: 0.45,
+  },
+  modeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#46608f',
+  },
+  modeButtonTextActive: {
+    color: '#fff',
+  },
+  modeButtonTextDisabled: {
+    color: '#8aa0c7',
+  },
   panelTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
+  },
+  routeMetaText: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0f4aa8',
   },
   deliveriesScroll: {
     maxHeight: 90,

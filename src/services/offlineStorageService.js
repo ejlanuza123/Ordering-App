@@ -78,9 +78,13 @@ export const offlineStorageService = {
   async queueOperation(operation) {
     try {
       const queue = await this.getSyncQueue();
+      const queueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const recordId = operation.recordId ?? operation.targetId ?? operation.data?.id ?? operation.id;
+
       queue.push({
         ...operation,
-        id: Date.now() + Math.random(),
+        queueId,
+        recordId,
         timestamp: Date.now()
       });
       await AsyncStorage.setItem(
@@ -100,7 +104,8 @@ export const offlineStorageService = {
   async getSyncQueue() {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEYS.SYNC_QUEUE);
-      return stored ? JSON.parse(stored) : [];
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
       console.error('Error getting sync queue:', error);
       return [];
@@ -118,6 +123,8 @@ export const offlineStorageService = {
       for (const operation of queue) {
         try {
           let result;
+          const queueId = operation.queueId ?? operation.id;
+          const recordId = operation.recordId ?? operation.targetId ?? operation.data?.id ?? operation.id;
 
           switch (operation.type) {
             case 'create_order':
@@ -127,17 +134,25 @@ export const offlineStorageService = {
               break;
 
             case 'update':
+              if (!recordId) {
+                results.push({ queueId, success: false, error: 'Missing recordId for update operation' });
+                continue;
+              }
               result = await supabase
                 .from(operation.table)
                 .update(operation.data)
-                .eq('id', operation.id);
+                .eq('id', recordId);
               break;
 
             case 'delete':
+              if (!recordId) {
+                results.push({ queueId, success: false, error: 'Missing recordId for delete operation' });
+                continue;
+              }
               result = await supabase
                 .from(operation.table)
                 .delete()
-                .eq('id', operation.id);
+                .eq('id', recordId);
               break;
 
             default:
@@ -145,18 +160,18 @@ export const offlineStorageService = {
           }
 
           if (result.error) {
-            console.error(`Failed to sync operation ${operation.id}:`, result.error);
+            console.error(`Failed to sync operation ${queueId}:`, result.error);
           } else {
-            results.push({ id: operation.id, success: true });
+            results.push({ queueId, success: true });
           }
         } catch (error) {
-          console.error(`Error processing operation ${operation.id}:`, error);
+          console.error(`Error processing operation ${operation.queueId ?? operation.id}:`, error);
         }
       }
 
       // Remove processed operations
       const unprocessed = queue.filter(
-        op => !results.find(r => r.id === op.id && r.success)
+        op => !results.find(r => r.queueId === (op.queueId ?? op.id) && r.success)
       );
 
       if (unprocessed.length === 0) {
@@ -184,9 +199,10 @@ export const offlineStorageService = {
    */
   async updateLastSync(key) {
     try {
-      const synced = await this.getData(STORAGE_KEYS.LAST_SYNC) || {};
+      const { data } = await this.getData('LAST_SYNC');
+      const synced = data || {};
       synced[key] = Date.now();
-      await this.saveData(STORAGE_KEYS.LAST_SYNC, synced, 10080); // 1 week
+      await this.saveData('LAST_SYNC', synced, 10080); // 1 week
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -198,7 +214,8 @@ export const offlineStorageService = {
    */
   async getLastSync(key) {
     try {
-      const synced = await this.getData(STORAGE_KEYS.LAST_SYNC) || {};
+      const { data } = await this.getData('LAST_SYNC');
+      const synced = data || {};
       return synced[key] || null;
     } catch (error) {
       return null;

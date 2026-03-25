@@ -3,9 +3,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
-import { Platform } from 'react-native';
 
 const AVATAR_BUCKET = 'avatars';
+const devLog = (...args) => {
+  if (__DEV__) {
+    console.log(...args);
+  }
+};
 
 export const avatarService = {
   // Request permissions
@@ -19,7 +23,7 @@ export const avatarService = {
   // Pick image from gallery
   async pickImage() {
     try {
-      console.log('📷 Attempting to open Image Library...');
+      devLog('Opening image library');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'], // 🟢 The correct, warning-free modern syntax
         allowsEditing: true,
@@ -28,12 +32,12 @@ export const avatarService = {
         base64: false, 
       });
       
-      console.log('📷 Image Library Result:', JSON.stringify(result, null, 2));
+      devLog('Image library result:', JSON.stringify(result, null, 2));
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         return result.assets[0];
       } else {
-        console.log('📷 Upload cancelled or no assets found');
+        devLog('Upload canceled or no assets found');
         return null;
       }
     } catch (error) {
@@ -45,7 +49,7 @@ export const avatarService = {
   // Take photo with camera
   async takePhoto() {
     try {
-      console.log('📷 Attempting to open Camera...');
+      devLog('Opening camera');
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         throw new Error('Camera permission required');
@@ -58,12 +62,12 @@ export const avatarService = {
         quality: 0.8,
       });
 
-      console.log('📷 Camera Result:', JSON.stringify(result, null, 2));
+      devLog('Camera result:', JSON.stringify(result, null, 2));
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         return result.assets[0];
       } else {
-        console.log('📷 Upload cancelled or no assets found');
+        devLog('Upload canceled or no assets found');
         return null;
       }
     } catch (error) {
@@ -75,7 +79,7 @@ export const avatarService = {
   // Upload avatar to Supabase
   async uploadAvatar(userId, imageUri) {
     try {
-      console.log('🔵 SUPABASE: Starting upload for user:', userId);
+      devLog('Starting avatar upload for user:', userId);
 
       // Extract extension securely (fallback to jpeg if the URI lacks an extension)
       const extensionMatch = imageUri.match(/\.([a-zA-Z0-9]+)$/);
@@ -83,7 +87,7 @@ export const avatarService = {
       const fileName = `public/${userId}/${Date.now()}.${fileExt}`;
       const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
 
-      console.log('🔵 SUPABASE: File path:', fileName);
+      devLog('Avatar file path:', fileName);
 
       // 1. Read the image as a base64 string using Expo FileSystem
       const base64 = await FileSystem.readAsStringAsync(imageUri, { 
@@ -103,7 +107,7 @@ export const avatarService = {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      console.log('🔵 SUPABASE: Upload successful:', uploadData);
+      devLog('Avatar upload successful:', uploadData);
 
       // 3. Get public URL
       const { data } = supabase.storage
@@ -111,10 +115,10 @@ export const avatarService = {
         .getPublicUrl(fileName);
 
       const publicUrl = data.publicUrl;
-      console.log('🔵 SUPABASE: Public URL:', publicUrl);
+      devLog('Avatar public URL:', publicUrl);
 
       // 4. Update profile with new avatar URL
-      console.log('🔵 SUPABASE: Updating profile...');
+      devLog('Updating avatar profile metadata');
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
@@ -127,10 +131,10 @@ export const avatarService = {
         throw new Error(`Profile update failed: ${updateError.message}`);
       }
 
-      console.log('🔵 SUPABASE: Profile updated successfully');
+      devLog('Avatar profile updated successfully');
       return publicUrl;
     } catch (error) {
-      console.log('🔵 SUPABASE: Error in uploadAvatar:', error);
+      console.error('Error in uploadAvatar:', error);
       throw error;
     }
   },
@@ -139,11 +143,11 @@ export const avatarService = {
   async deleteAvatar(userId, avatarUrl) {
     try {
       if (!avatarUrl) {
-        console.log('No avatar URL to delete');
+        devLog('No avatar URL to delete');
         return;
       }
 
-      console.log('🔴 DELETE: Starting delete for user:', userId, 'URL:', avatarUrl);
+      devLog('Starting avatar delete for user:', userId);
 
       // Improved URL parsing with regex fallback
       let filePath = null;
@@ -160,11 +164,11 @@ export const avatarService = {
 
       if (!filePath) {
         const err = new Error('Could not extract file path from avatar URL: ' + avatarUrl);
-        console.error('🔴 DELETE ERROR:', err.message);
+        console.error('Avatar delete error:', err.message);
         throw err;
       }
 
-      console.log('🔴 DELETE: File path extracted:', filePath);
+      devLog('Avatar file path extracted:', filePath);
 
       // Delete from storage
       const { error: deleteError } = await supabase.storage
@@ -172,11 +176,11 @@ export const avatarService = {
         .remove([filePath]);
 
       if (deleteError) {
-        console.error('🔴 DELETE STORAGE ERROR:', deleteError);
+        console.error('Avatar storage delete error:', deleteError);
         throw new Error(`Storage delete failed: ${deleteError.message}`);
       }
 
-      console.log('🔴 DELETE: File successfully deleted from storage');
+      devLog('Avatar file deleted from storage');
 
       // Update profile
       const { error: updateError } = await supabase
@@ -188,13 +192,13 @@ export const avatarService = {
         .eq('id', userId);
 
       if (updateError) {
-        console.error('🔴 DELETE PROFILE ERROR:', updateError);
+        console.error('Avatar profile update error:', updateError);
         throw new Error(`Profile update failed: ${updateError.message}`);
       }
 
-      console.log('✅ DELETE: Profile updated - avatar removed successfully');
+      devLog('Avatar removed from profile successfully');
     } catch (error) {
-      console.error('💥 FULL DELETE ERROR:', error);
+      console.error('Delete avatar failed:', error);
       throw error;
     }
   }

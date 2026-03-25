@@ -99,6 +99,8 @@ export default function OrderHistoryScreen({ navigation }) {
           delivery_fee,
           status,
           delivery_address,
+          delivery_lat,
+          delivery_lng,
           payment_method,
           created_at,
           archived,
@@ -145,6 +147,8 @@ export default function OrderHistoryScreen({ navigation }) {
           delivery_fee,
           status,
           delivery_address,
+          delivery_lat,
+          delivery_lng,
           payment_method,
           created_at,
           archived,
@@ -540,6 +544,43 @@ export default function OrderHistoryScreen({ navigation }) {
     return lowerStatus === 'completed' || lowerStatus === 'delivered';
   };
 
+  const canTrackOrder = (status) => {
+    const lowerStatus = status?.toLowerCase();
+    return (
+      lowerStatus === 'processing' ||
+      lowerStatus === 'out for delivery' ||
+      lowerStatus === 'out_for_delivery' ||
+      lowerStatus === 'outfordelivery' ||
+      lowerStatus === 'accepted' ||
+      lowerStatus === 'picked_up'
+    );
+  };
+
+  const handleTrackDelivery = (order) => {
+    const delivery = order?.deliveries?.[0];
+
+    if (!delivery?.rider?.id) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Tracking Not Available',
+        message: 'Rider has not been assigned yet.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    navigation.navigate('CustomerDeliveryTracking', {
+      orderId: order.id,
+      orderNumber: formatOrderNumber(order.order_number) || `Order #${order.id}`,
+      riderId: delivery.rider.id,
+      riderName: delivery.rider.full_name,
+      riderPhone: delivery.rider.phone_number,
+      deliveryAddress: order.delivery_address,
+      deliveryLat: order.delivery_lat,
+      deliveryLng: order.delivery_lng,
+    });
+  };
+
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
     const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
@@ -780,6 +821,17 @@ export default function OrderHistoryScreen({ navigation }) {
             {selectedOrder.deliveries && selectedOrder.deliveries.length > 0 && (
               <>
                 <RiderInfoCard delivery={selectedOrder.deliveries[0]} />
+
+                {canTrackOrder(selectedOrder.status) && (
+                  <TouchableOpacity
+                    style={styles.trackDeliveryButton}
+                    onPress={() => handleTrackDelivery(selectedOrder)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="navigate" size={20} color="#fff" />
+                    <Text style={styles.trackDeliveryButtonText}>Track Delivery Live</Text>
+                  </TouchableOpacity>
+                )}
                 
                 {/* Rate Rider Button - Show only for completed/delivered orders */}
                 {canArchiveOrder(selectedOrder.status) && (
@@ -1590,6 +1642,28 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  trackDeliveryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0033A0',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    marginBottom: 8,
+    gap: 8,
+    elevation: 3,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  trackDeliveryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   rateRiderButtonText: {
     color: '#fff',
