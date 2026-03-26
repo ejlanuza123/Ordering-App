@@ -52,39 +52,42 @@ export default function NotificationsScreen({ navigation }) {
       await markAsRead(notification.id);
     }
 
-    // Handle navigation based on user role
+    const payload = notification?.data || {};
+    const payloadOrderId = payload?.order_id ?? payload?.orderId ?? null;
+    const payloadDeliveryId = payload?.delivery_id ?? payload?.deliveryId ?? null;
+
+    // Use push() for deep-links so Back returns to Notifications.
     if (role === 'rider') {
-      // For riders, navigate to deliveries screen
       switch (notification.type) {
         case 'order_status':
         case 'order_delivered':
         case 'order_cancelled':
-          // Navigate to deliveries list screen
-          navigation.navigate('RiderDeliveries');
+          navigation.push('RiderDeliveries', {
+            focusDeliveryId: payloadDeliveryId,
+            focusOrderId: payloadOrderId,
+            fromNotification: true,
+            nonce: Date.now(),
+          });
           break;
         default:
-          // For other notifications, go to dashboard
           navigation.navigate('RiderDashboard');
           break;
       }
     } else {
-      // For customers, navigate to order-related screens
       switch (notification.type) {
         case 'order_status':
-          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
-          break;
         case 'order_delivered':
-          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
-          break;
         case 'order_cancelled':
-          navigation.navigate('OrderHistory', { orderId: notification.data?.orderId });
+          navigation.push('OrderHistory', {
+            focusOrderId: payloadOrderId,
+            fromNotification: true,
+            nonce: Date.now(),
+          });
           break;
         case 'promo':
-          // Navigate to promotions or products
           navigation.navigate('Selection');
           break;
         default:
-          // Do nothing
           break;
       }
     }

@@ -234,41 +234,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
       if (deliveryError) throw deliveryError;
 
-      // ONLY update order for non-acceptance statuses
-      // IMPORTANT: Don't update order status when accepting to avoid triggering the database trigger again
-      if (orderData && newStatus !== 'accepted') {
-        const orderUpdates = { 
-          updated_at: new Date().toISOString()
-        };
-        
-        // Ensure rider_id is set on order so RLS policy allows the update
-        if (profile?.id) {
-          orderUpdates.rider_id = profile.id;
-        }
-        
-        switch(newStatus) {
-          case 'picked_up':
-          case 'out_for_delivery':
-            orderUpdates.status = 'Out for Delivery';
-            break;
-          case 'delivered':
-            orderUpdates.status = 'Completed';
-            break;
-          case 'failed':
-            orderUpdates.status = 'Cancelled';
-            break;
-        }
-        
-        // Only update if we're changing the status
-        if (orderUpdates.status) {
-          const { error: orderError } = await supabase
-            .from('orders')
-            .update(orderUpdates)
-            .eq('id', orderData.id);
-
-          if (orderError) throw orderError;
-        }
-      }
+      // Order status sync is handled server-side by a deliveries trigger.
+      // This keeps lifecycle transitions consistent even with strict rider RLS on orders.
 
       // Handle notifications
       let notificationTitle = '';

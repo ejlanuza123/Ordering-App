@@ -1,5 +1,5 @@
 // src/screens/customer/OrderHistoryScreen.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -28,7 +28,7 @@ const { width } = Dimensions.get('window');
 
 const PAGE_SIZE = 20;
 
-export default function OrderHistoryScreen({ navigation }) {
+export default function OrderHistoryScreen({ navigation, route }) {
   const { user } = useAuth();
   const { rateRider, hasUserRated, getUserRating } = useRiderRatings();
   const insets = useSafeAreaInsets();
@@ -65,6 +65,7 @@ export default function OrderHistoryScreen({ navigation }) {
     title: '',
     message: ''
   });
+  const handledNotificationNonceRef = useRef(null);
 
   const filters = [
     { id: 'all', label: 'All Orders' },
@@ -113,6 +114,13 @@ export default function OrderHistoryScreen({ navigation }) {
               category,
               unit
             )
+          ),
+          deliveries (
+            id,
+            status,
+            rider_id,
+            assigned_at,
+            accepted_at
           )
         `)
         .eq('user_id', user.id)
@@ -452,6 +460,24 @@ export default function OrderHistoryScreen({ navigation }) {
     fetchOrders();
   }, []);
 
+  useEffect(() => {
+    const focusOrderId = Number(route?.params?.focusOrderId);
+    const nonce = route?.params?.nonce;
+    const fromNotification = route?.params?.fromNotification;
+
+    if (!fromNotification || !nonce || !Number.isFinite(focusOrderId)) return;
+    if (handledNotificationNonceRef.current === nonce) return;
+
+    handledNotificationNonceRef.current = nonce;
+    fetchOrderDetails(focusOrderId);
+
+    navigation.setParams({
+      focusOrderId: null,
+      fromNotification: false,
+      nonce: null,
+    });
+  }, [route?.params?.focusOrderId, route?.params?.nonce, route?.params?.fromNotification]);
+
   // cleanup rider profile subscription when modal closes
   useEffect(() => {
     if (!orderDetailsModal && riderProfileChannel) {
@@ -473,6 +499,8 @@ export default function OrderHistoryScreen({ navigation }) {
     switch(status?.toLowerCase()) {
       case 'pending': return '#F59E0B';
       case 'processing': return '#0033A0';
+      case 'rider picked up the order':
+        return '#0EA5E9';
       case 'out for delivery':
       case 'out_for_delivery':
       case 'outfordelivery':
@@ -488,6 +516,8 @@ export default function OrderHistoryScreen({ navigation }) {
     switch(status?.toLowerCase()) {
       case 'pending': return 'time';
       case 'processing': return 'sync';
+      case 'rider picked up the order':
+        return 'cube';
       case 'out for delivery':
       case 'out_for_delivery':
       case 'outfordelivery':
@@ -548,12 +578,28 @@ export default function OrderHistoryScreen({ navigation }) {
     const lowerStatus = status?.toLowerCase();
     return (
       lowerStatus === 'processing' ||
+      lowerStatus === 'rider picked up the order' ||
       lowerStatus === 'out for delivery' ||
       lowerStatus === 'out_for_delivery' ||
       lowerStatus === 'outfordelivery' ||
       lowerStatus === 'accepted' ||
       lowerStatus === 'picked_up'
     );
+  };
+
+  const getStatusLabel = (status) => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'rider picked up the order') return 'Rider Picked Up';
+    if (normalized === 'out_for_delivery' || normalized === 'outfordelivery') return 'Out for Delivery';
+    return status;
+  };
+
+  const getDeliveryFlags = (order) => {
+    const delivery = order?.deliveries?.[0];
+    return {
+      isAssigned: !!delivery?.rider_id || !!delivery?.assigned_at,
+      isAccepted: !!delivery?.accepted_at || ['accepted', 'picked_up', 'out_for_delivery', 'delivered'].includes((delivery?.status || '').toLowerCase()),
+    };
   };
 
   const handleTrackDelivery = (order) => {
@@ -584,9 +630,10 @@ export default function OrderHistoryScreen({ navigation }) {
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
     const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
-    const displayStatus = isArchived ? 'Archived' : item.status;
+    const displayStatus = isArchived ? 'Archived' : getStatusLabel(item.status);
     const statusColor = getStatusColor(statusKey);
     const statusIcon = getStatusIcon(statusKey);
+    const { isAssigned, isAccepted } = getDeliveryFlags(item);
 
     return (
       <TouchableOpacity 
@@ -624,6 +671,23 @@ export default function OrderHistoryScreen({ navigation }) {
           )}
         </View>
 
+        {!isArchived && (
+          <View style={styles.deliveryIndicatorsRow}>
+            <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
+              <Ionicons name={isAssigned ? 'person' : 'person-outline'} size={12} color={isAssigned ? '#065F46' : '#92400E'} />
+              <Text style={[styles.deliveryIndicatorText, { color: isAssigned ? '#065F46' : '#92400E' }]}>
+                {isAssigned ? 'Rider Assigned' : 'Waiting for Rider'}
+              </Text>
+            </View>
+            <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
+              <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
+              <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
+                {isAccepted ? 'Accepted by Rider' : 'Awaiting Acceptance'}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.orderFooter}>
           <View style={styles.orderTotal}>
             <Text style={styles.totalLabel}>Total</Text>
@@ -658,7 +722,8 @@ export default function OrderHistoryScreen({ navigation }) {
 
     const isArchived = !!selectedOrder.archived;
     const statusKey = isArchived ? 'archived' : selectedOrder.status;
-    const displayStatus = isArchived ? 'Archived' : selectedOrder.status;
+    const displayStatus = isArchived ? 'Archived' : getStatusLabel(selectedOrder.status);
+    const { isAssigned, isAccepted } = getDeliveryFlags(selectedOrder);
 
     return (
       <Modal
@@ -803,6 +868,20 @@ export default function OrderHistoryScreen({ navigation }) {
             {/* Delivery Information */}
             <View style={styles.detailsSection}>
               <Text style={styles.sectionTitle}>Delivery Information</Text>
+              <View style={styles.detailsIndicatorsRow}>
+                <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
+                  <Ionicons name={isAssigned ? 'person' : 'person-outline'} size={12} color={isAssigned ? '#065F46' : '#92400E'} />
+                  <Text style={[styles.deliveryIndicatorText, { color: isAssigned ? '#065F46' : '#92400E' }]}>
+                    {isAssigned ? 'Rider Assigned' : 'Waiting for Rider'}
+                  </Text>
+                </View>
+                <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
+                  <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
+                  <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
+                    {isAccepted ? 'Accepted by Rider' : 'Awaiting Acceptance'}
+                  </Text>
+                </View>
+              </View>
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
                   <Ionicons name="location" size={18} color="#666" />
@@ -1307,6 +1386,43 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  deliveryIndicatorsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  detailsIndicatorsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  deliveryIndicatorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    gap: 5,
+  },
+  deliveryIndicatorAssigned: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  deliveryIndicatorAccepted: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+  },
+  deliveryIndicatorPending: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  deliveryIndicatorText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   orderItemsPreview: {
     marginBottom: 12,

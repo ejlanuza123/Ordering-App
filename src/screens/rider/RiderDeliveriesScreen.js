@@ -1,5 +1,5 @@
 // src/screens/rider/RiderDeliveriesScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,13 +17,14 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 
-export default function RiderDeliveriesScreen({ navigation }) {
+export default function RiderDeliveriesScreen({ navigation, route }) {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, assigned, accepted, on_delivery, delivered, failed
+  const handledNotificationNonceRef = useRef(null);
 
   const fetchDeliveries = useCallback(async () => {
     try {
@@ -91,6 +92,33 @@ export default function RiderDeliveriesScreen({ navigation }) {
       channel.unsubscribe();
     };
   }, [profile, filter, fetchDeliveries]);
+
+  useEffect(() => {
+    const nonce = route?.params?.nonce;
+    const fromNotification = route?.params?.fromNotification;
+    const focusDeliveryId = Number(route?.params?.focusDeliveryId);
+    const focusOrderId = Number(route?.params?.focusOrderId);
+
+    if (!fromNotification || !nonce) return;
+    if (handledNotificationNonceRef.current === nonce) return;
+
+    const targetDelivery = deliveries.find((d) => {
+      const matchDelivery = Number.isFinite(focusDeliveryId) && d.id === focusDeliveryId;
+      const matchOrder = Number.isFinite(focusOrderId) && d.order_id === focusOrderId;
+      return matchDelivery || matchOrder;
+    });
+
+    if (!targetDelivery) return;
+
+    handledNotificationNonceRef.current = nonce;
+    navigation.navigate('RiderDeliveryDetails', { delivery: targetDelivery });
+    navigation.setParams({
+      focusDeliveryId: null,
+      focusOrderId: null,
+      fromNotification: false,
+      nonce: null,
+    });
+  }, [deliveries, navigation, route?.params?.nonce, route?.params?.focusDeliveryId, route?.params?.focusOrderId, route?.params?.fromNotification]);
 
   const onRefresh = () => {
     setRefreshing(true);
