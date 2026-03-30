@@ -41,7 +41,7 @@ export const avatarService = {
         return null;
       }
     } catch (error) {
-      console.error('📷 ImagePicker Gallery Error:', error);
+      devLog('ImagePicker gallery error:', error);
       return null;
     }
   },
@@ -71,7 +71,7 @@ export const avatarService = {
         return null;
       }
     } catch (error) {
-      console.error('📷 ImagePicker Camera Error:', error);
+      devLog('ImagePicker camera error:', error);
       return null;
     }
   },

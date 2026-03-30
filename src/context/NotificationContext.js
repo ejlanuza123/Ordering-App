@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { AppState } from 'react-native';
@@ -7,21 +7,26 @@ const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id;
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [subscription, setSubscription] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const notificationsEnabledRef = useRef(true);
+
+  useEffect(() => {
+    notificationsEnabledRef.current = notificationsEnabled;
+  }, [notificationsEnabled]);
 
   // Load user's notification preference
-  const loadNotificationPreference = async () => {
-    if (!user) return;
+  const loadNotificationPreference = useCallback(async () => {
+    if (!userId) return;
     
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('notifications_enabled')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single();
 
       if (error) throw error;
@@ -32,18 +37,18 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error loading notification preference:', error.message);
       setNotificationsEnabled(true); // Default to enabled on error
     }
-  };
+  }, [userId]);
 
   // Load notifications
-  const loadNotifications = async () => {
-    if (!user) return;
+  const loadNotifications = useCallback(async () => {
+    if (!userId) return;
     
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -56,12 +61,13 @@ export const NotificationProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   // Subscribe to new notifications
   useEffect(() => {
-    if (!user) {
-      if (subscription) subscription.unsubscribe();
+    if (!userId) {
+      setNotifications([]);
+      setUnreadCount(0);
       return;
     }
 
@@ -81,7 +87,7 @@ export const NotificationProvider = ({ children }) => {
         },
         (payload) => {
           // Only add notification if user has notifications enabled
-          if (notificationsEnabled) {
+          if (notificationsEnabledRef.current) {
             setNotifications(prev => [payload.new, ...prev]);
             setUnreadCount(prev => prev + 1);
           }
@@ -89,10 +95,8 @@ export const NotificationProvider = ({ children }) => {
       )
       .subscribe();
 
-    setSubscription(channel);
-
     // Refresh notifications when app comes to foreground
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
         loadNotifications();
         loadNotificationPreference();
@@ -101,9 +105,9 @@ export const NotificationProvider = ({ children }) => {
 
     return () => {
       if (channel) channel.unsubscribe();
-      subscription.remove();
+      appStateSubscription.remove();
     };
-  }, [user, notificationsEnabled]);
+  }, [userId, loadNotificationPreference, loadNotifications]);
 
   // Mark notification as read
   const markAsRead = async (notificationId) => {
@@ -128,13 +132,13 @@ export const NotificationProvider = ({ children }) => {
 
   // Mark all as read
   const markAllAsRead = async () => {
-    if (!user || notifications.length === 0) return;
+    if (!userId || notifications.length === 0) return;
 
     try {
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('is_read', false);
 
       if (error) throw error;
@@ -171,13 +175,13 @@ export const NotificationProvider = ({ children }) => {
 
   // Clear all notifications
   const clearAll = async () => {
-    if (!user) return;
+    if (!userId) return;
 
     try {
       const { error } = await supabase
         .from('notifications')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
 

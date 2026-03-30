@@ -25,6 +25,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
 import { useAuth } from '../../context/AuthContext';
 
+const devLog = (...args) => {
+  if (__DEV__) {
+    console.log(...args);
+  }
+};
+
 export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const { delivery } = route.params;
   const { profile } = useAuth(); // Get current rider profile
@@ -69,7 +75,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     fetchAllDeliveryData();
     startDeliveryTimer();
 
-    console.log('Initial delivery data:', delivery);
+    devLog('Initial delivery data:', delivery);
     
     // Subscribe to real-time updates
     const channel = supabase
@@ -182,11 +188,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             }
           }
         } else {
-          console.log('No order found for ID:', deliveryRecord.order_id);
+          devLog('No order found for ID:', deliveryRecord.order_id);
         }
       }
 
-      console.log('Fetched all data:', { 
+      devLog('Fetched all data:', {
         delivery: deliveryRecord, 
         order: orderData, 
         customer: customerData 
@@ -267,7 +273,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       // Notifications are now generated server-side by a deliveries status trigger.
       // This avoids rider-side INSERT attempts against hardened notifications RLS.
       if (orderData && orderData.user_id && notificationTitle) {
-        console.log('Delivery status updated; notification will be created by DB trigger.');
+        devLog('Delivery status updated; notification will be created by DB trigger.');
       }
 
       // Update rider earnings if delivered
@@ -321,7 +327,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       const isNotificationsRLS = errorMsg.includes('notifications') && errorMsg.includes('row-level security');
       
       if ((errorCode === '42501' || errorCode === 42501) && isNotificationsRLS) {
-        console.log('ℹ️  Notification RLS blocked (non-critical); delivery status update was successful.');
+        devLog('Notification RLS blocked (non-critical); delivery status update was successful.');
         
         setAlertConfig({
           type: 'success',
@@ -373,7 +379,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
       // Admin notifications are generated server-side under hardened RLS.
       // Rider clients should not insert directly into notifications.
-      console.log('Issue reported; admin notification should be handled server-side.');
+      devLog('Issue reported; admin notification should be handled server-side.');
 
       setAlertConfig({
         type: 'info',

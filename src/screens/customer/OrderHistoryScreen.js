@@ -19,6 +19,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
+import { orderService } from '../../services/orderService';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -297,18 +298,18 @@ export default function OrderHistoryScreen({ navigation, route }) {
     setArchiving(true);
     try {
       const newArchiveState = !orderToArchive.archived;
-      const { error } = await supabase
-        .from('orders')
-        .update({ archived: newArchiveState })
-        .eq('id', orderToArchive.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      const result = await orderService.updateOrder({
+        orderId: orderToArchive.id,
+        userId: user.id,
+        updates: { archived: newArchiveState },
+      });
 
       setAlertConfig({
         type: 'success',
         title: newArchiveState ? 'Order Hidden' : 'Order Restored',
-        message: newArchiveState
+        message: result.queued
+          ? 'You are offline. This visibility update is queued and will sync when connected.'
+          : newArchiveState
           ? 'This order has been hidden from your history.'
           : 'This order has been restored to your history.'
       });
@@ -334,21 +335,21 @@ export default function OrderHistoryScreen({ navigation, route }) {
     
     setCancelling(true);
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ 
+      const result = await orderService.updateOrder({
+        orderId: orderToCancel.id,
+        userId: user.id,
+        updates: {
           status: 'Cancelled',
           notes: 'Cancelled by customer'
-        })
-        .eq('id', orderToCancel.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+        },
+      });
 
       setAlertConfig({
         type: 'success',
-        title: 'Success',
-        message: 'Order has been cancelled successfully.'
+        title: result.queued ? 'Cancel Queued' : 'Success',
+        message: result.queued
+          ? 'You are offline. This cancellation is queued and will sync when connected.'
+          : 'Order has been cancelled successfully.'
       });
       setShowAlert(true);
       

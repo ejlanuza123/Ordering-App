@@ -4,6 +4,9 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 
+const MAX_NOTIFICATION_LIMIT = 100;
+const DEFAULT_NOTIFICATION_LIMIT = 50;
+
 // Configure notification behavior
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -81,10 +84,18 @@ export const mobileNotificationService = {
    * Save push token to database
    */
   async savePushToken(userId, token) {
+    if (!userId) {
+      return { success: false, error: 'Missing userId' };
+    }
+
+    if (!token || typeof token !== 'string' || !token.trim()) {
+      return { success: false, error: 'Invalid push token' };
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ fcm_token: token })
+        .update({ fcm_token: token.trim() })
         .eq('id', userId);
 
       if (error) throw error;
@@ -121,6 +132,10 @@ export const mobileNotificationService = {
    * Subscribe to notifications from Supabase
    */
   subscribeToNotifications(userId, onNewNotification) {
+    if (!userId) {
+      return () => {};
+    }
+
     const channel = supabase
       .channel(`notifications-${userId}`)
       .on(
@@ -143,7 +158,9 @@ export const mobileNotificationService = {
               badge: 1,
             },
             trigger: { seconds: 1 },
-          }).catch(console.error);
+          }).catch((error) => {
+            console.error('Error scheduling local notification:', error);
+          });
 
           onNewNotification(notification);
         }
@@ -181,13 +198,22 @@ export const mobileNotificationService = {
    * Get all notifications for user
    */
   async getNotifications(userId, limit = 50) {
+    if (!userId) {
+      return { success: false, error: 'Missing userId' };
+    }
+
+    const parsedLimit = Number.parseInt(String(limit), 10);
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(parsedLimit, MAX_NOTIFICATION_LIMIT))
+      : DEFAULT_NOTIFICATION_LIMIT;
+
     try {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(limit);
+        .limit(safeLimit);
 
       if (error) throw error;
       return { success: true, data };

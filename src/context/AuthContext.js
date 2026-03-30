@@ -1,5 +1,6 @@
 // src/context/AuthContext.js (updated)
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
@@ -9,8 +10,11 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const appStateRef = useRef(AppState.currentState);
+  const backgroundedAtRef = useRef(null);
 
   const ALLOWED_ROLES = ['customer', 'rider'];
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
   useEffect(() => {
     checkUser();
@@ -31,6 +35,45 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleAppStateChange = async (nextState) => {
+      const prevState = appStateRef.current;
+
+      if (prevState === 'active' && (nextState === 'inactive' || nextState === 'background')) {
+        backgroundedAtRef.current = Date.now();
+      }
+
+      if ((prevState === 'inactive' || prevState === 'background') && nextState === 'active') {
+        const backgroundedAt = backgroundedAtRef.current;
+        backgroundedAtRef.current = null;
+
+        if (backgroundedAt) {
+          const elapsed = Date.now() - backgroundedAt;
+
+          if (elapsed >= SESSION_TIMEOUT_MS) {
+            try {
+              await supabase.auth.signOut();
+            } finally {
+              setUser(null);
+              setProfile(null);
+              setRole(null);
+            }
+          } else {
+            checkUser();
+          }
+        }
+      }
+
+      appStateRef.current = nextState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const checkUser = async () => {

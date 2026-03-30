@@ -27,6 +27,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 
 const { width } = Dimensions.get('window');
+const devLog = (...args) => {
+  if (__DEV__) {
+    console.log(...args);
+  }
+};
 
 export default function RiderDashboardScreen({ navigation }) {
   const { profile } = useAuth();
@@ -359,7 +364,7 @@ export default function RiderDashboardScreen({ navigation }) {
 
       // Admin notifications are generated server-side under hardened RLS.
       // Rider clients should not insert directly into notifications.
-      console.log('Delivery declined; admin notification should be handled server-side.');
+      devLog('Delivery declined; admin notification should be handled server-side.');
 
       setAlertConfig({
         type: 'info',

@@ -104,7 +104,7 @@ export default function RiderMapScreen({ navigation }) {
       if (result.success && isActive) {
         trackingSubscriptionRef.current = result.subscription;
       } else if (!result.success) {
-        console.warn('tracking failed', result.error);
+        devLog('tracking failed', result.error);
       }
     };
 
@@ -124,7 +124,7 @@ export default function RiderMapScreen({ navigation }) {
     const markers = deliveriesForMap
       .filter(d => {
         if (!d.orders) {
-          console.warn('Delivery row has no linked order (likely RLS):', d.id);
+          devLog('Delivery row has no linked order (likely RLS):', d.id);
           return false;
         }
         const hasValidCoords = (d.orders.delivery_lat || d.delivery_lat) && (d.orders.delivery_lng || d.delivery_lng);

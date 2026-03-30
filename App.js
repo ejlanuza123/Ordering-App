@@ -1,5 +1,5 @@
-// mobile-app/src/App.js - UPDATE THIS FILE
-import React from 'react';
+// mobile-app/src/App.js - UPDATED WITH ERROR HANDLER
+import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
@@ -12,15 +12,21 @@ import { AddressProvider } from './src/context/AddressContext';
 import { DeliveryProofProvider } from './src/context/DeliveryProofContext';
 import { ReviewProvider } from './src/context/ReviewContext';
 import { RiderRatingProvider } from './src/context/RiderRatingContext';
+import { networkStateService } from './src/services/networkStateService';
+import { setupGlobalErrorHandlers } from './src/services/errorHandlerService';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
-export default function App() {
+function AppContent() {
+  // Initialize error handling and network monitoring on app launch
+  useEffect(() => {
+    setupGlobalErrorHandlers();
+    networkStateService.startMonitoring();
+    
+    return () => networkStateService.stopMonitoring();
+  }, []);
+
   return (
-    <SafeAreaProvider>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#0033A0" 
-        translucent={false}
-      />
+    <ErrorBoundary>
       <AuthProvider>
         <FavoritesProvider>
           <CartProvider>
@@ -40,6 +46,19 @@ export default function App() {
           </CartProvider>
         </FavoritesProvider>
       </AuthProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor="#0033A0" 
+        translucent={false}
+      />
+      <AppContent />
     </SafeAreaProvider>
   );
 }

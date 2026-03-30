@@ -91,7 +91,7 @@ export const offlineStorageService = {
         STORAGE_KEYS.SYNC_QUEUE,
         JSON.stringify(queue)
       );
-      return { success: true };
+      return { success: true, queueId };
     } catch (error) {
       console.error('Error queueing operation:', error);
       return { success: false, error: error.message };
@@ -109,6 +109,42 @@ export const offlineStorageService = {
     } catch (error) {
       console.error('Error getting sync queue:', error);
       return [];
+    }
+  },
+
+  /**
+   * Inspect sync queue health to detect stuck operations.
+   */
+  async getSyncQueueHealth(stuckThresholdMinutes = 60) {
+    try {
+      const queue = await this.getSyncQueue();
+      if (!queue.length) {
+        return {
+          success: true,
+          pendingCount: 0,
+          oldestAgeMs: 0,
+          isStuck: false,
+        };
+      }
+
+      const now = Date.now();
+      const oldestTimestamp = queue.reduce((min, op) => {
+        const value = typeof op.timestamp === 'number' ? op.timestamp : now;
+        return value < min ? value : min;
+      }, now);
+
+      const oldestAgeMs = now - oldestTimestamp;
+      const stuckThresholdMs = stuckThresholdMinutes * 60 * 1000;
+
+      return {
+        success: true,
+        pendingCount: queue.length,
+        oldestAgeMs,
+        isStuck: oldestAgeMs > stuckThresholdMs,
+      };
+    } catch (error) {
+      console.error('Error checking sync queue health:', error);
+      return { success: false, error: error.message };
     }
   },
 
@@ -133,15 +169,61 @@ export const offlineStorageService = {
                 .insert([operation.data]);
               break;
 
+            case 'create_order_bundle': {
+              const orderPayload = operation?.data?.order;
+              const itemsPayload = operation?.data?.items;
+
+              if (!orderPayload || !Array.isArray(itemsPayload)) {
+                results.push({ queueId, success: false, error: 'Invalid order bundle payload' });
+                continue;
+              }
+
+              const { data: orderData, error: orderError } = await supabase
+                .from('orders')
+                .insert([orderPayload])
+                .select('id')
+                .single();
+
+              if (orderError) {
+                results.push({ queueId, success: false, error: orderError.message });
+                continue;
+              }
+
+              const orderItems = itemsPayload.map((item) => ({
+                ...item,
+                order_id: orderData.id,
+              }));
+
+              const { error: itemsError } = await supabase
+                .from('order_items')
+                .insert(orderItems);
+
+              if (itemsError) {
+                results.push({ queueId, success: false, error: itemsError.message });
+                continue;
+              }
+
+              results.push({ queueId, success: true });
+              continue;
+            }
+
             case 'update':
               if (!recordId) {
                 results.push({ queueId, success: false, error: 'Missing recordId for update operation' });
                 continue;
               }
-              result = await supabase
-                .from(operation.table)
-                .update(operation.data)
-                .eq('id', recordId);
+              {
+                const match = operation.match || { id: recordId };
+                let query = supabase
+                  .from(operation.table)
+                  .update(operation.data);
+
+                Object.entries(match).forEach(([key, value]) => {
+                  query = query.eq(key, value);
+                });
+
+                result = await query;
+              }
               break;
 
             case 'delete':
@@ -149,10 +231,18 @@ export const offlineStorageService = {
                 results.push({ queueId, success: false, error: 'Missing recordId for delete operation' });
                 continue;
               }
-              result = await supabase
-                .from(operation.table)
-                .delete()
-                .eq('id', recordId);
+              {
+                const match = operation.match || { id: recordId };
+                let query = supabase
+                  .from(operation.table)
+                  .delete();
+
+                Object.entries(match).forEach(([key, value]) => {
+                  query = query.eq(key, value);
+                });
+
+                result = await query;
+              }
               break;
 
             default:

@@ -1,0 +1,52 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "promptToConfigurePushNotifications": false
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "@METRO_SUPABASE_URL",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@METRO_SUPABASE_KEY"
+      }
+    },
+    "preview2": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "@STAGING_SUPABASE_URL",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@STAGING_SUPABASE_KEY"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "aab"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "@PROD_SUPABASE_URL",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@PROD_SUPABASE_KEY"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccount": "@ANDROID_SERVICE_ACCOUNT",
+        "track": "internal"
+      }
+    }
+  }
+}

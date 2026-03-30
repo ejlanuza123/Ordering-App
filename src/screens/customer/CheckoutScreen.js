@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { orderService } from '../../services/orderService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapPickerModal from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
@@ -189,19 +190,7 @@ export default function CheckoutScreen({ navigation }) {
         orderInsert.delivery_lat = addressLat;
         orderInsert.delivery_lng = addressLng;
       }
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert([orderInsert])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderId = orderData.id;
-      const orderNumber = orderData.order_number || orderId; // use generated code if available
-
       const orderItemsData = cartItems.map((item) => ({
-        order_id: orderId,
         product_id: item.id,
         quantity: item.quantity,
         price_at_order: item.current_price,
@@ -209,15 +198,33 @@ export default function CheckoutScreen({ navigation }) {
         product_unit: item.unit
       }));
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItemsData);
-
-      if (itemsError) throw itemsError;
+      const orderResult = await orderService.createOrderWithItems({
+        userId: user.id,
+        orderInsert,
+        orderItems: orderItemsData,
+      });
 
       // Clear cart first
       clearCart();
-      
+
+      if (orderResult.queued) {
+        setAlertConfig({
+          type: 'success',
+          title: 'Order Queued',
+          message: 'You are offline. Your order has been queued and will sync automatically when you reconnect.',
+        });
+        setShowAlert(true);
+        setLoading(false);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+        return;
+      }
+
+      const orderId = orderResult.order.id;
+      const orderNumber = orderResult.order.order_number || orderId;
+
       // Set order ID/number and show success modal
       setLastOrderId(orderId);
       setLastOrderNumber(orderNumber);
