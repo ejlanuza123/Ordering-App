@@ -1,14 +1,16 @@
 // src/navigation/AppNavigator.js (updated)
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // --- IMPORT SCREENS ---
 // Auth Screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import IntroScreen from '../screens/auth/IntroScreen';
 
 // Customer Screens
 import HomeScreen from '../screens/customer/HomeScreen';
@@ -33,6 +35,7 @@ import RiderProfileScreen from '../screens/rider/RiderProfileScreen';
 import RiderMapScreen from '../screens/rider/RiderMapScreen';
 
 const Stack = createNativeStackNavigator();
+const INTRO_SEEN_KEY = 'mobile_intro_seen_v1';
 
 // Customer Stack
 const CustomerStack = () => (
@@ -67,13 +70,45 @@ const RiderStack = () => (
 
 export default function AppNavigator() {
   const { user, loading, role } = useAuth();
+  const [introSeen, setIntroSeen] = useState(true);
+  const [introLoading, setIntroLoading] = useState(true);
 
-  if (loading) {
+  useEffect(() => {
+    const loadIntroState = async () => {
+      try {
+        const seen = await AsyncStorage.getItem(INTRO_SEEN_KEY);
+        setIntroSeen(seen === '1');
+      } catch (error) {
+        console.warn('Failed to load intro state:', error?.message || error);
+        setIntroSeen(false);
+      } finally {
+        setIntroLoading(false);
+      }
+    };
+
+    loadIntroState();
+  }, []);
+
+  const handleGetStarted = async () => {
+    try {
+      await AsyncStorage.setItem(INTRO_SEEN_KEY, '1');
+      setIntroSeen(true);
+    } catch (error) {
+      console.warn('Failed to save intro state:', error?.message || error);
+      setIntroSeen(true);
+    }
+  };
+
+  if (loading || introLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#ED2939" />
       </View>
     );
+  }
+
+  if (!introSeen) {
+    return <IntroScreen onGetStarted={handleGetStarted} />;
   }
 
   return (

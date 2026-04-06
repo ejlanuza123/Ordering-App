@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 
 const MAX_NOTIFICATION_LIMIT = 100;
 const DEFAULT_NOTIFICATION_LIMIT = 50;
+const ANDROID_NOTIFICATION_CHANNEL = 'default';
+let channelReady = false;
 
 // Configure notification behavior
 Notifications.setNotificationHandler({
@@ -17,6 +19,35 @@ Notifications.setNotificationHandler({
 });
 
 export const mobileNotificationService = {
+  async ensureAndroidNotificationChannel() {
+    if (Platform.OS !== 'android' || channelReady) {
+      return;
+    }
+
+    try {
+      await Notifications.setNotificationChannelAsync(ANDROID_NOTIFICATION_CHANNEL, {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      });
+      channelReady = true;
+    } catch (error) {
+      console.error('Error creating Android notification channel:', error);
+    }
+  },
+
+  getExpoProjectId() {
+    return (
+      Constants?.easConfig?.projectId ||
+      Constants?.expoConfig?.extra?.eas?.projectId ||
+      Constants?.manifest2?.extra?.eas?.projectId ||
+      Constants?.manifest?.extra?.eas?.projectId ||
+      null
+    );
+  },
+
   /**
    * Get device push token
    */
@@ -40,11 +71,12 @@ export const mobileNotificationService = {
         return null;
       }
 
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId 
-        || Constants?.easConfig?.projectId;
+      const projectId = this.getExpoProjectId();
 
       if (!projectId) {
-        throw new Error('Project ID not found in Expo config');
+        // Local notifications can still work without EAS project ID.
+        console.warn('Push token skipped: EAS projectId is not configured in app config');
+        return null;
       }
 
       const token = await Notifications.getExpoPushTokenAsync({ projectId });
@@ -111,6 +143,8 @@ export const mobileNotificationService = {
    */
   async sendLocalNotification(title, message, data = {}) {
     try {
+      await this.ensureAndroidNotificationChannel();
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -118,8 +152,9 @@ export const mobileNotificationService = {
           data,
           sound: true,
           badge: 1,
+          ...(Platform.OS === 'android' ? { channelId: ANDROID_NOTIFICATION_CHANNEL } : {}),
         },
-        trigger: { seconds: 1 },
+        trigger: null,
       });
       return { success: true };
     } catch (error) {
@@ -149,6 +184,7 @@ export const mobileNotificationService = {
         (payload) => {
           const notification = payload.new;
           // Show local notification
+          this.ensureAndroidNotificationChannel();
           Notifications.scheduleNotificationAsync({
             content: {
               title: notification.title,
@@ -156,8 +192,9 @@ export const mobileNotificationService = {
               data: { notificationId: notification.id, ...notification.data },
               sound: true,
               badge: 1,
+              ...(Platform.OS === 'android' ? { channelId: ANDROID_NOTIFICATION_CHANNEL } : {}),
             },
-            trigger: { seconds: 1 },
+            trigger: null,
           }).catch((error) => {
             console.error('Error scheduling local notification:', error);
           });

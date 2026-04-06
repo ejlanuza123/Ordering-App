@@ -33,7 +33,7 @@
     "production": {
       "distribution": "store",
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "@PROD_SUPABASE_URL",
@@ -44,7 +44,7 @@
   "submit": {
     "production": {
       "android": {
-        "serviceAccount": "@ANDROID_SERVICE_ACCOUNT",
+        "serviceAccountKeyPath": "@ANDROID_SERVICE_ACCOUNT",
         "track": "internal"
       }
     }

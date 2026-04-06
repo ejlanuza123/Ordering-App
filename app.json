@@ -28,11 +28,12 @@
       "edgeToEdgeEnabled": true,
       "package": "com.ejlanuza124.PetronSanPedroApp",
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -52,6 +53,12 @@
           "cameraPermission": "Allow Petron San Pedro App to access your camera to take profile pictures."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e1f1aa13-2274-415b-a514-f06de63d61fb"
+      }
+    },
+    "owner": "ejlanuza124"
   }
 }
