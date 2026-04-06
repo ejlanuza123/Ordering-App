@@ -63,6 +63,16 @@ describe('locationTrackingService', () => {
     });
   });
 
+  it('returns error when requesting permissions throws', async () => {
+    mockRequestForegroundPermissionsAsync.mockRejectedValue(new Error('perm service down'));
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+
+    const result = await locationTrackingService.requestPermissions();
+
+    expect(result).toEqual({ success: false, error: 'perm service down' });
+  });
+
   it('returns normalized current location shape', async () => {
     mockGetCurrentPositionAsync.mockResolvedValue({
       coords: {
@@ -124,6 +134,50 @@ describe('locationTrackingService', () => {
     expect(mockWatchPositionAsync).not.toHaveBeenCalled();
   });
 
+  it('returns error when watchPositionAsync fails', async () => {
+    mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockRequestBackgroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockWatchPositionAsync.mockRejectedValue(new Error('watch failed'));
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+
+    const result = await locationTrackingService.startTracking('r-1');
+
+    expect(result).toEqual({ success: false, error: 'watch failed' });
+  });
+
+  it('debounces updates from tracking callback', async () => {
+    jest.useFakeTimers();
+    mockRequestForegroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+    mockRequestBackgroundPermissionsAsync.mockResolvedValue({ status: 'granted' });
+
+    let onWatchUpdate;
+    mockWatchPositionAsync.mockImplementation(async (_options, callback) => {
+      onWatchUpdate = callback;
+      return { remove: jest.fn() };
+    });
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+    const updateSpy = jest
+      .spyOn(locationTrackingService, 'updateRiderLocation')
+      .mockResolvedValue({ success: true });
+
+    await locationTrackingService.startTracking('r-7');
+
+    onWatchUpdate({ coords: { latitude: 9.1, longitude: 118.1 } });
+    onWatchUpdate({ coords: { latitude: 9.2, longitude: 118.2 } });
+
+    jest.advanceTimersByTime(999);
+    expect(updateSpy).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(1);
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    expect(updateSpy).toHaveBeenCalledWith('r-7', { latitude: 9.2, longitude: 118.2 });
+
+    updateSpy.mockRestore();
+    jest.useRealTimers();
+  });
+
   it('updates rider location and active delivery coordinates', async () => {
     const mockProfilesEq = jest.fn().mockResolvedValue({ error: null });
     const mockDeliveriesSingle = jest.fn().mockResolvedValue({ data: { id: 'd-1' }, error: null });
@@ -166,6 +220,68 @@ describe('locationTrackingService', () => {
     expect(result).toEqual({ success: true });
     expect(mockProfilesEq).toHaveBeenCalledWith('id', 'r-1');
     expect(mockDeliveriesUpdateEq).toHaveBeenCalledWith('id', 'd-1');
+  });
+
+  it('returns failure when profile location update fails', async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table === 'profiles') {
+        return {
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({ error: new Error('profile write failed') }),
+          }),
+        };
+      }
+
+      return {};
+    });
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+
+    const result = await locationTrackingService.updateRiderLocation('r-1', {
+      latitude: 9.71,
+      longitude: 118.71,
+    });
+
+    expect(result).toEqual({ success: false, error: 'profile write failed' });
+  });
+
+  it('returns success when there is no active delivery to update', async () => {
+    const mockProfilesEq = jest.fn().mockResolvedValue({ error: null });
+    const mockDeliveriesSingle = jest.fn().mockResolvedValue({ data: null, error: null });
+
+    mockFrom.mockImplementation((table) => {
+      if (table === 'profiles') {
+        return {
+          update: jest.fn().mockReturnValue({
+            eq: mockProfilesEq,
+          }),
+        };
+      }
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            in: jest.fn().mockReturnValue({
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockReturnValue({
+                  single: mockDeliveriesSingle,
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    });
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+
+    const result = await locationTrackingService.updateRiderLocation('r-1', {
+      latitude: 9.7,
+      longitude: 118.7,
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(mockProfilesEq).toHaveBeenCalledWith('id', 'r-1');
   });
 
   it('stops tracking and marks rider offline', async () => {
@@ -229,6 +345,19 @@ describe('locationTrackingService', () => {
     );
 
     expect(result).toEqual({ success: false, error: 'Route calculation failed' });
+  });
+
+  it('returns failure when route request throws', async () => {
+    global.fetch.mockRejectedValue(new Error('network down'));
+
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+
+    const result = await locationTrackingService.getDeliveryRoute(
+      { latitude: 9.7, longitude: 118.7 },
+      { latitude: 9.8, longitude: 118.8 }
+    );
+
+    expect(result).toEqual({ success: false, error: 'network down' });
   });
 
   it('maps realtime rider location updates through subscription callback', () => {

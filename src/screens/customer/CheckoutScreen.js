@@ -1,5 +1,5 @@
 //src/screens/customer/CheckoutScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/orderService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import MapPickerModal from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -43,6 +44,7 @@ export default function CheckoutScreen({ navigation }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastOrderId, setLastOrderId] = useState(null);
   const [lastOrderNumber, setLastOrderNumber] = useState(null); // store formatted order number returned by backend
+  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(50);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
@@ -53,13 +55,42 @@ export default function CheckoutScreen({ navigation }) {
   const totalAmount = getCartTotal();
 
   // Calculate delivery fee (free for orders above ₱500)
-  const deliveryFee = totalAmount >= 500 ? 0 : 50;
+  const deliveryFee = totalAmount >= 500 ? 0 : defaultDeliveryFee;
   const grandTotal = totalAmount + deliveryFee;
 
   // Fetch saved addresses
+  const fetchDefaultDeliveryFee = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'default_delivery_fee')
+        .single();
+
+      if (error) {
+        console.log('Could not fetch default delivery fee for checkout:', error.message);
+        return;
+      }
+
+      const parsedFee = parseFloat(data?.value);
+      if (!Number.isNaN(parsedFee) && parsedFee >= 0) {
+        setDefaultDeliveryFee(parsedFee);
+      }
+    } catch (error) {
+      console.log('Error fetching default delivery fee:', error.message);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSavedAddresses();
-  }, []);
+    fetchDefaultDeliveryFee();
+  }, [fetchDefaultDeliveryFee]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDefaultDeliveryFee();
+    }, [fetchDefaultDeliveryFee])
+  );
 
   const fetchSavedAddresses = async () => {
     try {

@@ -222,6 +222,212 @@ describe('ProductContext', () => {
 
     expect(ctxRef.current.hasRealtimeUpdates).toBe(false);
   });
+
+  it('shows alert when fetchProducts fails and clears loading', async () => {
+    const { Alert } = require('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    mockOrder.mockResolvedValue({ data: null, error: new Error('fetch failed') });
+
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'Failed to load products');
+    expect(ctxRef.current.products).toEqual([]);
+
+    alertSpy.mockRestore();
+  });
+
+  it('returns null when getProductById query fails', async () => {
+    mockSingle.mockResolvedValue({ data: null, error: new Error('not found') });
+
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    const product = await ctxRef.current.getProductById('missing-id');
+    expect(product).toBeNull();
+  });
+
+  it('handles unknown realtime events without mutating products', async () => {
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+      expect(typeof realtimeCallback).toBe('function');
+    });
+
+    const beforeIds = ctxRef.current.products.map((p) => p.id);
+
+    act(() => {
+      realtimeCallback({
+        eventType: 'UNKNOWN_EVENT',
+        old: {},
+        new: {},
+      });
+    });
+
+    expect(ctxRef.current.products.map((p) => p.id)).toEqual(beforeIds);
+    expect(ctxRef.current.hasRealtimeUpdates).toBe(false);
+  });
+
+  it('clearRealtimeUpdates resets flag after realtime change', async () => {
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    act(() => {
+      realtimeCallback({
+        eventType: 'INSERT',
+        new: {
+          id: 'p-10',
+          name: 'Valve',
+          category: 'Parts',
+          stock_quantity: 6,
+          is_active: true,
+        },
+      });
+    });
+
+    expect(ctxRef.current.hasRealtimeUpdates).toBe(true);
+
+    act(() => {
+      ctxRef.current.clearRealtimeUpdates();
+    });
+
+    expect(ctxRef.current.hasRealtimeUpdates).toBe(false);
+  });
+
+  it('removes realtime channel on unmount', async () => {
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    const view = render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    view.unmount();
+    expect(mockRemoveChannel).toHaveBeenCalledWith({ id: 'channel-1' });
+  });
+
+  it('sets empty products when fetch returns null data without error', async () => {
+    mockOrder.mockResolvedValue({ data: null, error: null });
+
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+      expect(ctxRef.current.products).toEqual([]);
+    });
+  });
+
+  it('uses default low stock threshold of 10 when missing', async () => {
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    expect(ctxRef.current.isLowStock({ stock_quantity: 10 })).toBe(true);
+    expect(ctxRef.current.isLowStock({ stock_quantity: 11 })).toBe(false);
+  });
+
+  it('handles UPDATE realtime event when stock quantity does not change', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+      expect(typeof realtimeCallback).toBe('function');
+    });
+
+    act(() => {
+      realtimeCallback({
+        eventType: 'UPDATE',
+        old: { id: 'p-1', stock_quantity: 5 },
+        new: {
+          id: 'p-1',
+          name: 'Diesel Renamed',
+          category: 'Fuel',
+          stock_quantity: 5,
+          is_active: true,
+        },
+      });
+    });
+
+    expect(ctxRef.current.products.find((p) => p.id === 'p-1')?.name).toBe('Diesel Renamed');
+    expect(ctxRef.current.hasRealtimeUpdates).toBe(true);
+    expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining('Stock updated for'));
+
+    logSpy.mockRestore();
+  });
+
+  it('does not remove channel on cleanup when subscription is null', async () => {
+    mockChannel.mockReturnValue({
+      on: jest.fn().mockReturnValue({
+        subscribe: jest.fn().mockReturnValue(null),
+      }),
+    });
+
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    const view = render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    view.unmount();
+    expect(mockRemoveChannel).not.toHaveBeenCalled();
+  });
 });
 
 describe('useProducts', () => {

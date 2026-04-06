@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useCallback, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -10,16 +10,50 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCart } from '../../context/CartContext';
 import { Header } from '../../components/Header';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import { supabase } from '../../lib/supabase';
 
 export default function CartScreen({ navigation }) {
   const { cartItems, removeFromCart, getCartTotal } = useCart();
   const insets = useSafeAreaInsets();
   const total = getCartTotal();
+  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(50);
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
+
+  const fetchDefaultDeliveryFee = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'default_delivery_fee')
+        .single();
+
+      if (error) {
+        console.log('Could not fetch default delivery fee for cart:', error.message);
+        return;
+      }
+
+      const parsedFee = parseFloat(data?.value);
+      if (!Number.isNaN(parsedFee) && parsedFee >= 0) {
+        setDefaultDeliveryFee(parsedFee);
+      }
+    } catch (error) {
+      console.log('Error fetching default delivery fee for cart:', error.message);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDefaultDeliveryFee();
+    }, [fetchDefaultDeliveryFee])
+  );
+
+  const deliveryFee = total >= 500 ? 0 : defaultDeliveryFee;
+  const totalToPay = total + deliveryFee;
   
   const handleRemovePress = (item) => {
     setItemToRemove(item);
@@ -163,12 +197,12 @@ export default function CartScreen({ navigation }) {
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee</Text>
-              <Text style={styles.summaryValue}>₱0.00</Text>
+              <Text style={styles.summaryValue}>{deliveryFee === 0 ? 'FREE' : `₱${deliveryFee.toFixed(2)}`}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total to Pay</Text>
-              <Text style={styles.totalAmount}>₱{total.toFixed(2)}</Text>
+              <Text style={styles.totalAmount}>₱{totalToPay.toFixed(2)}</Text>
             </View>
           </View>
 

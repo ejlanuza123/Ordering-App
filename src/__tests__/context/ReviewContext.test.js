@@ -428,6 +428,316 @@ describe('ReviewContext', () => {
     expect(result[0].products.name).toBe('Diesel');
   }, 15000);
 
+  it('should return zero rating summary when there are no ratings', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: [], error: null })
+      })
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    let result = null;
+
+    const TestComponent = () => {
+      const { getProductRating } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await getProductRating('product-empty');
+        };
+        run();
+      }, [getProductRating]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ average: 0, count: 0 });
+  }, 15000);
+
+  it('should return false/null for PGRST116 in hasUserReviewed and getUserReview', async () => {
+    const single = jest.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows' }
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({ single })
+        })
+      })
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    const state = { hasReviewed: null, review: undefined };
+
+    const TestComponent = () => {
+      const { hasUserReviewed, getUserReview } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          state.hasReviewed = await hasUserReviewed('product-404');
+          state.review = await getUserReview('product-404');
+        };
+        run();
+      }, [hasUserReviewed, getUserReview]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(state.review).not.toBeUndefined(), { timeout: 15000 });
+    expect(state.hasReviewed).toBe(false);
+    expect(state.review).toBeNull();
+  }, 15000);
+
+  it('should return not authenticated for update and delete when user is missing', async () => {
+    mockAuthState.user = null;
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    const state = { update: null, del: null };
+
+    const TestComponent = () => {
+      const { updateReview, deleteReview } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          state.update = await updateReview('review-1', 3, 'No auth');
+          state.del = await deleteReview('review-1');
+        };
+        run();
+      }, [updateReview, deleteReview]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 15000 });
+    expect(state.update).toEqual({ success: false, error: 'Not authenticated' });
+    expect(state.del).toEqual({ success: false, error: 'Not authenticated' });
+  }, 15000);
+
+  it('should return empty list when getProductReviews query fails', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          order: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue({ data: null, error: { message: 'db failure' } })
+          })
+        })
+      })
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    let result = null;
+
+    const TestComponent = () => {
+      const { getProductReviews } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await getProductReviews('product-err');
+        };
+        run();
+      }, [getProductReviews]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual([]);
+  }, 15000);
+
+  it('should return safe fallback when getProductRating query fails', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: null, error: { message: 'rating error' } })
+      })
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    let result = null;
+
+    const TestComponent = () => {
+      const { getProductRating } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await getProductRating('product-error');
+        };
+        run();
+      }, [getProductRating]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ average: 0, count: 0 });
+  }, 15000);
+
+  it('should return failure result when addReview query fails', async () => {
+    mockFrom.mockReturnValue({
+      insert: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: null, error: { message: 'insert failed' } })
+        })
+      })
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    let result = null;
+
+    const TestComponent = () => {
+      const { addReview } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await addReview('product-1', 5, 'x');
+        };
+        run();
+      }, [addReview]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'insert failed' });
+  }, 15000);
+
+  it('should return failure result when updateReview and deleteReview queries fail', async () => {
+    const mockDeleteEq = jest.fn().mockResolvedValue({ error: { message: 'delete failed' } });
+    const mockUpdateSingle = jest.fn().mockResolvedValue({ data: null, error: { message: 'update failed' } });
+
+    mockFrom.mockReturnValue({
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: mockUpdateSingle,
+            }),
+          }),
+        }),
+      }),
+      delete: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: mockDeleteEq,
+        }),
+      }),
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    const state = { update: null, del: null };
+
+    const TestComponent = () => {
+      const { updateReview, deleteReview } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          state.update = await updateReview('review-1', 2, 'bad');
+          state.del = await deleteReview('review-1');
+        };
+        run();
+      }, [updateReview, deleteReview]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 15000 });
+    expect(state.update).toEqual({ success: false, error: 'update failed' });
+    expect(state.del).toEqual({ success: false, error: 'delete failed' });
+  }, 15000);
+
+  it('should return safe defaults when hasUserReviewed/getUserReview/getUserReviews queries fail', async () => {
+    const mockOrder = jest.fn().mockResolvedValue({ data: null, error: { message: 'list failed' } });
+    let callCount = 0;
+    const mockSingle = jest.fn().mockImplementation(() => {
+      callCount += 1;
+      return Promise.resolve({ data: null, error: { code: 'DBERR', message: 'query failed' } });
+    });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: mockSingle,
+            order: mockOrder,
+          }),
+          order: mockOrder,
+        }),
+      }),
+    });
+
+    const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
+    const state = { hasReviewed: null, review: undefined, list: undefined };
+
+    const TestComponent = () => {
+      const { hasUserReviewed, getUserReview, getUserReviews } = useReviews();
+
+      useEffect(() => {
+        const run = async () => {
+          state.hasReviewed = await hasUserReviewed('product-err');
+          state.review = await getUserReview('product-err');
+          state.list = await getUserReviews();
+        };
+        run();
+      }, [hasUserReviewed, getUserReview, getUserReviews]);
+
+      return <></>;
+    };
+
+    render(
+      <ReviewProvider>
+        <TestComponent />
+      </ReviewProvider>
+    );
+
+    await waitFor(() => expect(state.list).not.toBeUndefined(), { timeout: 15000 });
+    expect(state.hasReviewed).toBe(false);
+    expect(state.review).toBeNull();
+    expect(state.list).toEqual([]);
+  }, 15000);
+
   it('should throw error when useReviews used outside provider', () => {
     const { useReviews } = require('../../context/ReviewContext');
 

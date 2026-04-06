@@ -94,6 +94,16 @@ describe('imageOptimizationService', () => {
     expect(mockCreateResizedImage).not.toHaveBeenCalled();
   });
 
+  it('returns failure when image compression throws', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockGetInfoAsync.mockRejectedValue(new Error('cannot read file info'));
+
+    const result = await imageOptimizationService.compressImage('file:///tmp/bad.jpg');
+
+    expect(result).toEqual({ success: false, error: 'cannot read file info' });
+  });
+
   it('generates thumbnail image', async () => {
     const { imageOptimizationService } = require('../../services/imageOptimizationService');
 
@@ -110,6 +120,16 @@ describe('imageOptimizationService', () => {
       70,
       0
     );
+  });
+
+  it('returns failure when thumbnail generation throws', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockCreateResizedImage.mockRejectedValue(new Error('thumbnail failed'));
+
+    const result = await imageOptimizationService.generateThumbnail('file:///tmp/original.jpg');
+
+    expect(result).toEqual({ success: false, error: 'thumbnail failed' });
   });
 
   it('uploads compressed image and returns public url', async () => {
@@ -147,6 +167,44 @@ describe('imageOptimizationService', () => {
     });
   });
 
+  it('returns failure when uploadImage compression fails', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    jest.spyOn(imageOptimizationService, 'compressImage').mockResolvedValue({
+      success: false,
+      error: 'compress failed',
+    });
+
+    const result = await imageOptimizationService.uploadImage(
+      'file:///tmp/original.jpg',
+      'products',
+      'products/u-1.jpg'
+    );
+
+    expect(result).toEqual({ success: false, error: 'compress failed' });
+    expect(mockReadAsStringAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns failure when uploadImage storage upload fails', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    jest.spyOn(imageOptimizationService, 'compressImage').mockResolvedValue({
+      success: true,
+      uri: 'file:///tmp/compressed.jpg',
+      originalSize: 3,
+      compressedSize: 1,
+    });
+    mockStorageUpload.mockResolvedValue({ data: null, error: new Error('upload denied') });
+
+    const result = await imageOptimizationService.uploadImage(
+      'file:///tmp/original.jpg',
+      'products',
+      'products/u-2.jpg'
+    );
+
+    expect(result).toEqual({ success: false, error: 'upload denied' });
+  });
+
   it('returns partial success info for uploadMultipleImages', async () => {
     const { imageOptimizationService } = require('../../services/imageOptimizationService');
 
@@ -172,6 +230,25 @@ describe('imageOptimizationService', () => {
     nowSpy.mockRestore();
   });
 
+  it('returns failure summary when all uploads fail', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    const uploadSpy = jest.spyOn(imageOptimizationService, 'uploadImage');
+    uploadSpy
+      .mockResolvedValueOnce({ success: false, error: 'network error' })
+      .mockResolvedValueOnce({ success: false, error: 'timeout' });
+
+    const result = await imageOptimizationService.uploadMultipleImages(
+      ['file:///1.jpg', 'file:///2.jpg'],
+      'products',
+      'users/u-9'
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.urls).toEqual([]);
+    expect(result.failureCount).toBe(2);
+  });
+
   it('deletes image from storage', async () => {
     const { imageOptimizationService } = require('../../services/imageOptimizationService');
 
@@ -179,6 +256,16 @@ describe('imageOptimizationService', () => {
 
     expect(mockStorageRemove).toHaveBeenCalledWith(['users/u-1/pic.jpg']);
     expect(result).toEqual({ success: true });
+  });
+
+  it('returns failure when deleteImage storage remove fails', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockStorageRemove.mockResolvedValue({ error: new Error('delete denied') });
+
+    const result = await imageOptimizationService.deleteImage('products', 'users/u-1/pic.jpg');
+
+    expect(result).toEqual({ success: false, error: 'delete denied' });
   });
 
   it('gets image metadata from file and dimensions', async () => {
@@ -200,6 +287,19 @@ describe('imageOptimizationService', () => {
     });
   });
 
+  it('returns failure when getImageMetadata cannot resolve dimensions', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockGetInfoAsync.mockResolvedValue({ size: 2048, exists: true });
+    global.Image = {
+      getSize: jest.fn((_uri, _onSuccess, onError) => onError(new Error('invalid image'))),
+    };
+
+    const result = await imageOptimizationService.getImageMetadata('file:///tmp/bad.jpg');
+
+    expect(result).toEqual({ success: false, error: 'invalid image' });
+  });
+
   it('uses cached file when cache entry already exists', async () => {
     const { imageOptimizationService } = require('../../services/imageOptimizationService');
 
@@ -213,5 +313,34 @@ describe('imageOptimizationService', () => {
       cached: true,
     });
     expect(mockCopyAsync).not.toHaveBeenCalled();
+  });
+
+  it('copies image to cache when entry does not exist', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockGetInfoAsync.mockResolvedValue({ exists: false });
+
+    const result = await imageOptimizationService.cacheImage('file:///tmp/pic.jpg', 'proof-1');
+
+    expect(mockCopyAsync).toHaveBeenCalledWith({
+      from: 'file:///tmp/pic.jpg',
+      to: 'file:///cache/proof-1.jpg',
+    });
+    expect(result).toEqual({
+      success: true,
+      uri: 'file:///cache/proof-1.jpg',
+      cached: false,
+    });
+  });
+
+  it('returns failure when cache copy throws', async () => {
+    const { imageOptimizationService } = require('../../services/imageOptimizationService');
+
+    mockGetInfoAsync.mockResolvedValue({ exists: false });
+    mockCopyAsync.mockRejectedValue(new Error('disk full'));
+
+    const result = await imageOptimizationService.cacheImage('file:///tmp/pic.jpg', 'proof-2');
+
+    expect(result).toEqual({ success: false, error: 'disk full' });
   });
 });

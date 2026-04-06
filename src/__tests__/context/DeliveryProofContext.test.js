@@ -99,6 +99,84 @@ describe('DeliveryProofContext', () => {
     nowSpy.mockRestore();
   }, 15000);
 
+  it('uploads PNG proof photo with image/png content type', async () => {
+    const FileSystem = require('expo-file-system/legacy');
+    const { decode } = require('base64-arraybuffer');
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1700000001234);
+
+    FileSystem.readAsStringAsync.mockResolvedValue('PNG_BASE64');
+    decode.mockReturnValue('PNG_BUFFER');
+
+    const { DeliveryProofProvider, useDeliveryProof } = require('../../context/DeliveryProofContext');
+    let result = null;
+
+    const Probe = () => {
+      const { uploadProofPhoto } = useDeliveryProof();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await uploadProofPhoto('file:///tmp/proof.png', 'delivery-2');
+        };
+        run();
+      }, [uploadProofPhoto]);
+
+      return <></>;
+    };
+
+    render(
+      <DeliveryProofProvider>
+        <Probe />
+      </DeliveryProofProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(mockUpload).toHaveBeenCalledWith(
+      'delivery_proofs/delivery-2_1700000001234.png',
+      'PNG_BUFFER',
+      {
+        contentType: 'image/png',
+        upsert: false,
+      }
+    );
+    expect(result).toEqual({ success: true, photoUrl: 'https://cdn.test/proof.jpg' });
+
+    nowSpy.mockRestore();
+  }, 15000);
+
+  it('returns failure when uploadProofPhoto upload fails', async () => {
+    const FileSystem = require('expo-file-system/legacy');
+    const { decode } = require('base64-arraybuffer');
+
+    FileSystem.readAsStringAsync.mockResolvedValue('BASE64_DATA');
+    decode.mockReturnValue('BUFFER_DATA');
+    mockUpload.mockResolvedValue({ data: null, error: new Error('upload failed') });
+
+    const { DeliveryProofProvider, useDeliveryProof } = require('../../context/DeliveryProofContext');
+    let result = null;
+
+    const Probe = () => {
+      const { uploadProofPhoto } = useDeliveryProof();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await uploadProofPhoto('file:///tmp/proof.jpg', 'delivery-1');
+        };
+        run();
+      }, [uploadProofPhoto]);
+
+      return <></>;
+    };
+
+    render(
+      <DeliveryProofProvider>
+        <Probe />
+      </DeliveryProofProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'upload failed' });
+  }, 15000);
+
   it('saves delivery proof after delivery/order lookup', async () => {
     const deliverySingle = jest.fn().mockResolvedValue({
       data: { id: 'delivery-1', rider_id: 'rider-1', order_id: 'order-1' },
@@ -174,6 +252,80 @@ describe('DeliveryProofContext', () => {
     expect(result.data.id).toBe('proof-1');
   }, 15000);
 
+  it('returns failure when saveDeliveryProof insert fails', async () => {
+    const deliverySingle = jest.fn().mockResolvedValue({
+      data: { id: 'delivery-1', rider_id: 'rider-1', order_id: 'order-1' },
+      error: null,
+    });
+    const orderSingle = jest.fn().mockResolvedValue({
+      data: { id: 'order-1', rider_id: 'rider-1' },
+      error: null,
+    });
+    const insertSingle = jest.fn().mockResolvedValue({
+      data: null,
+      error: new Error('insert proof failed'),
+    });
+
+    mockFrom.mockImplementation((table) => {
+      if (table === 'deliveries') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({ single: deliverySingle }),
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({ single: orderSingle }),
+          }),
+        };
+      }
+
+      if (table === 'delivery_proofs') {
+        return {
+          insert: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({ single: insertSingle }),
+          }),
+        };
+      }
+
+      return {};
+    });
+
+    const { DeliveryProofProvider, useDeliveryProof } = require('../../context/DeliveryProofContext');
+    let result = null;
+
+    const Probe = () => {
+      const { saveDeliveryProof } = useDeliveryProof();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await saveDeliveryProof({
+            delivery_id: 'delivery-1',
+            photo_url: 'https://cdn.test/proof.jpg',
+            signature_data: 'sig-data',
+            recipient_name: 'John Receiver',
+            notes: 'Left at gate',
+          });
+        };
+        run();
+      }, [saveDeliveryProof]);
+
+      return <></>;
+    };
+
+    render(
+      <DeliveryProofProvider>
+        <Probe />
+      </DeliveryProofProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'insert proof failed' });
+  }, 15000);
+
   it('returns null when proof is not found', async () => {
     mockFrom.mockReturnValue({
       select: jest.fn().mockReturnValue({
@@ -192,6 +344,41 @@ describe('DeliveryProofContext', () => {
       useEffect(() => {
         const run = async () => {
           result = await getProofByDeliveryId('delivery-404');
+        };
+        run();
+      }, [getProofByDeliveryId]);
+
+      return <></>;
+    };
+
+    render(
+      <DeliveryProofProvider>
+        <Probe />
+      </DeliveryProofProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeUndefined(), { timeout: 15000 });
+    expect(result).toBeNull();
+  }, 15000);
+
+  it('returns null when getProofByDeliveryId query errors', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: null, error: { code: 'XX001', message: 'db error' } }),
+        }),
+      }),
+    });
+
+    const { DeliveryProofProvider, useDeliveryProof } = require('../../context/DeliveryProofContext');
+    let result = undefined;
+
+    const Probe = () => {
+      const { getProofByDeliveryId } = useDeliveryProof();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await getProofByDeliveryId('delivery-err');
         };
         run();
       }, [getProofByDeliveryId]);
@@ -251,6 +438,48 @@ describe('DeliveryProofContext', () => {
 
     await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
     expect(result).toEqual({ success: true, data: updated });
+  }, 15000);
+
+  it('returns failure when updateDeliveryProof fails', async () => {
+    mockFrom.mockReturnValue({
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: new Error('update failed') }),
+          }),
+        }),
+      }),
+    });
+
+    const { DeliveryProofProvider, useDeliveryProof } = require('../../context/DeliveryProofContext');
+    let result = null;
+
+    const Probe = () => {
+      const { updateDeliveryProof } = useDeliveryProof();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await updateDeliveryProof('proof-1', {
+            photo_url: 'https://cdn.test/new-proof.jpg',
+            signature_data: 'new-signature',
+            recipient_name: 'Updated Receiver',
+            notes: 'Handled personally',
+          });
+        };
+        run();
+      }, [updateDeliveryProof]);
+
+      return <></>;
+    };
+
+    render(
+      <DeliveryProofProvider>
+        <Probe />
+      </DeliveryProofProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'update failed' });
   }, 15000);
 
   it('rejects upload/update/save when unauthenticated', async () => {

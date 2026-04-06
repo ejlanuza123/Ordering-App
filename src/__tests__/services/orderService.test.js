@@ -154,4 +154,122 @@ describe('orderService', () => {
       })
     ).rejects.toThrow('Queue failed');
   });
+
+  it('throws fallback message when offline create queueing fails without error text', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: false });
+    mockQueueOperation.mockResolvedValue({ success: false });
+
+    const { orderService } = require('../../services/orderService');
+
+    await expect(
+      orderService.createOrderWithItems({
+        userId: 'u-1',
+        orderInsert: { user_id: 'u-1', total_amount: 100 },
+        orderItems: [{ product_id: 'p-1', quantity: 1, price_at_order: 100 }],
+      })
+    ).rejects.toThrow('Failed to queue order while offline.');
+  });
+
+  it('throws order insert error when online create fails at order row insert', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: true });
+
+    mockSingle.mockResolvedValue({ data: null, error: new Error('order insert failed') });
+    mockSelect.mockReturnValue({ single: mockSingle });
+    mockFrom.mockReturnValue({
+      insert: jest.fn().mockReturnValue({ select: mockSelect }),
+    });
+
+    const { orderService } = require('../../services/orderService');
+
+    await expect(
+      orderService.createOrderWithItems({
+        userId: 'u-1',
+        orderInsert: { user_id: 'u-1', total_amount: 100 },
+        orderItems: [{ product_id: 'p-1', quantity: 1, price_at_order: 100 }],
+      })
+    ).rejects.toThrow('order insert failed');
+  });
+
+  it('throws item insert error when online create fails at order items insert', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: true });
+
+    mockSingle.mockResolvedValue({
+      data: { id: 'order-2', user_id: 'u-1', total_amount: 100 },
+      error: null,
+    });
+    mockSelect.mockReturnValue({ single: mockSingle });
+
+    const mockOrderItemsInsert = jest.fn().mockResolvedValue({ error: new Error('items insert failed') });
+    mockFrom.mockImplementation((table) => {
+      if (table === 'orders') {
+        return {
+          insert: jest.fn().mockReturnValue({ select: mockSelect }),
+        };
+      }
+
+      return {
+        insert: mockOrderItemsInsert,
+      };
+    });
+
+    const { orderService } = require('../../services/orderService');
+
+    await expect(
+      orderService.createOrderWithItems({
+        userId: 'u-1',
+        orderInsert: { user_id: 'u-1', total_amount: 100 },
+        orderItems: [{ product_id: 'p-1', quantity: 1, price_at_order: 100 }],
+      })
+    ).rejects.toThrow('items insert failed');
+  });
+
+  it('throws fallback message when offline update queueing fails without error text', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: false });
+    mockQueueOperation.mockResolvedValue({ success: false });
+
+    const { orderService } = require('../../services/orderService');
+
+    await expect(
+      orderService.updateOrder({
+        orderId: 'o-1',
+        userId: 'u-1',
+        updates: { status: 'Cancelled' },
+      })
+    ).rejects.toThrow('Failed to queue order update while offline.');
+  });
+
+  it('throws online update error when direct update fails', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: true });
+
+    const secondEq = jest.fn().mockResolvedValue({ error: new Error('update failed') });
+    const firstEq = jest.fn().mockReturnValue({ eq: secondEq });
+    mockUpdate.mockReturnValue({ eq: firstEq });
+    mockFrom.mockReturnValue({ update: mockUpdate });
+
+    const { orderService } = require('../../services/orderService');
+
+    await expect(
+      orderService.updateOrder({
+        orderId: 'o-1',
+        userId: 'u-1',
+        updates: { status: 'Processing' },
+      })
+    ).rejects.toThrow('update failed');
+  });
+
+  it('treats status lookup errors as offline and queues operation', async () => {
+    mockGetStatus.mockRejectedValue(new Error('status unavailable'));
+    mockQueueOperation.mockResolvedValue({ success: true, queueId: 'q-fallback-offline' });
+
+    const { orderService } = require('../../services/orderService');
+
+    const result = await orderService.updateOrder({
+      orderId: 'o-2',
+      userId: 'u-2',
+      updates: { status: 'Processing' },
+    });
+
+    expect(result).toEqual({ success: true, queued: true });
+    expect(mockQueueOperation).toHaveBeenCalled();
+  });
 });

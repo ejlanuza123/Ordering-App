@@ -26,6 +26,7 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -38,7 +39,6 @@ export default function ProfileScreen({ navigation }) {
   const [addressLat, setAddressLat] = useState(null);
   const [addressLng, setAddressLng] = useState(null);
   const [notifications, setNotifications] = useState(true);
-  const [marketingEmails, setMarketingEmails] = useState(false);
 
   // User stats
   const [orderCount, setOrderCount] = useState(0);
@@ -74,6 +74,7 @@ export default function ProfileScreen({ navigation }) {
         if (profileData.address_lat != null) setAddressLat(profileData.address_lat);
         if (profileData.address_lng != null) setAddressLng(profileData.address_lng);
         setAvatarUrl(profileData.avatar_url || '');
+        setNotifications(profileData.notifications_enabled !== false);
       }
 
       // Fetch user stats
@@ -101,6 +102,35 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     fetchProfileData();
   }, [user]);
+
+  const handleNotificationsToggle = async (value) => {
+    setNotifications(value);
+
+    if (!user?.id) return;
+
+    setSavingNotifications(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          notifications_enabled: value,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      setNotifications(!value);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update notification setting.'
+      });
+      setShowAlert(true);
+    } finally {
+      setSavingNotifications(false);
+    }
+  };
 
   // 2. Handle Update (Save Changes)
   const handleSave = async () => {
@@ -144,6 +174,7 @@ export default function ProfileScreen({ navigation }) {
           full_name: fullName.trim(),
           phone_number: phone.trim(),
           address: address.trim(),
+          notifications_enabled: notifications,
           updated_at: new Date().toISOString(),
       };
       if (addressLat != null) updates.address_lat = addressLat;
@@ -416,28 +447,13 @@ export default function ProfileScreen({ navigation }) {
                 <Ionicons name="notifications" size={22} color="#0033A0" />
                 <View style={styles.preferenceText}>
                   <Text style={styles.preferenceTitle}>Push Notifications</Text>
-                  <Text style={styles.preferenceDescription}>Order updates and promotions</Text>
+                  <Text style={styles.preferenceDescription}>Order and delivery status updates</Text>
                 </View>
               </View>
               <Switch
                 value={notifications}
-                onValueChange={setNotifications}
-                trackColor={{ false: '#e9ecef', true: '#0033A0' }}
-                thumbColor="#fff"
-              />
-            </View>
-
-            <View style={styles.preferenceItem}>
-              <View style={styles.preferenceInfo}>
-                <Ionicons name="mail" size={22} color="#0033A0" />
-                <View style={styles.preferenceText}>
-                  <Text style={styles.preferenceTitle}>Marketing Emails</Text>
-                  <Text style={styles.preferenceDescription}>Special offers and news</Text>
-                </View>
-              </View>
-              <Switch
-                value={marketingEmails}
-                onValueChange={setMarketingEmails}
+                onValueChange={handleNotificationsToggle}
+                disabled={savingNotifications}
                 trackColor={{ false: '#e9ecef', true: '#0033A0' }}
                 thumbColor="#fff"
               />

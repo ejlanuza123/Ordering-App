@@ -185,6 +185,207 @@ describe('AddressContext', () => {
     expect(result.success).toBe(true);
     expect(ctxRef.current.addresses.find((a) => a.id === 'a-2')?.label).toBe('Office Updated');
   });
+
+  it('returns not authenticated for address mutations when no user is present', async () => {
+    authState.user = null;
+    const { AddressProvider, useAddresses } = require('../../context/AddressContext');
+
+    render(
+      <AddressProvider>
+        <Probe useAddresses={useAddresses} />
+      </AddressProvider>
+    );
+
+    let addResult;
+    let updateResult;
+    let deleteResult;
+    await act(async () => {
+      addResult = await ctxRef.current.addAddress({ label: 'Test' });
+      updateResult = await ctxRef.current.updateAddress('a-1', { label: 'Test' });
+      deleteResult = await ctxRef.current.deleteAddress('a-1');
+    });
+
+    expect(addResult).toEqual({ success: false, error: 'Not authenticated' });
+    expect(updateResult).toEqual({ success: false, error: 'Not authenticated' });
+    expect(deleteResult).toEqual({ success: false, error: 'Not authenticated' });
+    expect(ctxRef.current.getDefaultAddress()).toBe(null);
+  });
+
+  it('adds a default address and unsets previous defaults locally', async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table !== 'user_addresses') {
+        return {};
+      }
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: baseAddresses, error: null }),
+            }),
+          }),
+        }),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        }),
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: {
+                id: 'a-9',
+                user_id: 'u-1',
+                label: 'Default New',
+                address: 'Street 9',
+                address_lat: 9.8,
+                address_lng: 118.8,
+                is_default: true,
+              },
+              error: null,
+            }),
+          }),
+        }),
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        }),
+      };
+    });
+
+    const { AddressProvider, useAddresses } = require('../../context/AddressContext');
+
+    render(
+      <AddressProvider>
+        <Probe useAddresses={useAddresses} />
+      </AddressProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    let result;
+    await act(async () => {
+      result = await ctxRef.current.addAddress({
+        label: 'Default New',
+        address: 'Street 9',
+        address_lat: 9.8,
+        address_lng: 118.8,
+        is_default: true,
+      });
+    });
+
+    expect(result.success).toBe(true);
+    expect(ctxRef.current.getDefaultAddress()?.id).toBe('a-9');
+    expect(ctxRef.current.addresses.filter((a) => a.is_default)).toHaveLength(1);
+  });
+
+  it('sets a non-default address as default via setDefaultAddress', async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table !== 'user_addresses') {
+        return {};
+      }
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: baseAddresses, error: null }),
+            }),
+          }),
+        }),
+        update: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            neq: jest.fn().mockResolvedValue({ error: null }),
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: {
+                  ...baseAddresses[1],
+                  is_default: true,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+        delete: jest.fn().mockReturnValue({
+          eq: jest.fn().mockResolvedValue({ error: null }),
+        }),
+      };
+    });
+
+    const { AddressProvider, useAddresses } = require('../../context/AddressContext');
+
+    render(
+      <AddressProvider>
+        <Probe useAddresses={useAddresses} />
+      </AddressProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    let result;
+    await act(async () => {
+      result = await ctxRef.current.setDefaultAddress('a-2');
+    });
+
+    expect(result.success).toBe(true);
+    expect(ctxRef.current.getDefaultAddress()?.id).toBe('a-2');
+    expect(ctxRef.current.addresses.filter((a) => a.is_default)).toHaveLength(1);
+  });
+
+  it('handles fetch errors and still clears loading', async () => {
+    mockFrom.mockImplementation((table) => {
+      if (table !== 'user_addresses') {
+        return {};
+      }
+
+      return {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: null, error: new Error('fetch failed') }),
+            }),
+          }),
+        }),
+        update: jest.fn().mockReturnValue({ eq: jest.fn() }),
+        insert: jest.fn().mockReturnValue({ select: jest.fn() }),
+        delete: jest.fn().mockReturnValue({ eq: jest.fn() }),
+      };
+    });
+
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { AddressProvider, useAddresses } = require('../../context/AddressContext');
+
+    render(
+      <AddressProvider>
+        <Probe useAddresses={useAddresses} />
+      </AddressProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+    });
+
+    expect(ctxRef.current.addresses).toEqual([]);
+    errorSpy.mockRestore();
+  });
+
+  it('removes realtime channel on unmount', async () => {
+    const { AddressProvider, useAddresses } = require('../../context/AddressContext');
+
+    const { unmount } = render(
+      <AddressProvider>
+        <Probe useAddresses={useAddresses} />
+      </AddressProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    unmount();
+    expect(mockRemoveChannel).toHaveBeenCalledWith({ id: 'address-channel' });
+  });
 });
 
 describe('useAddresses', () => {

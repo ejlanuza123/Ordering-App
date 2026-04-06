@@ -2,21 +2,73 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { mobileNotificationService } from '../services/mobileNotificationService';
 
 const NotificationContext = createContext();
+const SUPPORTED_ROLES = ['customer', 'rider'];
+const getWelcomeNotificationKey = (userId, role) => `welcome_notification_shown_${userId}_${role}`;
 
 export const NotificationProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const userId = user?.id;
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const notificationsEnabledRef = useRef(true);
+  const welcomeInProgressRef = useRef(false);
 
   useEffect(() => {
     notificationsEnabledRef.current = notificationsEnabled;
   }, [notificationsEnabled]);
+
+  // Send a one-time local welcome notification for first-time users and riders.
+  useEffect(() => {
+    if (!userId || !SUPPORTED_ROLES.includes(role)) {
+      return;
+    }
+
+    const sendFirstTimeWelcomeNotification = async () => {
+      if (welcomeInProgressRef.current) return;
+      welcomeInProgressRef.current = true;
+
+      try {
+        const storageKey = getWelcomeNotificationKey(userId, role);
+        const alreadyShown = await AsyncStorage.getItem(storageKey);
+
+        if (alreadyShown === '1') {
+          return;
+        }
+
+        const token = await mobileNotificationService.getDevicePushToken();
+        if (token) {
+          await mobileNotificationService.savePushToken(userId, token);
+        }
+
+        const title = role === 'rider' ? 'Welcome, Rider!' : 'Welcome to Petron San Pedro!';
+        const body = role === 'rider'
+          ? 'Use this app to accept deliveries, track routes, and update order status in real time.'
+          : 'Use this app to order products, track deliveries, and get order updates in real time.';
+
+        const result = await mobileNotificationService.sendLocalNotification(title, body, {
+          type: 'first_time_welcome',
+          role,
+          userId,
+        });
+
+        if (result?.success) {
+          await AsyncStorage.setItem(storageKey, '1');
+        }
+      } catch (error) {
+        console.error('Error sending first-time welcome notification:', error?.message || error);
+      } finally {
+        welcomeInProgressRef.current = false;
+      }
+    };
+
+    sendFirstTimeWelcomeNotification();
+  }, [userId, role]);
 
   // Load user's notification preference
   const loadNotificationPreference = useCallback(async () => {

@@ -1,10 +1,42 @@
 // src/context/CartContext.js
-import React, { createContext, useState, useContext, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useContext, useCallback, useMemo, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CartContext = createContext();
+const CART_STORAGE_KEY = 'petron_cart_items';
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
+
+  useEffect(() => {
+    const loadCartItems = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CART_STORAGE_KEY);
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCartItems(parsed);
+        }
+      } catch (error) {
+        console.warn('Failed to load cart items from storage:', error?.message || error);
+      }
+    };
+
+    loadCartItems();
+  }, []);
+
+  useEffect(() => {
+    const persistCartItems = async () => {
+      try {
+        await AsyncStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartItems));
+      } catch (error) {
+        console.warn('Failed to persist cart items:', error?.message || error);
+      }
+    };
+
+    persistCartItems();
+  }, [cartItems]);
 
   // Calculate total item price based on quantity and product price
   const calculateTotalItemPrice = useCallback((product, quantity) => {

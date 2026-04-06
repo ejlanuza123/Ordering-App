@@ -433,6 +433,170 @@ describe('RiderRatingContext', () => {
     });
   }, 15000);
 
+  it('returns safe defaults when rating fetch methods fail', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: null, error: new Error('query failed') }),
+      }),
+    });
+
+    const { RiderRatingProvider, useRiderRatings } = require('../../context/RiderRatingContext');
+    const state = { avg: null, rows: null, stats: undefined };
+
+    const Probe = () => {
+      const { getRiderRating, getRiderRatings, getRiderStats } = useRiderRatings();
+
+      useEffect(() => {
+        const run = async () => {
+          state.avg = await getRiderRating('rider-err');
+          state.rows = await getRiderRatings('rider-err', 5);
+          state.stats = await getRiderStats('rider-err');
+        };
+        run();
+      }, [getRiderRating, getRiderRatings, getRiderStats]);
+
+      return <></>;
+    };
+
+    render(
+      <RiderRatingProvider>
+        <Probe />
+      </RiderRatingProvider>
+    );
+
+    await waitFor(() => expect(state.stats).not.toBeUndefined(), { timeout: 15000 });
+    expect(state.avg).toEqual({ average: 0, count: 0 });
+    expect(state.rows).toEqual([]);
+    expect(state.stats).toBeNull();
+  }, 15000);
+
+  it('returns failure when rateRider insert fails', async () => {
+    mockFrom.mockReturnValue({
+      insert: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: null, error: new Error('insert failed') }),
+        }),
+      }),
+    });
+
+    const { RiderRatingProvider, useRiderRatings } = require('../../context/RiderRatingContext');
+    let result = null;
+
+    const Probe = () => {
+      const { rateRider } = useRiderRatings();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await rateRider('rider-1', 'delivery-1', 3, 'ok');
+        };
+        run();
+      }, [rateRider]);
+
+      return <></>;
+    };
+
+    render(
+      <RiderRatingProvider>
+        <Probe />
+      </RiderRatingProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'insert failed' });
+  }, 15000);
+
+  it('returns failure when updateRating update fails', async () => {
+    mockFrom.mockReturnValue({
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            select: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null, error: new Error('update failed') }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const { RiderRatingProvider, useRiderRatings } = require('../../context/RiderRatingContext');
+    let result = null;
+
+    const Probe = () => {
+      const { updateRating } = useRiderRatings();
+
+      useEffect(() => {
+        const run = async () => {
+          result = await updateRating('rr-1', 2, 'bad');
+        };
+        run();
+      }, [updateRating]);
+
+      return <></>;
+    };
+
+    render(
+      <RiderRatingProvider>
+        <Probe />
+      </RiderRatingProvider>
+    );
+
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    expect(result).toEqual({ success: false, error: 'update failed' });
+  }, 15000);
+
+  it('handles PGRST116 and generic errors in hasUserRated/getUserRating', async () => {
+    const single = jest
+      .fn()
+      .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116', message: 'no row' } })
+      .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116', message: 'no row' } })
+      .mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'db exploded' } })
+      .mockResolvedValueOnce({ data: null, error: { code: 'XX000', message: 'db exploded' } });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({ single }),
+        }),
+      }),
+    });
+
+    const { RiderRatingProvider, useRiderRatings } = require('../../context/RiderRatingContext');
+    const state = {
+      hasRatedPgrst: null,
+      userRatingPgrst: undefined,
+      hasRatedErr: null,
+      userRatingErr: undefined,
+    };
+
+    const Probe = () => {
+      const { hasUserRated, getUserRating } = useRiderRatings();
+
+      useEffect(() => {
+        const run = async () => {
+          state.hasRatedPgrst = await hasUserRated('delivery-none');
+          state.userRatingPgrst = await getUserRating('delivery-none');
+          state.hasRatedErr = await hasUserRated('delivery-err');
+          state.userRatingErr = await getUserRating('delivery-err');
+        };
+        run();
+      }, [hasUserRated, getUserRating]);
+
+      return <></>;
+    };
+
+    render(
+      <RiderRatingProvider>
+        <Probe />
+      </RiderRatingProvider>
+    );
+
+    await waitFor(() => expect(state.userRatingErr).not.toBeUndefined(), { timeout: 15000 });
+    expect(state.hasRatedPgrst).toBe(false);
+    expect(state.userRatingPgrst).toBeNull();
+    expect(state.hasRatedErr).toBe(false);
+    expect(state.userRatingErr).toBeNull();
+  }, 15000);
+
   it('throws when hook is used outside provider', () => {
     const { useRiderRatings } = require('../../context/RiderRatingContext');
 

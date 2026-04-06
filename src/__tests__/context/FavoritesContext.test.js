@@ -154,6 +154,120 @@ describe('FavoritesContext', () => {
 
     expect(result).toBe(false);
   });
+
+  it('clears favorites when user becomes unauthenticated', async () => {
+    const { FavoritesProvider, useFavorites } = require('../../context/FavoritesContext');
+
+    const view = render(
+      <FavoritesProvider>
+        <Probe useFavorites={useFavorites} />
+      </FavoritesProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.isFavorite('p-1')).toBe(true));
+
+    authState.user = null;
+    view.rerender(
+      <FavoritesProvider>
+        <Probe useFavorites={useFavorites} />
+      </FavoritesProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.isFavorite('p-1')).toBe(false);
+      expect(ctxRef.current.favorites.size).toBe(0);
+    });
+  });
+
+  it('warns and resets loading when favorites fetch throws', async () => {
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockRejectedValue(new Error('network down')),
+      }),
+      insert: jest.fn().mockResolvedValue({ error: null }),
+      delete: jest.fn().mockReturnValue({
+        match: jest.fn().mockResolvedValue({ error: null }),
+      }),
+    });
+
+    const { FavoritesProvider, useFavorites } = require('../../context/FavoritesContext');
+
+    render(
+      <FavoritesProvider>
+        <Probe useFavorites={useFavorites} />
+      </FavoritesProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+    });
+
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('returns previous state when insert toggle fails', async () => {
+    const insert = jest.fn().mockResolvedValue({ error: new Error('insert failed') });
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+      insert,
+      delete: jest.fn().mockReturnValue({
+        match: jest.fn().mockResolvedValue({ error: null }),
+      }),
+    });
+
+    const { FavoritesProvider, useFavorites } = require('../../context/FavoritesContext');
+
+    render(
+      <FavoritesProvider>
+        <Probe useFavorites={useFavorites} />
+      </FavoritesProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.loading).toBe(false));
+
+    let result;
+    await act(async () => {
+      result = await ctxRef.current.toggleFavorite('p-3');
+    });
+
+    expect(result).toBe(false);
+    expect(ctxRef.current.isFavorite('p-3')).toBe(false);
+    expect(console.warn).toHaveBeenCalledWith('favorite toggle failed', expect.any(Error));
+  });
+
+  it('returns previous state when delete toggle fails', async () => {
+    const match = jest.fn().mockResolvedValue({ error: new Error('delete failed') });
+    const del = jest.fn().mockReturnValue({ match });
+
+    mockFrom.mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: [{ product_id: 'p-1' }], error: null }),
+      }),
+      insert: jest.fn().mockResolvedValue({ error: null }),
+      delete: del,
+    });
+
+    const { FavoritesProvider, useFavorites } = require('../../context/FavoritesContext');
+
+    render(
+      <FavoritesProvider>
+        <Probe useFavorites={useFavorites} />
+      </FavoritesProvider>
+    );
+
+    await waitFor(() => expect(ctxRef.current.isFavorite('p-1')).toBe(true));
+
+    let result;
+    await act(async () => {
+      result = await ctxRef.current.toggleFavorite('p-1');
+    });
+
+    expect(result).toBe(true);
+    expect(ctxRef.current.isFavorite('p-1')).toBe(true);
+    expect(console.warn).toHaveBeenCalledWith('favorite toggle failed', expect.any(Error));
+  });
 });
 
 describe('useFavorites', () => {

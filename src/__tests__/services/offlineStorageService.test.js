@@ -20,6 +20,10 @@ describe('offlineStorageService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(Date, 'now').mockReturnValue(1000);
+    AsyncStorage.setItem.mockResolvedValue(undefined);
+    AsyncStorage.removeItem.mockResolvedValue(undefined);
+    AsyncStorage.multiRemove.mockResolvedValue(undefined);
+    AsyncStorage.getItem.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -218,5 +222,207 @@ describe('offlineStorageService', () => {
     const result = await offlineStorageService.saveData('ORDERS', { a: 1 });
 
     expect(result).toEqual({ success: false, error: 'disk full' });
+  });
+
+  it('returns failure for getData parse errors', async () => {
+    AsyncStorage.getItem.mockResolvedValue('not-json');
+
+    const result = await offlineStorageService.getData('ORDERS');
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  it('returns failure when clearCache throws', async () => {
+    AsyncStorage.multiRemove.mockRejectedValue(new Error('io error'));
+
+    const result = await offlineStorageService.clearCache();
+
+    expect(result).toEqual({ success: false, error: 'io error' });
+  });
+
+  it('returns empty queue when stored queue is not an array', async () => {
+    AsyncStorage.getItem.mockResolvedValue(JSON.stringify({ queue: true }));
+
+    const queue = await offlineStorageService.getSyncQueue();
+
+    expect(queue).toEqual([]);
+  });
+
+  it('returns empty queue when sync queue JSON is invalid', async () => {
+    AsyncStorage.getItem.mockResolvedValue('{bad');
+
+    const queue = await offlineStorageService.getSyncQueue();
+
+    expect(queue).toEqual([]);
+  });
+
+  it('returns failure when queueOperation cannot persist queue', async () => {
+    AsyncStorage.getItem.mockResolvedValue('[]');
+    AsyncStorage.setItem.mockRejectedValue(new Error('write denied'));
+
+    const result = await offlineStorageService.queueOperation({
+      type: 'update',
+      table: 'orders',
+      data: { id: 'o-2' },
+    });
+
+    expect(result).toEqual({ success: false, error: 'write denied' });
+  });
+
+  it('computes sync queue health for empty and stuck queues', async () => {
+    AsyncStorage.getItem.mockResolvedValueOnce(JSON.stringify([]));
+
+    const empty = await offlineStorageService.getSyncQueueHealth(60);
+    expect(empty).toEqual({
+      success: true,
+      pendingCount: 0,
+      oldestAgeMs: 0,
+      isStuck: false,
+    });
+
+    Date.now.mockReturnValue(1_000_000);
+    AsyncStorage.getItem.mockResolvedValueOnce(
+      JSON.stringify([
+        { queueId: 'q-old', timestamp: 500_000 },
+        { queueId: 'q-new', timestamp: 990_000 },
+      ])
+    );
+
+    const stuck = await offlineStorageService.getSyncQueueHealth(5);
+    expect(stuck.success).toBe(true);
+    expect(stuck.pendingCount).toBe(2);
+    expect(stuck.oldestAgeMs).toBe(500_000);
+    expect(stuck.isStuck).toBe(true);
+  });
+
+  it('processes create_order operation successfully', async () => {
+    AsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify([
+        {
+          queueId: 'q-create',
+          type: 'create_order',
+          table: 'orders',
+          data: { user_id: 'u-1', total_amount: 50 },
+        },
+      ])
+    );
+
+    const insert = jest.fn().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValue({ insert });
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 1, pending: 0 });
+    expect(insert).toHaveBeenCalledWith([{ user_id: 'u-1', total_amount: 50 }]);
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('sync_queue');
+  });
+
+  it('keeps invalid bundle and delete-without-record operations pending', async () => {
+    AsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify([
+        {
+          queueId: 'q-invalid-bundle',
+          type: 'create_order_bundle',
+          data: { order: null, items: null },
+        },
+        {
+          queueId: 'q-delete-missing-id',
+          type: 'delete',
+          table: 'orders',
+          data: { status: 'x' },
+        },
+      ])
+    );
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 2, pending: 2 });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'sync_queue',
+      expect.stringContaining('q-invalid-bundle')
+    );
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'sync_queue',
+      expect.stringContaining('q-delete-missing-id')
+    );
+  });
+
+  it('processes delete operation successfully using match filters', async () => {
+    AsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify([
+        {
+          queueId: 'q-delete',
+          type: 'delete',
+          table: 'orders',
+          recordId: 'o-8',
+          match: { id: 'o-8', user_id: 'u-1' },
+        },
+      ])
+    );
+
+    const secondEq = jest.fn().mockResolvedValue({ error: null });
+    const firstEq = jest.fn().mockReturnValue({ eq: secondEq });
+    const del = jest.fn().mockReturnValue({ eq: firstEq });
+    mockFrom.mockReturnValue({ delete: del });
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 1, pending: 0 });
+    expect(firstEq).toHaveBeenCalledWith('id', 'o-8');
+    expect(secondEq).toHaveBeenCalledWith('user_id', 'u-1');
+  });
+
+  it('continues processing when unknown operation type is encountered', async () => {
+    AsyncStorage.getItem.mockResolvedValue(
+      JSON.stringify([
+        {
+          queueId: 'q-unknown',
+          type: 'noop',
+          table: 'orders',
+          data: {},
+        },
+        {
+          queueId: 'q-create-2',
+          type: 'create_order',
+          table: 'orders',
+          data: { user_id: 'u-2', total_amount: 25 },
+        },
+      ])
+    );
+
+    const insert = jest.fn().mockResolvedValue({ error: null });
+    mockFrom.mockReturnValue({ insert });
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 1, pending: 1 });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'sync_queue',
+      expect.stringContaining('q-unknown')
+    );
+  });
+
+  it('returns failure when processSyncQueue cannot read queue', async () => {
+    jest.spyOn(offlineStorageService, 'getSyncQueue').mockRejectedValue(new Error('queue down'));
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: false, error: 'queue down' });
+  });
+
+  it('updates and reads last sync timestamps', async () => {
+    jest.spyOn(offlineStorageService, 'getData').mockResolvedValue({ data: { ORDERS: 111 } });
+    const saveSpy = jest.spyOn(offlineStorageService, 'saveData').mockResolvedValue({ success: true });
+
+    Date.now.mockReturnValue(222);
+    const updateResult = await offlineStorageService.updateLastSync('PRODUCTS');
+
+    expect(updateResult).toEqual({ success: true });
+    expect(saveSpy).toHaveBeenCalledWith('LAST_SYNC', { ORDERS: 111, PRODUCTS: 222 }, 10080);
+
+    offlineStorageService.getData.mockResolvedValue({ data: { PRODUCTS: 333 } });
+    const lastSync = await offlineStorageService.getLastSync('PRODUCTS');
+    expect(lastSync).toBe(333);
   });
 });

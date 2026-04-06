@@ -71,6 +71,16 @@ describe('avatarService', () => {
     expect(result).toBe(true);
   });
 
+  it('returns false when media permission is denied', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ status: 'denied' });
+
+    const result = await avatarService.requestPermissions();
+
+    expect(result).toBe(false);
+  });
+
   it('returns first asset from pickImage', async () => {
     const { avatarService } = require('../../services/avatarService');
 
@@ -82,6 +92,16 @@ describe('avatarService', () => {
     expect(result).toEqual(asset);
   });
 
+  it('returns null from pickImage when user cancels picker', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true, assets: [] });
+
+    const result = await avatarService.pickImage();
+
+    expect(result).toBeNull();
+  });
+
   it('returns null from takePhoto when camera permission is denied', async () => {
     const { avatarService } = require('../../services/avatarService');
 
@@ -91,6 +111,17 @@ describe('avatarService', () => {
 
     expect(result).toBeNull();
     expect(mockLaunchCameraAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns captured asset from takePhoto when permission granted', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    const asset = { uri: 'file:///tmp/camera.jpg', width: 200, height: 200 };
+    mockLaunchCameraAsync.mockResolvedValue({ canceled: false, assets: [asset] });
+
+    const result = await avatarService.takePhoto();
+
+    expect(result).toEqual(asset);
   });
 
   it('uploads avatar and updates profile with public url', async () => {
@@ -134,6 +165,16 @@ describe('avatarService', () => {
     ).rejects.toThrow('Upload failed: upload failed');
   });
 
+  it('throws when uploadAvatar profile update fails', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    mockProfileEq.mockResolvedValue({ error: { message: 'profile update failed' } });
+
+    await expect(
+      avatarService.uploadAvatar('u-1', 'file:///tmp/avatar.jpg')
+    ).rejects.toThrow('Profile update failed: profile update failed');
+  });
+
   it('deletes avatar from storage and clears profile metadata', async () => {
     const { avatarService } = require('../../services/avatarService');
 
@@ -148,6 +189,25 @@ describe('avatarService', () => {
       })
     );
     expect(mockProfileEq).toHaveBeenCalledWith('id', 'u-1');
+  });
+
+  it('returns early when deleteAvatar has no URL', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    await avatarService.deleteAvatar('u-1', null);
+
+    expect(mockStorageRemove).not.toHaveBeenCalled();
+    expect(mockProfileUpdate).not.toHaveBeenCalled();
+  });
+
+  it('throws when deleteAvatar storage removal fails', async () => {
+    const { avatarService } = require('../../services/avatarService');
+
+    mockStorageRemove.mockResolvedValue({ error: { message: 'remove failed' } });
+
+    await expect(
+      avatarService.deleteAvatar('u-1', 'https://cdn.test/storage/v1/object/public/avatars/public/u-1/old.png')
+    ).rejects.toThrow('Storage delete failed: remove failed');
   });
 
   it('throws when deleteAvatar cannot extract file path', async () => {
