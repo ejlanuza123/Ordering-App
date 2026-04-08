@@ -409,7 +409,7 @@ export default function CheckoutScreen({ navigation }) {
             
             <View style={styles.progressStep}>
               <View style={[styles.progressCircle, styles.progressCircleActive]}>
-                <Text style={styles.progressNumber}>2</Text>
+                <Text style={[styles.progressNumber, styles.progressNumberActive]}>2</Text>
               </View>
               <Text style={styles.progressTextActive}>Checkout</Text>
             </View>
@@ -766,6 +766,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#666',
+  },
+  progressNumberActive: {
+    color: '#fff',
   },
   progressLine: {
     flex: 1,

@@ -1,13 +1,16 @@
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
+import { Platform } from 'react-native';
 
 /**
  * Rider Location Tracking Utilities
  * Handles real-time location updates for riders
  */
 
+let hasAttemptedBackgroundPermission = false;
+
 // Request location permissions
-export const requestLocationPermissions = async () => {
+export const requestLocationPermissions = async ({ requestBackground = false } = {}) => {
   try {
     const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
     
@@ -17,14 +20,28 @@ export const requestLocationPermissions = async () => {
 
     let backgroundGranted = false;
 
+    if (!requestBackground) {
+      return {
+        success: true,
+        backgroundGranted: false
+      };
+    }
+
     // attempt to request background access but don't fail if the call is rejected
     try {
-      const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
-      backgroundGranted = backgroundStatus === 'granted';
+      if (!hasAttemptedBackgroundPermission) {
+        hasAttemptedBackgroundPermission = true;
+        const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+        backgroundGranted = backgroundStatus === 'granted';
+      }
     } catch (bgError) {
       // some platforms (expo managed, simulators) may reject this call
       // log it and continue with only foreground permissions
-      console.warn('Background permission request rejected or unavailable:', bgError);
+      if (Platform.OS === 'android') {
+        console.warn('Background location permission unavailable. Continuing with foreground tracking only:', bgError?.message || bgError);
+      } else {
+        console.warn('Background permission request rejected or unavailable:', bgError);
+      }
     }
     
     return { 
@@ -88,7 +105,7 @@ export const startLocationTracking = async (riderId, onLocationUpdate, options =
 
   try {
     // Request permissions first
-    const permResult = await requestLocationPermissions();
+    const permResult = await requestLocationPermissions({ requestBackground: false });
     if (!permResult.success) {
       return permResult;
     }

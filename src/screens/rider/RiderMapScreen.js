@@ -63,7 +63,7 @@ export default function RiderMapScreen({ navigation }) {
     if (!loading) {
       generateMapHtml();
     }
-  }, [deliveries, currentLocation, loading, mapViewMode, focusedDeliveryId]);
+  }, [deliveries, loading, mapViewMode, focusedDeliveryId]);
 
   // start/stop tracking when rider toggles or logs out
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function RiderMapScreen({ navigation }) {
     return () => {
       isActive = false;
     };
-  }, [tracking, profile]);
+  }, [tracking, profile?.id]);
 
   const generateMapHtml = () => {
     const deliveriesForMap = mapViewMode === 'focused' && focusedDeliveryId
@@ -807,10 +807,15 @@ export default function RiderMapScreen({ navigation }) {
             );
           }
 
-          function getBearingDeg(from, to) {
-            const y = to.lng - from.lng;
-            const x = to.lat - from.lat;
-            return (Math.atan2(y, x) * 180 / Math.PI) + 90;
+          function getBearingDeg(fromPoint, toPoint) {
+            if (!window.map) {
+              return 0;
+            }
+
+            // Use projected map points so arrow rotation matches on-screen route direction.
+            const from = window.map.latLngToLayerPoint([fromPoint[0], fromPoint[1]]);
+            const to = window.map.latLngToLayerPoint([toPoint[0], toPoint[1]]);
+            return Math.atan2(to.y - from.y, to.x - from.x) * 180 / Math.PI;
           }
 
           function drawRouteArrows(routePoints) {
@@ -833,10 +838,7 @@ export default function RiderMapScreen({ navigation }) {
               const prev = routePoints[i - 1];
               const curr = routePoints[i];
               const next = routePoints[i + 1];
-              const bearing = getBearingDeg(
-                { lat: prev[0], lng: prev[1] },
-                { lat: next[0], lng: next[1] }
-              );
+              const bearing = getBearingDeg(prev, next);
 
               const arrowIcon = L.divIcon({
                 className: '',
@@ -1101,6 +1103,10 @@ export default function RiderMapScreen({ navigation }) {
 
   // Fetch active deliveries
   const fetchActiveDeliveries = async () => {
+    if (!profile?.id) {
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('deliveries')
@@ -1185,6 +1191,10 @@ export default function RiderMapScreen({ navigation }) {
 
   // Initial load
   useEffect(() => {
+    if (!profile?.id) {
+      return;
+    }
+
     const initialize = async () => {
       setLoading(true);
       await getCurrentLocation(true);
@@ -1196,9 +1206,9 @@ export default function RiderMapScreen({ navigation }) {
     initialize();
 
     // Set up real-time subscription for deliveries
-    if (profile) {
+    if (profile?.id) {
       const channel = supabase
-        .channel('rider-map-updates')
+        .channel(`rider-map-updates-${profile.id}`)
         .on(
           'postgres_changes',
           {
@@ -1223,7 +1233,7 @@ export default function RiderMapScreen({ navigation }) {
         }
       };
     }
-  }, [profile]);
+  }, [profile?.id]);
 
   const handleWebViewMessage = (event) => {
     try {
