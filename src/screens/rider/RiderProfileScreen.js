@@ -429,6 +429,22 @@ export default function RiderProfileScreen({ navigation }) {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.helpAction}
+            onPress={() => navigation.navigate('TermsPrivacy')}
+          >
+            <View style={styles.helpActionLeft}>
+              <View style={styles.helpIconWrap}>
+                <Ionicons name="document-text-outline" size={20} color="#0033A0" />
+              </View>
+              <View>
+                <Text style={styles.helpActionTitle}>Terms & Privacy</Text>
+                <Text style={styles.helpActionSubtitle}>Review legal terms, privacy, and data handling policy</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
 
         {/* Edit/Save Buttons */}

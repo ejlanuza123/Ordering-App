@@ -488,14 +488,7 @@ export default function ProfileScreen({ navigation }) {
 
             <TouchableOpacity 
               style={styles.actionItem}
-              onPress={() => {
-                setAlertConfig({
-                  type: 'info',
-                  title: 'Terms & Privacy',
-                  message: 'By using our service, you agree to our Terms of Service and Privacy Policy.'
-                });
-                setShowAlert(true);
-              }}
+              onPress={() => navigation.navigate('TermsPrivacy')}
             >
               <View style={styles.actionIconContainer}>
                 <Ionicons name="document-text" size={22} color="#0033A0" />

@@ -28,6 +28,7 @@ import ProductReviewsScreen from '../screens/customer/ProductReviewsScreen';
 import CustomerDeliveryTrackingScreen from '../screens/customer/CustomerDeliveryTrackingScreen';
 import HelpCenterScreen from '../screens/common/HelpCenterScreen';
 import ManualViewerScreen from '../screens/common/ManualViewerScreen';
+import TermsPrivacyScreen from '../screens/common/TermsPrivacyScreen';
 
 // Rider Screens
 import RiderDashboardScreen from '../screens/rider/RiderDashboardScreen';
@@ -57,6 +58,7 @@ const CustomerStack = () => (
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
     <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
+    <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
   </Stack.Navigator>
 );
 
@@ -71,6 +73,7 @@ const RiderStack = () => (
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
     <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
+    <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
   </Stack.Navigator>
 );
 
