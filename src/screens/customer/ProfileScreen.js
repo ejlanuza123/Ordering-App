@@ -477,19 +477,12 @@ export default function ProfileScreen({ navigation }) {
 
             <TouchableOpacity 
               style={styles.actionItem}
-              onPress={() => {
-                setAlertConfig({
-                  type: 'info',
-                  title: 'Help',
-                  message: 'Contact support at support@petronsanpedro.com'
-                });
-                setShowAlert(true);
-              }}
+              onPress={() => navigation.navigate('HelpCenter', { role: 'customer' })}
             >
               <View style={styles.actionIconContainer}>
                 <Ionicons name="help-circle" size={22} color="#0033A0" />
               </View>
-              <Text style={styles.actionText}>Help & Support</Text>
+              <Text style={styles.actionText}>Help & User Manual</Text>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
 

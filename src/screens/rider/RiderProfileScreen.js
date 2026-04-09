@@ -410,6 +410,27 @@ export default function RiderProfileScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Help */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Help</Text>
+
+          <TouchableOpacity
+            style={styles.helpAction}
+            onPress={() => navigation.navigate('HelpCenter', { role: 'rider' })}
+          >
+            <View style={styles.helpActionLeft}>
+              <View style={styles.helpIconWrap}>
+                <Ionicons name="book-outline" size={20} color="#0033A0" />
+              </View>
+              <View>
+                <Text style={styles.helpActionTitle}>User Manual</Text>
+                <Text style={styles.helpActionSubtitle}>Open rider workflow and troubleshooting guide</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+          </TouchableOpacity>
+        </View>
+
         {/* Edit/Save Buttons */}
         {editing && (
           <TouchableOpacity
@@ -643,6 +664,41 @@ const styles = StyleSheet.create({
   preferenceText: {
     fontSize: 16,
     color: '#333',
+  },
+  helpAction: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  helpActionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    paddingRight: 8,
+  },
+  helpIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f0f4ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  helpActionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 2,
+  },
+  helpActionSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
   },
   saveButton: {
     flexDirection: 'row',

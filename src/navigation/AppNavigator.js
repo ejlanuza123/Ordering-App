@@ -26,6 +26,8 @@ import ReviewsChoiceScreen from '../screens/customer/ReviewsChoiceScreen';
 import RiderReviewsScreen from '../screens/customer/RiderReviewsScreen';
 import ProductReviewsScreen from '../screens/customer/ProductReviewsScreen';
 import CustomerDeliveryTrackingScreen from '../screens/customer/CustomerDeliveryTrackingScreen';
+import HelpCenterScreen from '../screens/common/HelpCenterScreen';
+import ManualViewerScreen from '../screens/common/ManualViewerScreen';
 
 // Rider Screens
 import RiderDashboardScreen from '../screens/rider/RiderDashboardScreen';
@@ -53,6 +55,8 @@ const CustomerStack = () => (
     <Stack.Screen name="ProductReviews" component={ProductReviewsScreen} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+    <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
   </Stack.Navigator>
 );
 
@@ -65,6 +69,8 @@ const RiderStack = () => (
     <Stack.Screen name="RiderMap" component={RiderMapScreen} />
     <Stack.Screen name="RiderProfile" component={RiderProfileScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+    <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
   </Stack.Navigator>
 );
 

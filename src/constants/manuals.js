@@ -1,0 +1,197 @@
+export const MANUAL_LINKS = {
+  customer: {
+    title: 'Customer User Manual',
+    sections: [
+      {
+        heading: '1. Account Registration and Login',
+        icon: 'log-in-outline',
+        steps: [
+          'Open the app and tap Sign Up to create a customer account. Only customer accounts can register in-app.',
+          'Enter your full name, valid email address, phone number, and password, then submit registration.',
+          'After successful registration, return to the login screen and sign in with your credentials.',
+          'If login fails, verify that your email format is correct and your password is entered exactly.',
+          'Use Forgot Password from login if you cannot remember your password.',
+          'Do not share your login credentials with other users.',
+          'Rider accounts cannot be registered in this app and must be created by admin.',
+        ],
+      },
+      {
+        heading: '2. Profile Setup Before First Order',
+        icon: 'person-circle-outline',
+        steps: [
+          'Open Profile and complete your personal details before placing your first order.',
+          'Set your phone number so riders and dispatch can contact you when needed.',
+          'Set your default delivery address for faster checkout.',
+          'Use map selection or current location for more accurate delivery pinning when available.',
+          'Enable notifications to receive order acceptance and delivery progress updates.',
+          'Review your profile regularly and update old contact information.',
+        ],
+      },
+      {
+        heading: '3. Browsing Products and Building Cart',
+        icon: 'cart-outline',
+        steps: [
+          'From Home, tap Quick Order to enter the product selection flow.',
+          'Open each product to review price, unit, and availability before adding to cart.',
+          'Adjust quantity carefully to avoid over-ordering or under-ordering.',
+          'Use Favorites to save frequently purchased items for faster repeat checkout.',
+          'Open Cart to review all items, quantities, and subtotal before proceeding.',
+          'Remove unavailable or unnecessary items before checkout to avoid delays.',
+        ],
+      },
+      {
+        heading: '4. Checkout and Order Submission',
+        icon: 'card-outline',
+        steps: [
+          'Open Checkout only after verifying cart content and quantity.',
+          'Set or confirm delivery address before placing order.',
+          'Choose payment method based on available options in the app.',
+          'Add special instructions when your location has access notes, landmarks, or timing requests.',
+          'Review totals including delivery fee before final submission.',
+          'Tap Place Order once and wait for confirmation to avoid duplicate submission.',
+          'If you are offline, the app may queue the order and sync automatically after reconnecting.',
+        ],
+      },
+      {
+        heading: '5. Order Status and Live Tracking',
+        icon: 'navigate-outline',
+        steps: [
+          'Open Order History to view active and completed orders.',
+          'Open an active order to view current status and delivery progress.',
+          'Common statuses include Pending, Assigned, Picked Up, Out for Delivery, Delivered, and Cancelled.',
+          'Use the delivery tracking view to monitor movement and latest updates.',
+          'If status does not change for an unusual time, check notifications and refresh order view.',
+          'For urgent concerns, contact support with your order number ready.',
+        ],
+      },
+      {
+        heading: '6. Notifications, Favorites, and Reviews',
+        icon: 'notifications-outline',
+        steps: [
+          'Open Notifications to review order confirmations, rider updates, and completion alerts.',
+          'Enable notification permissions at device level to receive real-time alerts.',
+          'Use Favorites for products you reorder frequently.',
+          'Submit rider reviews after eligible completed deliveries.',
+          'Submit product reviews after purchase to share quality feedback.',
+          'Keep reviews clear and factual to help service quality improvement.',
+        ],
+      },
+      {
+        heading: '7. Account Management and Security',
+        icon: 'shield-checkmark-outline',
+        steps: [
+          'Sign out after use on shared devices.',
+          'Update profile details when phone number or address changes.',
+          'Do not save credentials on untrusted devices.',
+          'Use password reset immediately if account access seems compromised.',
+          'Report unauthorized activity to support as soon as possible.',
+        ],
+      },
+      {
+        heading: '8. Troubleshooting and Escalation',
+        icon: 'alert-circle-outline',
+        steps: [
+          'Login issue: check internet, email format, and password accuracy, then retry.',
+          'Order not syncing: reconnect internet and keep app open until queue is processed.',
+          'Wrong address: update address before next checkout and verify map pin.',
+          'No notifications: verify app notification permission in device settings.',
+          'Tracking delay: refresh order details and verify network quality.',
+          'Escalate to support when status is stuck, duplicate charges appear, or order data is inconsistent.',
+        ],
+      },
+    ],
+  },
+  rider: {
+    title: 'Rider User Manual',
+    sections: [
+      {
+        heading: '1. Rider Account Access',
+        icon: 'key-outline',
+        steps: [
+          'Rider accounts are created only by admin through the admin web dashboard.',
+          'If you do not have credentials, request account creation from your dispatcher or admin team.',
+          'Use the provided rider email and password to log in.',
+          'If login fails, confirm your account is active and assigned the rider role.',
+          'Use only your own account so delivery logs and proof records remain correct.',
+        ],
+      },
+      {
+        heading: '2. Start-of-Shift Checklist',
+        icon: 'sunny-outline',
+        steps: [
+          'Confirm stable internet connection before accepting assignments.',
+          'Enable location services to support mapping and tracking features.',
+          'Enable notifications so new assignments and status updates are not missed.',
+          'Open Rider Dashboard and review pending/active delivery count.',
+          'Check your profile details and vehicle info for accuracy.',
+        ],
+      },
+      {
+        heading: '3. Delivery Assignment and Acceptance',
+        icon: 'bicycle-outline',
+        steps: [
+          'Open Deliveries list to view assigned jobs.',
+          'Open each delivery and confirm customer name, address, and order notes.',
+          'Accept delivery only when you can proceed immediately.',
+          'Contact customer when instructions are unclear before moving to next status.',
+          'Use rider map when route confirmation is needed.',
+        ],
+      },
+      {
+        heading: '4. Required Delivery Status Flow',
+        icon: 'git-network-outline',
+        steps: [
+          'Update status in proper sequence: accepted -> picked up -> out for delivery -> delivered.',
+          'Do not skip stages because status transitions are validated in the system.',
+          'Update status immediately at each real-world milestone for accurate dispatch visibility.',
+          'If a problem occurs, add notes so admin can audit and assist.',
+          'Use failed status only when delivery cannot be completed after proper attempts.',
+        ],
+      },
+      {
+        heading: '5. Proof of Delivery Requirements',
+        icon: 'camera-outline',
+        steps: [
+          'Capture proof image after successful handoff when required by workflow.',
+          'Upload proof from delivery details and wait for upload success confirmation.',
+          'Confirm proof is saved before tapping delivered.',
+          'If delivered action is blocked, check proof status and retry upload.',
+          'Keep proof clear and readable for audit and customer dispute resolution.',
+        ],
+      },
+      {
+        heading: '6. Earnings, Ratings, and Performance',
+        icon: 'stats-chart-outline',
+        steps: [
+          'Use Rider Dashboard to monitor completed, pending, and failed delivery counts.',
+          'Review earnings summaries for delivered jobs.',
+          'Check rider rating trends in your profile/dashboard metrics.',
+          'Maintain accurate status updates and professional handoff for better ratings.',
+          'Report data mismatch to admin when counts or earnings look incorrect.',
+        ],
+      },
+      {
+        heading: '7. Rider Profile and Preferences',
+        icon: 'settings-outline',
+        steps: [
+          'Keep phone number and address updated in Rider Profile.',
+          'Maintain accurate vehicle type and plate information.',
+          'Enable or disable notification preference as required for your workflow.',
+          'Save profile changes after edits and verify values are persisted.',
+        ],
+      },
+      {
+        heading: '8. Troubleshooting and Escalation',
+        icon: 'warning-outline',
+        steps: [
+          'Status update failed: confirm assignment, internet connection, and correct status sequence.',
+          'Delivered blocked: upload proof first, then retry delivered action.',
+          'Missing deliveries: refresh list and ask admin to verify assignment.',
+          'Location/map issue: confirm location permission and network state.',
+          'Repeated sync errors: keep app online, retry once, then report with delivery ID.',
+          'Escalate immediately for incorrect customer details, stuck workflow, or proof upload failures that persist.',
+        ],
+      },
+    ],
+  },
+};
