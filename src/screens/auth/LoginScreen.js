@@ -1,5 +1,5 @@
 // src/screens/auth/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -13,7 +13,9 @@ import {
   Image,
   Dimensions,
   Modal,
-  StatusBar
+  StatusBar,
+  Animated,
+  Easing
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -39,6 +41,59 @@ export default function LoginScreen({ navigation }) {
   const [blockedMessage, setBlockedMessage] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.92)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(18)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const footerTranslateY = useRef(new Animated.Value(10)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoScale, {
+          toValue: 1,
+          duration: 420,
+          easing: Easing.out(Easing.back(1.1)),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(formOpacity, {
+          toValue: 1,
+          duration: 380,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(formTranslateY, {
+          toValue: 0,
+          duration: 380,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [footerOpacity, footerTranslateY, formOpacity, formTranslateY, logoOpacity, logoScale]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -143,7 +198,7 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* Logo and Welcome Section */}
-          <View style={styles.logoContainer}>
+          <Animated.View style={[styles.logoContainer, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
             <View style={styles.logoWrapper}>
               <Image 
                 source={require('../../../assets/petron-logo.png')} 
@@ -153,10 +208,10 @@ export default function LoginScreen({ navigation }) {
             </View>
             <Text style={styles.welcomeTitle}>Welcome Back!</Text>
             <Text style={styles.welcomeSubtitle}>Sign in to continue to Petron San Pedro</Text>
-          </View>
+          </Animated.View>
 
           {/* Form Section - Fixed height, no scrolling needed */}
-          <View style={styles.formContainer}>
+          <Animated.View style={[styles.formContainer, { opacity: formOpacity, transform: [{ translateY: formTranslateY }] }]}>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email Address</Text>
               <View style={styles.inputWrapper}>
@@ -256,13 +311,13 @@ export default function LoginScreen({ navigation }) {
                 Sign up is for customers only. Riders contact admin.
               </Text>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Footer */}
-          <View style={styles.footer}>
+          <Animated.View style={[styles.footer, { opacity: footerOpacity, transform: [{ translateY: footerTranslateY }] }]}>
             <Text style={styles.footerText}>© 2026 Petron San Pedro</Text>
             <Text style={styles.footerSubtext}>Fuel & Oil Delivery Service</Text>
-          </View>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
 

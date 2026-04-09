@@ -28,9 +28,11 @@ export default function IntroScreen({ onGetStarted }) {
   const heroExitTranslate = useRef(new Animated.Value(0)).current;
   const infoEnterOpacity = useRef(new Animated.Value(0)).current;
   const infoEnterTranslate = useRef(new Animated.Value(20)).current;
-  const infoSlideTranslateX = useRef(new Animated.Value(0)).current;
-  const infoHeaderOpacity = useRef(new Animated.Value(1)).current;
+  const infoExitOpacity = useRef(new Animated.Value(1)).current;
+  const infoExitTranslate = useRef(new Animated.Value(0)).current;
+  const infoPagerTranslateX = useRef(new Animated.Value(0)).current;
   const dotSlideTranslateX = useRef(new Animated.Value(0)).current;
+  const slideWidth = screenWidth;
 
   const DOT_SLOT = 18;
   const DOT_GAP = 8;
@@ -102,6 +104,11 @@ export default function IntroScreen({ onGetStarted }) {
   const isLastInfoSlide = currentInfoIndex === infoSlides.length - 1;
 
   useEffect(() => {
+    infoPagerTranslateX.setValue(-currentInfoIndex * slideWidth);
+    dotSlideTranslateX.setValue(currentInfoIndex * DOT_STEP);
+  }, [currentInfoIndex, dotSlideTranslateX, infoPagerTranslateX, slideWidth, DOT_STEP]);
+
+  useEffect(() => {
     Animated.sequence([
       Animated.timing(logoScaleAnim, {
         toValue: 1,
@@ -171,98 +178,74 @@ export default function IntroScreen({ onGetStarted }) {
     if (currentInfoIndex === 0 || isTransitioning) return;
     setIsTransitioning(true);
 
-    Animated.timing(infoSlideTranslateX, {
-      toValue: screenWidth * 0.26,
-      duration: 260,
-      easing: Easing.bezier(0.22, 0.61, 0.36, 1),
-      useNativeDriver: true,
-    }).start(() => {
-      const targetIndex = currentInfoIndex - 1;
+    const targetIndex = currentInfoIndex - 1;
+
+    Animated.parallel([
+      Animated.timing(infoPagerTranslateX, {
+        toValue: -targetIndex * slideWidth,
+        duration: 420,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(dotSlideTranslateX, {
+        toValue: targetIndex * DOT_STEP,
+        duration: 420,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setCurrentInfoIndex(targetIndex);
-      infoSlideTranslateX.setValue(-screenWidth * 0.26);
-      infoHeaderOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(infoSlideTranslateX, {
-          toValue: 0,
-          duration: 320,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(infoHeaderOpacity, {
-          toValue: 1,
-          duration: 260,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotSlideTranslateX, {
-          toValue: targetIndex * DOT_STEP,
-          duration: 320,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-      ]).start(() => setIsTransitioning(false));
+      setIsTransitioning(false);
     });
-
-    Animated.timing(infoHeaderOpacity, {
-      toValue: 0,
-      duration: 170,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
   };
 
   const goToNextInfoSlide = () => {
     if (isLastInfoSlide) {
-      onGetStarted();
+      if (isTransitioning) return;
+
+      setIsTransitioning(true);
+      Animated.parallel([
+        Animated.timing(infoExitOpacity, {
+          toValue: 0,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(infoExitTranslate, {
+          toValue: -14,
+          duration: 280,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        onGetStarted();
+      });
       return;
     }
 
     if (isTransitioning) return;
     setIsTransitioning(true);
 
-    Animated.timing(infoSlideTranslateX, {
-      toValue: -screenWidth * 0.26,
-      duration: 260,
-      easing: Easing.bezier(0.22, 0.61, 0.36, 1),
-      useNativeDriver: true,
-    }).start(() => {
-      const targetIndex = currentInfoIndex + 1;
+    const targetIndex = currentInfoIndex + 1;
+
+    Animated.parallel([
+      Animated.timing(infoPagerTranslateX, {
+        toValue: -targetIndex * slideWidth,
+        duration: 420,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(dotSlideTranslateX, {
+        toValue: targetIndex * DOT_STEP,
+        duration: 420,
+        easing: Easing.bezier(0.22, 1, 0.36, 1),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setCurrentInfoIndex(targetIndex);
-      infoSlideTranslateX.setValue(screenWidth * 0.26);
-      infoHeaderOpacity.setValue(0);
-
-      Animated.parallel([
-        Animated.timing(infoSlideTranslateX, {
-          toValue: 0,
-          duration: 320,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(infoHeaderOpacity, {
-          toValue: 1,
-          duration: 260,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(dotSlideTranslateX, {
-          toValue: targetIndex * DOT_STEP,
-          duration: 320,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
-          useNativeDriver: true,
-        }),
-      ]).start(() => setIsTransitioning(false));
+      setIsTransitioning(false);
     });
-
-    Animated.timing(infoHeaderOpacity, {
-      toValue: 0,
-      duration: 170,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
   };
-
-  const currentSlide = infoSlides[currentInfoIndex];
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 6, paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
@@ -273,11 +256,7 @@ export default function IntroScreen({ onGetStarted }) {
 
       {stage === 'hero' ? (
         <Animated.View style={[styles.logoCard, { transform: [{ scale: logoScaleAnim }, { translateY: logoMoveAnim }] }]}>
-          <Image
-            source={require('../../../assets/petron-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <Image source={require('../../../assets/petron-logo.png')} style={styles.logo} resizeMode="contain" />
         </Animated.View>
       ) : null}
 
@@ -292,12 +271,10 @@ export default function IntroScreen({ onGetStarted }) {
           ]}
         >
           <Text style={styles.title}>Welcome to Petron San Pedro</Text>
-          <Text style={styles.subtitle}>
-            Fast ordering, real-time tracking, and reliable updates in one app experience.
-          </Text>
+          <Text style={styles.subtitle}>Fast ordering, real-time tracking, and reliable updates in one app experience.</Text>
 
           <Animated.View style={{ opacity: heroButtonOpacity, width: '100%' }}>
-            <TouchableOpacity style={styles.ctaButton} activeOpacity={0.9} onPress={handleStartInfo}>
+            <TouchableOpacity style={[styles.ctaButton, styles.heroCtaButton]} activeOpacity={0.9} onPress={handleStartInfo}>
               <Text style={styles.ctaText}>Get Started</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
@@ -308,8 +285,8 @@ export default function IntroScreen({ onGetStarted }) {
           style={[
             styles.infoContent,
             {
-              opacity: infoEnterOpacity,
-              transform: [{ translateY: infoEnterTranslate }],
+              opacity: Animated.multiply(infoEnterOpacity, infoExitOpacity),
+              transform: [{ translateY: Animated.add(infoEnterTranslate, infoExitTranslate) }],
               paddingTop: 8,
             },
           ]}
@@ -319,42 +296,57 @@ export default function IntroScreen({ onGetStarted }) {
             contentContainerStyle={styles.infoScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View
-              style={[
-                styles.infoHeaderArea,
-                {
-                  opacity: infoHeaderOpacity,
-                },
-              ]}
-            >
-              <View style={styles.infoIconWrap}>
-                <Ionicons name={currentSlide.icon} size={28} color="#0033A0" />
-              </View>
+            <View style={styles.infoPagerViewport}>
+              <Animated.View
+                style={[
+                  styles.infoPagerRow,
+                  {
+                    width: slideWidth * infoSlides.length,
+                    transform: [{ translateX: infoPagerTranslateX }],
+                  },
+                ]}
+              >
+                {infoSlides.map((slide, index) => {
+                  const center = -index * slideWidth;
+                  const headerParallaxX = infoPagerTranslateX.interpolate({
+                    inputRange: [center - slideWidth, center, center + slideWidth],
+                    outputRange: [12, 0, -12],
+                    extrapolate: 'clamp',
+                  });
+                  const cardParallaxX = infoPagerTranslateX.interpolate({
+                    inputRange: [center - slideWidth, center, center + slideWidth],
+                    outputRange: [18, 0, -18],
+                    extrapolate: 'clamp',
+                  });
 
-              <Text style={styles.infoTitle}>{currentSlide.title}</Text>
-              <Text style={styles.infoDescription}>{currentSlide.description}</Text>
-            </Animated.View>
+                  return (
+                    <View key={slide.title} style={[styles.infoSlideArea, { width: slideWidth }]}>
+                    <View style={styles.infoSlideInner}>
+                      <Animated.View style={[styles.infoHeaderArea, { transform: [{ translateX: headerParallaxX }] }]}>
+                        <View style={styles.infoIconWrap}>
+                          <Ionicons name={slide.icon} size={28} color="#0033A0" />
+                        </View>
+                        <Text style={styles.infoTitle}>{slide.title}</Text>
+                        <Text style={styles.infoDescription}>{slide.description}</Text>
+                      </Animated.View>
 
-            <Animated.View
-              style={[
-                styles.infoSlideArea,
-                {
-                  transform: [{ translateX: infoSlideTranslateX }],
-                },
-              ]}
-            >
-              <View style={styles.featuresCard}>
-                {currentSlide.sections.map((section) => (
-                  <View key={section.heading} style={styles.featureRow}>
-                    <Text style={styles.featureHeading}>{section.heading}</Text>
-                    <Text style={styles.featureText}>{section.body}</Text>
+                      <Animated.View style={[styles.featuresCard, { transform: [{ translateX: cardParallaxX }] }]}>
+                        {slide.sections.map((section) => (
+                          <View key={section.heading} style={styles.featureRow}>
+                            <Text style={styles.featureHeading}>{section.heading}</Text>
+                            <Text style={styles.featureText}>{section.body}</Text>
+                          </View>
+                        ))}
+                      </Animated.View>
+                    </View>
                   </View>
-                ))}
-              </View>
-            </Animated.View>
+                  );
+                })}
+              </Animated.View>
+            </View>
           </ScrollView>
 
-          <View style={[styles.infoFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}> 
+          <View style={[styles.infoFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.paginationRow}>
               <View style={styles.paginationTrack}>
                 {infoSlides.map((_, index) => (
@@ -392,7 +384,7 @@ export default function IntroScreen({ onGetStarted }) {
                 onPress={goToNextInfoSlide}
                 disabled={isTransitioning}
               >
-                <Text style={styles.ctaText}>{isLastInfoSlide ? 'Continue to Login' : 'Next'}</Text>
+                <Text style={styles.ctaText}>{isLastInfoSlide ? 'Login Now' : 'Next'}</Text>
                 <Ionicons name="arrow-forward" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -458,7 +450,6 @@ const styles = StyleSheet.create({
   },
   infoContent: {
     width: '100%',
-    paddingHorizontal: 24,
     alignItems: 'center',
     flex: 1,
     justifyContent: 'space-between',
@@ -472,8 +463,19 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   infoSlideArea: {
-    width: '100%',
     alignItems: 'center',
+  },
+  infoSlideInner: {
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  infoPagerViewport: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  infoPagerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   infoHeaderArea: {
     width: '100%',
@@ -526,6 +528,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 16,
     paddingHorizontal: 16,
+    width: '100%',
     gap: 14,
   },
   featureRow: {
@@ -578,12 +581,13 @@ const styles = StyleSheet.create({
   navButtonsRow: {
     marginTop: 24,
     width: '100%',
+    paddingHorizontal: 24,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
   secondaryButton: {
-    flex: 0.38,
+    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 14,
     height: 56,
@@ -615,15 +619,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 8,
   },
+  heroCtaButton: {
+    width: '100%',
+  },
   nextButton: {
-    flex: 0.62,
+    flex: 1,
     marginTop: 0,
   },
   ctaText: {
