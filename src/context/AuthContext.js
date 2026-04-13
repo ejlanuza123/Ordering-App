@@ -126,19 +126,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const fetchUserProfile = async (user) => {
+  const fetchUserProfile = async (user, attempt = 0) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw error;
     }
 
     if (!data) {
-      throw new Error('User profile not found');
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        return fetchUserProfile(user, attempt + 1);
+      }
+
+      throw new Error('Account profile not found. Please contact support.');
     }
 
     // Only allow customer/rider roles in this app.
@@ -154,25 +159,30 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signIn = async (email, password) => {
-    // Prevent admin or other unsupported roles from ever signing in.
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .ilike('email', email)
-      .single();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (profile && !ALLOWED_ROLES.includes(profile.role)) {
-      throw new Error('This account is not allowed to access the app.');
-    }
+    // Normal login should not be blocked by stale password-recovery guard flags.
+    await Promise.all([
+      AsyncStorage.removeItem(RECOVERY_PENDING_KEY),
+      AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY),
+    ]);
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password,
     });
     if (error) throw error;
     
     if (data.user) {
-      await fetchUserProfile(data.user);
+      try {
+        await fetchUserProfile(data.user);
+      } catch (profileError) {
+        const message = profileError?.message || '';
+        if (message.toLowerCase().includes('cannot coerce the result to a single json object')) {
+          throw new Error('Account profile not found. Please contact support.');
+        }
+        throw profileError;
+      }
     }
   };
 

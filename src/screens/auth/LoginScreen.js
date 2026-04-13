@@ -350,15 +350,46 @@ export default function LoginScreen({ navigation }) {
 
     setResetLoading(true);
     try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .ilike('email', normalizedEmail)
-        .maybeSingle();
+      const { data: eligibilityRows, error: eligibilityError } = await supabase.rpc(
+        'get_mobile_reset_eligibility',
+        { p_email: normalizedEmail }
+      );
 
-      if (profileError) throw profileError;
+      let isMobile = false;
+      let isAdmin = false;
 
-      if (!profile || !MOBILE_APP_ROLES.includes(profile.role)) {
+      // Fallback for environments where migration has not been applied yet.
+      if (eligibilityError && eligibilityError.code === '42883') {
+        const { data: profileRows, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .ilike('email', normalizedEmail)
+          .limit(5);
+
+        if (profileError && profileError.code !== '42501') throw profileError;
+
+        const visibleRows = profileRows || [];
+        isMobile = visibleRows.some((row) => row?.role && MOBILE_APP_ROLES.includes(row.role));
+        isAdmin = visibleRows.some((row) => row?.role === 'admin');
+      } else {
+        if (eligibilityError) throw eligibilityError;
+
+        const row = Array.isArray(eligibilityRows) ? eligibilityRows[0] : eligibilityRows;
+        isMobile = !!row?.is_mobile;
+        isAdmin = !!row?.is_admin;
+      }
+
+      if (isAdmin && !isMobile) {
+        setAlertConfig({
+          type: 'error',
+          title: 'Reset Not Allowed',
+          message: 'This email is not registered for the mobile app. Use a customer or rider account.',
+        });
+        setShowAlert(true);
+        return;
+      }
+
+      if (!isMobile) {
         setAlertConfig({
           type: 'error',
           title: 'Reset Not Allowed',
@@ -424,6 +455,27 @@ export default function LoginScreen({ navigation }) {
 
     setUpdatingPassword(true);
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const authUserId = userData?.user?.id;
+      if (!authUserId) {
+        throw new Error('Recovery session is invalid. Please open the latest reset link again.');
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authUserId)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      if (!profile || !MOBILE_APP_ROLES.includes(profile.role)) {
+        await supabase.auth.signOut();
+        throw new Error('This recovery link is not for a mobile app customer or rider account.');
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
