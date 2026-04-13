@@ -15,21 +15,27 @@ import {
   Modal,
   StatusBar,
   Animated,
+  Linking,
   Easing
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { Ionicons } from '@expo/vector-icons';
 
 const { height } = Dimensions.get('window');
+const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
+const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
+const MOBILE_APP_ROLES = ['customer', 'rider'];
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const insets = useSafeAreaInsets();
   const [showAlert, setShowAlert] = useState(false);
@@ -41,6 +47,12 @@ export default function LoginScreen({ navigation }) {
   const [blockedMessage, setBlockedMessage] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [showNewPasswordModal, setShowNewPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.92)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
@@ -95,6 +107,182 @@ export default function LoginScreen({ navigation }) {
     ]).start();
   }, [footerOpacity, footerTranslateY, formOpacity, formTranslateY, logoOpacity, logoScale]);
 
+  useEffect(() => {
+    const restorePendingRecoveryModal = async () => {
+      try {
+        const pending = await AsyncStorage.getItem(RECOVERY_PENDING_KEY);
+        if (pending === '1') {
+          setShowNewPasswordModal(true);
+        }
+      } catch {
+        // Ignore storage read errors and continue normal flow.
+      }
+    };
+
+    restorePendingRecoveryModal();
+
+    const parseAuthParams = (url) => {
+      if (!url) return {};
+
+      const readParams = (rawUrl) => {
+        const [basePart, hashFragment = ''] = rawUrl.split('#');
+        const queryString = basePart.includes('?') ? basePart.split('?')[1] : '';
+        const merged = [queryString, hashFragment].filter(Boolean).join('&');
+        return new URLSearchParams(merged);
+      };
+
+      const params = readParams(url);
+      const nestedRedirect = params.get('redirect_to');
+      const nested = nestedRedirect ? readParams(decodeURIComponent(nestedRedirect)) : null;
+      const pick = (key) => params.get(key) || nested?.get(key) || null;
+
+      return {
+        type: pick('type'),
+        access_token: pick('access_token') || pick('accessToken'),
+        refresh_token: pick('refresh_token') || pick('refreshToken'),
+        token_hash: pick('token_hash'),
+        token: pick('token'),
+        code: pick('code'),
+        hasResetPath:
+          url.includes('auth/reset-password') ||
+          (nestedRedirect ? nestedRedirect.includes('auth/reset-password') : false),
+      };
+    };
+
+    const handleRecoveryUrl = async (url) => {
+      if (!url) return;
+
+      const {
+        type,
+        access_token,
+        refresh_token,
+        token_hash,
+        token,
+        code,
+        hasResetPath,
+      } = parseAuthParams(url);
+
+      const hasRecoveryCredentials =
+        !!access_token || !!refresh_token || !!token_hash || !!token || !!code;
+      const isRecoveryIntent = type === 'recovery' || hasResetPath || hasRecoveryCredentials;
+
+      if (!isRecoveryIntent) return;
+
+      // We only clear the cancelled guard for URLs that are actually recovery-related.
+      await AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY);
+      await AsyncStorage.setItem(RECOVERY_PENDING_KEY, '1');
+      setShowNewPasswordModal(true);
+
+      try {
+        let error = null;
+        let handled = false;
+
+        if (access_token && refresh_token) {
+          const result = await supabase.auth.setSession({ access_token, refresh_token });
+          error = result.error;
+          handled = true;
+        } else if (token_hash) {
+          const result = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash,
+          });
+          error = result.error;
+          handled = true;
+        } else if (token) {
+          const result = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: token,
+          });
+          error = result.error;
+          handled = true;
+        } else if (code) {
+          const result = await supabase.auth.exchangeCodeForSession(code);
+          error = result.error;
+          handled = true;
+        }
+
+        if (!handled && hasResetPath) {
+          // Some clients open the app first and append credentials moments later.
+          // Open the modal so the flow can continue once session is available.
+          return;
+        }
+
+        if (error) throw error;
+      } catch (error) {
+        await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
+        await AsyncStorage.setItem(RECOVERY_CANCELLED_KEY, '1');
+
+        try {
+          await supabase.auth.signOut({ scope: 'global' });
+        } catch {
+          // Ignore sign-out failure; we still show the recovery-link error.
+        }
+
+        setAlertConfig({
+          type: 'error',
+          title: 'Invalid Recovery Link',
+          message: error?.message || 'This password reset link is invalid or expired.',
+        });
+        setShowAlert(true);
+      }
+    };
+
+    const retryTimers = [];
+    const tryInitialUrl = async (remainingAttempts = 5) => {
+      const url = await Linking.getInitialURL();
+      if (url) {
+        handleRecoveryUrl(url);
+        return;
+      }
+
+      if (remainingAttempts > 0) {
+        const timer = setTimeout(() => {
+          tryInitialUrl(remainingAttempts - 1);
+        }, 700);
+        retryTimers.push(timer);
+      }
+    };
+
+    tryInitialUrl();
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleRecoveryUrl(url);
+    });
+
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY).catch(() => {});
+        AsyncStorage.setItem(RECOVERY_PENDING_KEY, '1').catch(() => {});
+        setShowNewPasswordModal(true);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      authSubscription.unsubscribe();
+      retryTimers.forEach((timer) => clearTimeout(timer));
+    };
+  }, []);
+
+  const handleCloseNewPasswordModal = async () => {
+    setShowNewPasswordModal(false);
+    setNewPassword('');
+    setConfirmNewPassword('');
+    await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
+    await AsyncStorage.setItem(RECOVERY_CANCELLED_KEY, '1');
+
+    // Recovery links may create a temporary auth session.
+    // If user cancels reset, clear it to avoid unintended auto-login.
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) {
+        await supabase.auth.signOut();
+      }
+    } catch {
+      // Ignore sign-out issues here; user can still retry recovery.
+    }
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       setAlertConfig({
@@ -116,7 +304,7 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    setLoading(true);
+    setLoginLoading(true);
     try {
       await signIn(email, password);
       setBlockedMessage('');
@@ -133,7 +321,7 @@ export default function LoginScreen({ navigation }) {
         setShowAlert(true);
       }
     } finally {
-      setLoading(false);
+      setLoginLoading(false);
     }
   };
 
@@ -158,9 +346,31 @@ export default function LoginScreen({ navigation }) {
       return;
     }
 
-    setLoading(true);
+    const normalizedEmail = resetEmail.trim().toLowerCase();
+
+    setResetLoading(true);
     try {
-      await supabase.auth.resetPasswordForEmail(resetEmail);
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .ilike('email', normalizedEmail)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      if (!profile || !MOBILE_APP_ROLES.includes(profile.role)) {
+        setAlertConfig({
+          type: 'error',
+          title: 'Reset Not Allowed',
+          message: 'This email is not registered for the mobile app. Use a customer or rider account.',
+        });
+        setShowAlert(true);
+        return;
+      }
+
+      await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: 'petronapp://auth/reset-password',
+      });
       setShowResetModal(false);
       setResetEmail('');
       setAlertConfig({
@@ -177,7 +387,68 @@ export default function LoginScreen({ navigation }) {
       });
       setShowAlert(true);
     } finally {
-      setLoading(false);
+      setResetLoading(false);
+    }
+  };
+
+  const handleSetNewPassword = async () => {
+    if (!newPassword || !confirmNewPassword) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Please fill in all password fields.',
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Password must be at least 6 characters.',
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Error',
+        message: 'Passwords do not match.',
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    setUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      await supabase.auth.signOut();
+      await AsyncStorage.removeItem(RECOVERY_PENDING_KEY);
+      await AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY);
+      setShowNewPasswordModal(false);
+      setNewPassword('');
+      setConfirmNewPassword('');
+
+      setAlertConfig({
+        type: 'success',
+        title: 'Password Updated',
+        message: 'Your password has been reset successfully. Please log in with your new password.',
+      });
+      setShowAlert(true);
+    } catch (error) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Reset Failed',
+        message: error?.message || 'Failed to update password. Please request a new reset link.',
+      });
+      setShowAlert(true);
+    } finally {
+      setUpdatingPassword(false);
     }
   };
 
@@ -275,12 +546,12 @@ export default function LoginScreen({ navigation }) {
             ) : null}
 
             <TouchableOpacity 
-              style={[styles.loginButton, (loading || blockedMessage) && styles.loginButtonDisabled]}
+              style={[styles.loginButton, (loginLoading || blockedMessage) && styles.loginButtonDisabled]}
               onPress={handleLogin}
-              disabled={loading || !!blockedMessage}
+              disabled={loginLoading || !!blockedMessage}
               activeOpacity={0.8}
             >
-              {loading ? (
+                {loginLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
@@ -376,12 +647,91 @@ export default function LoginScreen({ navigation }) {
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalConfirmButton]}
                 onPress={handleResetPassword}
-                disabled={loading}
+                disabled={resetLoading}
               >
-                {loading ? (
+                {resetLoading ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
                   <Text style={styles.modalConfirmText}>Send Reset Link</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Set New Password Modal (from recovery link) */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showNewPasswordModal}
+        onRequestClose={handleCloseNewPasswordModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name="lock-closed-outline" size={30} color="#fff" />
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={handleCloseNewPasswordModal}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalTitle}>Set New Password</Text>
+            <Text style={styles.modalMessage}>
+              Enter your new password to complete account recovery.
+            </Text>
+
+            <View style={styles.modalInputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.modalInputIcon} />
+              <TextInput
+                style={[styles.modalInput, styles.modalPasswordInput]}
+                placeholder="New password"
+                placeholderTextColor="#999"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNewPassword}
+              />
+              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowNewPassword(!showNewPassword)}>
+                <Ionicons name={showNewPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalInputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.modalInputIcon} />
+              <TextInput
+                style={[styles.modalInput, styles.modalPasswordInput]}
+                placeholder="Confirm new password"
+                placeholderTextColor="#999"
+                value={confirmNewPassword}
+                onChangeText={setConfirmNewPassword}
+                secureTextEntry={!showConfirmNewPassword}
+              />
+              <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
+                <Ionicons name={showConfirmNewPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={handleCloseNewPasswordModal}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalConfirmButton]}
+                onPress={handleSetNewPassword}
+                disabled={updatingPassword}
+              >
+                {updatingPassword ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Update Password</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -713,6 +1063,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 14,
     color: '#333',
+  },
+  modalPasswordInput: {
+    paddingRight: 44,
   },
   modalButtons: {
     flexDirection: 'row',

@@ -1,6 +1,7 @@
 // src/context/AuthContext.js (updated)
 import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
@@ -15,6 +16,30 @@ export const AuthProvider = ({ children }) => {
 
   const ALLOWED_ROLES = ['customer', 'rider'];
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
+  const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
+
+  const clearAuthState = () => {
+    setUser(null);
+    setProfile(null);
+    setRole(null);
+  };
+
+  const signOutLocalFirst = async () => {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) {
+      await supabase.auth.signOut();
+    }
+  };
+
+  const shouldSuppressRecoverySession = async () => {
+    const [pendingRecovery, cancelledRecovery] = await Promise.all([
+      AsyncStorage.getItem(RECOVERY_PENDING_KEY),
+      AsyncStorage.getItem(RECOVERY_CANCELLED_KEY),
+    ]);
+
+    return pendingRecovery === '1' || cancelledRecovery === '1';
+  };
 
   useEffect(() => {
     checkUser();
@@ -22,14 +47,18 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         try {
+          if (await shouldSuppressRecoverySession()) {
+            await signOutLocalFirst();
+            clearAuthState();
+            return;
+          }
+
           await fetchUserProfile(session.user);
         } catch {
           // If role is invalid we already signed out in fetchUserProfile
         }
       } else {
-        setUser(null);
-        setProfile(null);
-        setRole(null);
+        clearAuthState();
         setLoading(false);
       }
     });
@@ -80,14 +109,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        if (await shouldSuppressRecoverySession()) {
+          await signOutLocalFirst();
+          clearAuthState();
+          return;
+        }
+
         // Only set user after we confirm role is allowed.
         await fetchUserProfile(session.user);
       }
     } catch (error) {
       console.log('Auth check error:', error);
-      setUser(null);
-      setProfile(null);
-      setRole(null);
+      clearAuthState();
     } finally {
       setLoading(false);
     }
@@ -111,9 +144,7 @@ export const AuthProvider = ({ children }) => {
     // Only allow customer/rider roles in this app.
     if (!ALLOWED_ROLES.includes(data.role)) {
       await supabase.auth.signOut();
-      setUser(null);
-      setProfile(null);
-      setRole(null);
+      clearAuthState();
       throw new Error('This account is not allowed to access the app.');
     }
 
@@ -146,10 +177,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setRole(null);
+    await signOutLocalFirst();
+    clearAuthState();
   };
 
   return (

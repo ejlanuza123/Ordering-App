@@ -1,7 +1,5 @@
 # Rider Mobile User Manual
 
-Simple step-by-step guide for the deployed rider app.
-
 ## 1. Before You Start
 
 - Use a rider account.

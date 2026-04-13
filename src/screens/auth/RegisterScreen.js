@@ -7,6 +7,7 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   ActivityIndicator,
+  Modal,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
@@ -31,11 +32,33 @@ export default function RegisterScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
     title: '',
     message: ''
   });
+
+  const handleTermsScroll = ({ nativeEvent }) => {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    const reachedBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 20;
+
+    if (reachedBottom && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+    }
+  };
+
+  const openTermsModal = () => {
+    setHasScrolledToBottom(false);
+    setShowTermsModal(true);
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
+    setShowTermsModal(false);
+  };
 
   const handleRegister = async () => {
     if (!fullName || !phone || !email || !password || !confirmPassword) {
@@ -63,6 +86,16 @@ export default function RegisterScreen({ navigation }) {
         type: 'warning',
         title: 'Error',
         message: 'Passwords do not match.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (!termsAccepted) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Terms Required',
+        message: 'Please read and accept the Terms and Conditions before creating an account.'
       });
       setShowAlert(true);
       return;
@@ -151,6 +184,77 @@ export default function RegisterScreen({ navigation }) {
 
   return (
     <>
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={styles.termsModalOverlay}>
+          <View style={[styles.termsModalContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.termsModalHeader}>
+              <Text style={styles.termsModalTitle}>Terms and Conditions</Text>
+              <TouchableOpacity onPress={() => setShowTermsModal(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.termsBody}
+              contentContainerStyle={styles.termsBodyContent}
+              onScroll={handleTermsScroll}
+              scrollEventThrottle={16}
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={styles.termsHeading}>Welcome to Petron San Pedro</Text>
+              <Text style={styles.termsParagraph}>
+                By creating an account, you agree to use this app responsibly and provide accurate account and delivery information.
+              </Text>
+
+              <Text style={styles.termsHeading}>Account Responsibilities</Text>
+              <Text style={styles.termsParagraph}>
+                You are responsible for keeping your login credentials secure. Any activity under your account is your responsibility.
+              </Text>
+
+              <Text style={styles.termsHeading}>Orders and Deliveries</Text>
+              <Text style={styles.termsParagraph}>
+                Orders are subject to product availability, delivery area restrictions, and operational conditions. Delivery times are estimates and may vary.
+              </Text>
+
+              <Text style={styles.termsHeading}>Payments and Refunds</Text>
+              <Text style={styles.termsParagraph}>
+                Payment terms, pricing, and refund handling follow company policy. Invalid or fraudulent transactions may be cancelled.
+              </Text>
+
+              <Text style={styles.termsHeading}>Privacy</Text>
+              <Text style={styles.termsParagraph}>
+                Your personal information is collected and processed to provide account, ordering, and delivery services in accordance with our privacy policy.
+              </Text>
+
+              <Text style={styles.termsHeading}>Prohibited Use</Text>
+              <Text style={styles.termsParagraph}>
+                You agree not to misuse the app, provide false information, attempt unauthorized access, or perform actions that disrupt services.
+              </Text>
+
+              <Text style={styles.termsHeading}>Changes to Terms</Text>
+              <Text style={styles.termsParagraph}>
+                We may update these terms when needed. Continued use of the app means you accept the latest version.
+              </Text>
+
+              <Text style={styles.termsFooterText}>
+                Scroll to the bottom to enable acceptance.
+              </Text>
+            </ScrollView>
+
+            {hasScrolledToBottom && (
+              <TouchableOpacity style={styles.termsAcceptButton} onPress={handleAcceptTerms}>
+                <Text style={styles.termsAcceptButtonText}>I Have Read and Agree</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <CustomAlertModal
         visible={showAlert}
         onClose={() => {
@@ -334,11 +438,31 @@ export default function RegisterScreen({ navigation }) {
                 </View>
               </View>
 
+              {/* Terms Checkbox */}
+              <TouchableOpacity
+                style={styles.termsCheckboxRow}
+                onPress={openTermsModal}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={termsAccepted ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={termsAccepted ? '#10B981' : '#0033A0'}
+                />
+                <Text style={styles.termsCheckboxText}>
+                  I agree to the <Text style={styles.termsLink}>Terms and Conditions</Text>
+                </Text>
+              </TouchableOpacity>
+
+              {!termsAccepted && (
+                <Text style={styles.termsHint}>You need to read and accept terms before creating an account.</Text>
+              )}
+
               {/* Sign Up Button */}
               <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]}
+                style={[styles.button, (loading || !termsAccepted) && styles.buttonDisabled]}
                 onPress={handleRegister}
-                disabled={loading}
+                disabled={loading || !termsAccepted}
                 activeOpacity={0.8}
               >
                 {loading ? (
@@ -375,13 +499,6 @@ export default function RegisterScreen({ navigation }) {
                   Check your email (including spam) for verification link
                 </Text>
               </View>
-
-              {/* Terms */}
-              <Text style={styles.termsText}>
-                By signing up, you agree to our{' '}
-                <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
-              </Text>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -622,5 +739,87 @@ const styles = StyleSheet.create({
   termsLink: {
     color: '#0033A0',
     fontWeight: '600',
+  },
+  termsCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 14,
+    paddingHorizontal: 2,
+  },
+  termsCheckboxText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 18,
+  },
+  termsHint: {
+    fontSize: 12,
+    color: '#EF4444',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  termsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  termsModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: height * 0.85,
+  },
+  termsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9ecef',
+  },
+  termsModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#333',
+  },
+  termsBody: {
+    paddingHorizontal: 20,
+  },
+  termsBodyContent: {
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  termsHeading: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0033A0',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  termsParagraph: {
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 20,
+  },
+  termsFooterText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 14,
+    textAlign: 'center',
+  },
+  termsAcceptButton: {
+    backgroundColor: '#0033A0',
+    marginHorizontal: 20,
+    marginTop: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  termsAcceptButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

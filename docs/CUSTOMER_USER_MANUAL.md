@@ -1,7 +1,5 @@
 # Customer Mobile User Manual
 
-Simple step-by-step guide for the deployed customer app.
-
 ## 1. Before You Start
 
 - Install/open the production app.

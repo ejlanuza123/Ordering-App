@@ -1,5 +1,5 @@
 // src/screens/rider/RiderDeliveryDetailsScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,11 +19,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
 import { useAuth } from '../../context/AuthContext';
+import { RIDER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
 
 const devLog = (...args) => {
   if (__DEV__) {
@@ -48,18 +49,22 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const [showProofModal, setShowProofModal] = useState(false);
   const [proofImage, setProofImage] = useState(null);
   const [showContactOptions, setShowContactOptions] = useState(false);
-  const [deliveryTimer, setDeliveryTimer] = useState(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueReason, setIssueReason] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState(RIDER_CANCELLATION_REASONS[0]);
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
   const [selectedAction, setSelectedAction] = useState(null);
 
   // proof of delivery state
   const [proofModalVisible, setProofModalVisible] = useState(false);
   const [proofImageUri, setProofImageUri] = useState(null);
   const [uploadingProof, setUploadingProof] = useState(false);
+  const deliveryTimerRef = useRef(null);
   const { uploadProofPhoto, saveDeliveryProof } = useDeliveryProof();
+  const displayOrderNumber = formatOrderNumber(orderData?.order_number, orderData?.id || deliveryData?.order_id);
 
   const hasExistingProof = async (deliveryId) => {
     const { count, error } = await supabase
@@ -71,9 +76,18 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     return (count || 0) > 0;
   };
 
+  const getCancellationReasonText = () => {
+    const customReason = cancelCustomReason.trim();
+
+    if (cancelReason === CANCEL_REASON_OTHER) {
+      return customReason;
+    }
+
+    return cancelReason;
+  };
+
   useEffect(() => {
     fetchAllDeliveryData();
-    startDeliveryTimer();
 
     devLog('Initial delivery data:', delivery);
     
@@ -97,19 +111,38 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
     return () => {
       channel.unsubscribe();
-      if (deliveryTimer) clearInterval(deliveryTimer);
+      if (deliveryTimerRef.current) {
+        clearInterval(deliveryTimerRef.current);
+        deliveryTimerRef.current = null;
+      }
     };
   }, []);
 
+  useEffect(() => {
+    startDeliveryTimer();
+  }, [deliveryData.status, deliveryData.assigned_at, deliveryData.accepted_at, deliveryData.picked_up_at]);
+
   const startDeliveryTimer = () => {
-    if (deliveryData.status !== 'delivered' && deliveryData.assigned_at) {
-      const startTime = new Date(deliveryData.assigned_at).getTime();
-      const timer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
-        setTimeElapsed(elapsed);
-      }, 1000);
-      setDeliveryTimer(timer);
+    if (deliveryTimerRef.current) {
+      clearInterval(deliveryTimerRef.current);
+      deliveryTimerRef.current = null;
     }
+
+    setTimeElapsed(0);
+
+    const activeStatuses = ['accepted', 'picked_up', 'out_for_delivery'];
+    if (!activeStatuses.includes(deliveryData.status)) return;
+
+    const timerStart = deliveryData.accepted_at || deliveryData.picked_up_at || deliveryData.assigned_at;
+    if (!timerStart) return;
+
+    const startTime = new Date(timerStart).getTime();
+    setTimeElapsed(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
+
+    deliveryTimerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setTimeElapsed(Math.max(0, elapsed));
+    }, 1000);
   };
 
   const formatTimeElapsed = (seconds) => {
@@ -250,23 +283,23 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       switch(newStatus) {
         case 'accepted':
           notificationTitle = 'Order Accepted';
-          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been accepted by a rider.`;
+          notificationMessage = `Your order ${displayOrderNumber} has been accepted by a rider.`;
           break;
         case 'picked_up':
           notificationTitle = 'Order Picked Up';
-          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been picked up.`;
+          notificationMessage = `Your order ${displayOrderNumber} has been picked up.`;
           break;
         case 'out_for_delivery':
           notificationTitle = 'Order Out for Delivery';
-          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} is on its way!`;
+          notificationMessage = `Your order ${displayOrderNumber} is on its way!`;
           break;
         case 'delivered':
           notificationTitle = 'Order Delivered';
-          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} has been delivered. Thank you!`;
+          notificationMessage = `Your order ${displayOrderNumber} has been delivered. Thank you!`;
           break;
         case 'failed':
           notificationTitle = 'Delivery Failed';
-          notificationMessage = `Your order #${orderData?.order_number || orderData?.id} delivery failed. Please contact support.`;
+          notificationMessage = `Your order ${displayOrderNumber} delivery failed. Please contact support.`;
           break;
       }
 
@@ -397,6 +430,54 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  const cancelOrder = async () => {
+    const cancellationReason = getCancellationReasonText();
+
+    if (!cancellationReason) {
+      Alert.alert('Error', 'Please select a reason or write your own reason');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updates = {
+        status: 'failed',
+        cancellation_reason: cancellationReason,
+        failed_at: new Date().toISOString(),
+      };
+
+      if (profile?.id && !deliveryData.rider_id) {
+        updates.rider_id = profile.id;
+      }
+
+      const { error } = await supabase
+        .from('deliveries')
+        .update(updates)
+        .eq('id', deliveryData.id);
+
+      if (error) throw error;
+
+      devLog('Delivery cancelled by rider; order cancellation reason will sync via DB trigger.');
+
+      setAlertConfig({
+        type: 'success',
+        title: 'Order Cancelled',
+        message: `Cancellation reason saved: ${cancellationReason}`
+      });
+      setShowAlert(true);
+      setShowCancelModal(false);
+      setCancelReason(RIDER_CANCELLATION_REASONS[0]);
+      setCancelCustomReason('');
+      setSelectedAction(null);
+
+      await fetchAllDeliveryData();
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to cancel order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const openMaps = () => {
     if (orderData?.delivery_lat && orderData?.delivery_lng) {
       const url = Platform.select({
@@ -453,7 +534,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const shareDelivery = async () => {
     try {
       await Share.share({
-        message: `Delivery #${orderData?.order_number || orderData?.id}\nAddress: ${orderData?.delivery_address}\nTotal: ${formatCurrency(orderData?.total_amount || 0)}`,
+        message: `Delivery ${displayOrderNumber}\nAddress: ${orderData?.delivery_address}\nTotal: ${formatCurrency(orderData?.total_amount || 0)}`,
         title: 'Delivery Details'
       });
     } catch (error) {
@@ -489,8 +570,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'assigned': return 'Ready to Pick Up';
-      case 'accepted': return 'Accepted';
+      case 'assigned': return 'Waiting for Acceptance';
+      case 'accepted': return 'Accepted - Ready to Pick Up';
       case 'picked_up': return 'Picked Up';
       case 'out_for_delivery': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
@@ -506,22 +587,26 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       case 'assigned':
         return [
           { label: 'Accept Delivery', value: 'accepted', icon: 'checkmark-circle', color: '#10B981' },
-          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#EF4444' }
+          { label: 'Cancel Order', value: 'cancel', icon: 'close-circle', color: '#EF4444' },
+          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#F59E0B' }
         ];
       case 'accepted':
         return [
           { label: 'Picked Up Order', value: 'picked_up', icon: 'bicycle', color: '#0033A0' },
-          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#EF4444' }
+          { label: 'Cancel Order', value: 'cancel', icon: 'close-circle', color: '#EF4444' },
+          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#F59E0B' }
         ];
       case 'picked_up':
         return [
           { label: 'Start Delivery Route', value: 'out_for_delivery', icon: 'navigate', color: '#0033A0' },
-          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#EF4444' }
+          { label: 'Cancel Order', value: 'cancel', icon: 'close-circle', color: '#EF4444' },
+          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#F59E0B' }
         ];
       case 'out_for_delivery':
         return [
           { label: 'Mark as Delivered', value: 'delivered', icon: 'checkmark-circle', color: '#10B981' },
-          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#EF4444' }
+          { label: 'Cancel Order', value: 'cancel', icon: 'close-circle', color: '#EF4444' },
+          { label: 'Report Issue', value: 'issue', icon: 'warning', color: '#F59E0B' }
         ];
       default:
         return [];
@@ -569,7 +654,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Timer Card for Active Deliveries */}
-        {deliveryData.status !== 'delivered' && deliveryData.status !== 'failed' && (
+        {['accepted', 'picked_up', 'out_for_delivery'].includes(deliveryData.status) && (
           <View style={styles.timerCard}>
             <Ionicons name="time" size={24} color="#0033A0" />
             <View style={styles.timerInfo}>
@@ -595,8 +680,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                 {getStatusText(deliveryData.status)}
               </Text>
             </View>
-            <Text style={styles.orderNumber}>
-              Order #{orderData?.order_number || orderData?.id || deliveryData.order_id}
+            <Text style={styles.orderNumber} numberOfLines={1}>
+              Order {displayOrderNumber}
             </Text>
           </View>
 
@@ -624,6 +709,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                   onPress={() => {
                     if (option.value === 'issue') {
                       setShowIssueModal(true);
+                      } else if (option.value === 'cancel') {
+                        setShowCancelModal(true);
                     } else {
                       // Show confirmation modal before proceeding
                       setSelectedAction(option);
@@ -1001,7 +1088,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setShowIssueModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Report Issue</Text>
               <TouchableOpacity onPress={() => setShowIssueModal(false)}>
@@ -1071,6 +1158,96 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <Text style={styles.reportModalButtonText}>Report Issue</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Order Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showCancelModal}
+        onRequestClose={() => {
+          setShowCancelModal(false);
+          setCancelReason(RIDER_CANCELLATION_REASONS[0]);
+          setCancelCustomReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Cancel Order</Text>
+              <TouchableOpacity onPress={() => {
+                setShowCancelModal(false);
+                setCancelReason(RIDER_CANCELLATION_REASONS[0]);
+                setCancelCustomReason('');
+              }}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Reason for cancellation *</Text>
+              <View style={styles.issueOptions}>
+                {RIDER_CANCELLATION_REASONS.map((reason) => (
+                  <TouchableOpacity
+                    key={reason}
+                    style={[
+                      styles.issueOption,
+                      cancelReason === reason && styles.issueOptionSelected
+                    ]}
+                    onPress={() => setCancelReason(reason)}
+                  >
+                    <Text style={[
+                      styles.issueOptionText,
+                      cancelReason === reason && styles.issueOptionTextSelected
+                    ]}>
+                      {reason}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {cancelReason === CANCEL_REASON_OTHER && (
+                <>
+                  <Text style={styles.inputLabel}>Write your reason *</Text>
+                  <TextInput
+                    style={styles.issueDescriptionInput}
+                    placeholder="Add a custom reason"
+                    value={cancelCustomReason}
+                    onChangeText={setCancelCustomReason}
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelModalButton]}
+                  onPress={() => {
+                    setShowCancelModal(false);
+                    setCancelReason(RIDER_CANCELLATION_REASONS[0]);
+                    setCancelCustomReason('');
+                  }}
+                >
+                  <Text style={styles.cancelModalButtonText}>Back</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.reportModalButton]}
+                  onPress={cancelOrder}
+                  disabled={loading || !getCancellationReasonText().trim()}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.reportModalButtonText}>Confirm Cancel</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1248,17 +1425,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionButtons: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'column',
+    gap: 10,
   },
   actionButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 12,
-    gap: 8,
+    gap: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1269,6 +1446,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+    flex: 1,
   },
   quickActions: {
     flexDirection: 'row',
@@ -1594,7 +1772,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reportModalButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F59E0B',
   },
   reportModalButtonText: {
     color: '#fff',

@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 
 export default function RiderDeliveriesScreen({ navigation, route }) {
   const { profile } = useAuth();
@@ -152,7 +152,7 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'assigned': return 'Ready to Accept';
-      case 'accepted': return 'Accepted';
+      case 'accepted': return 'Accepted - Ready to Pick Up';
       case 'picked_up': return 'Picked Up';
       case 'out_for_delivery': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
@@ -169,7 +169,7 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
       <View style={styles.cardHeader}>
         <View>
           <Text style={styles.orderNumber}>
-            Order #{item.orders?.order_number || item.order_id}
+            Order {formatOrderNumber(item.orders?.order_number, item.order_id)}
           </Text>
           <Text style={styles.orderTime}>
             {new Date(item.assigned_at).toLocaleString()}

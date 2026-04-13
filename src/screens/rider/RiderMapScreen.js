@@ -1528,7 +1528,7 @@ export default function RiderMapScreen({ navigation }) {
                     { backgroundColor: selectedDelivery.status === 'assigned' ? '#F59E0B' : '#0033A0' }
                   ]}>
                     <Text style={styles.modalStatusText}>
-                      {selectedDelivery.status === 'assigned' ? 'Ready to Pick Up' : 'Out for Delivery'}
+                      {selectedDelivery.status === 'assigned' ? 'Waiting for Acceptance' : 'Out for Delivery'}
                     </Text>
                   </View>
                 </View>

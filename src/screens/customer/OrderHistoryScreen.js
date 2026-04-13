@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import RiderInfoCard from '../../components/RiderInfoCard';
+import { CUSTOMER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +46,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState(CUSTOMER_CANCELLATION_REASONS[0]);
+  const [cancelCustomReason, setCancelCustomReason] = useState('');
 
   const [archiving, setArchiving] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -82,12 +85,10 @@ export default function OrderHistoryScreen({ navigation, route }) {
   // helper removes leading zeros after prefix (e.g. ORD-000010 -> ORD-10)
   const formatOrderNumber = (num) => {
     if (!num) return '';
-    if (typeof num === 'string' && num.startsWith('ORD-')) {
-      const raw = num.slice(4);
-      const trimmed = parseInt(raw, 10).toString();
-      return `ORD-${trimmed}`;
-    }
-    return num;
+    const str = String(num).trim();
+    const match = str.match(/(\d+)$/);
+    if (match) return `#${parseInt(match[1], 10)}`;
+    return `#${str}`;
   };
 
   const fetchOrders = async () => {
@@ -287,6 +288,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
     setShowCancelModal(true);
   };
 
+  const getCancellationReasonText = () => {
+    const customReason = cancelCustomReason.trim();
+
+    if (cancelReason === CANCEL_REASON_OTHER) {
+      return customReason;
+    }
+
+    return cancelReason;
+  };
+
   const handleArchivePress = (order) => {
     setOrderToArchive(order);
     setShowArchiveModal(true);
@@ -332,6 +343,17 @@ export default function OrderHistoryScreen({ navigation, route }) {
   };
   const confirmCancelOrder = async () => {
     if (!orderToCancel) return;
+
+    const cancellationReason = getCancellationReasonText();
+    if (!cancellationReason) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Reason Required',
+        message: 'Please select a reason or write your own reason before cancelling.'
+      });
+      setShowAlert(true);
+      return;
+    }
     
     setCancelling(true);
     try {
@@ -340,7 +362,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
         userId: user.id,
         updates: {
           status: 'Cancelled',
-          notes: 'Cancelled by customer'
+          cancellation_reason: cancellationReason,
+          cancelled_by: user?.id || null,
+          cancelled_at: new Date().toISOString()
         },
       });
 
@@ -356,11 +380,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
       fetchOrders();
       setOrderDetailsModal(false);
       setSelectedOrder(null);
+      setCancelReason(CUSTOMER_CANCELLATION_REASONS[0]);
+      setCancelCustomReason('');
     } catch (error) {
+      console.log('Customer cancel order failed:', error);
       setAlertConfig({
         type: 'error',
         title: 'Error',
-        message: 'Failed to cancel order. Please try again.'
+        message: error?.message || error?.details || 'Failed to cancel order. Please try again.'
       });
       setShowAlert(true);
     } finally {
@@ -683,7 +710,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
             <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
               <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
               <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
-                {isAccepted ? 'Accepted by Rider' : 'Awaiting Acceptance'}
+                {isAccepted ? 'Accepted - Ready to Pick Up' : 'Awaiting Acceptance'}
               </Text>
             </View>
           </View>
@@ -879,7 +906,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
                   <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
                   <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
-                    {isAccepted ? 'Accepted by Rider' : 'Awaiting Acceptance'}
+                {isAccepted ? 'Accepted - Ready to Pick Up' : 'Awaiting Acceptance'}
                   </Text>
                 </View>
               </View>
@@ -1092,21 +1119,106 @@ export default function OrderHistoryScreen({ navigation, route }) {
       {/* Order Details Modal */}
       {renderOrderDetails()}
       
-      <CustomAlertModal
+      <Modal
         visible={showCancelModal}
-        onClose={() => {
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
           setShowCancelModal(false);
           setOrderToCancel(null);
+          setCancelReason(CUSTOMER_CANCELLATION_REASONS[0]);
+          setCancelCustomReason('');
         }}
-        type="confirm"
-        title="Cancel Order"
-        message={`Are you sure you want to cancel order ${orderToCancel?.order_number || `#${orderToCancel?.id}`}? This action cannot be undone.`}
-        confirmText="Yes, Cancel"
-        cancelText="No, Keep It"
-        showCancelButton={true}
-        onConfirm={confirmCancelOrder}
-        loading={cancelling}
-      />
+      >
+        <View style={styles.cancelModalOverlay}>
+          <View style={[styles.cancelModalContent, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={styles.cancelModalHeader}>
+              <Text style={styles.cancelModalTitle}>Cancel Order</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setOrderToCancel(null);
+                  setCancelReason(CUSTOMER_CANCELLATION_REASONS[0]);
+                  setCancelCustomReason('');
+                }}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.cancelModalBody} showsVerticalScrollIndicator={false}>
+              <Text style={styles.cancelModalMessage}>
+                Select a reason or write your own reason for cancelling {orderToCancel?.order_number || `#${orderToCancel?.id}`}. This action cannot be undone.
+              </Text>
+
+              <View style={styles.cancelReasonList}>
+                {CUSTOMER_CANCELLATION_REASONS.map((reason) => {
+                  const isSelected = cancelReason === reason;
+                  return (
+                    <TouchableOpacity
+                      key={reason}
+                      style={[styles.cancelReasonChip, isSelected && styles.cancelReasonChipSelected]}
+                      onPress={() => setCancelReason(reason)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.cancelReasonChipText, isSelected && styles.cancelReasonChipTextSelected]}>
+                        {reason}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {cancelReason === CANCEL_REASON_OTHER && (
+                <View style={styles.cancelCustomReasonSection}>
+                  <Text style={styles.cancelCustomReasonLabel}>Write your reason *</Text>
+                  <TextInput
+                    style={styles.cancelCustomReasonInput}
+                    value={cancelCustomReason}
+                    onChangeText={setCancelCustomReason}
+                    placeholder="Add a custom reason"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={4}
+                    textAlignVertical="top"
+                  />
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.cancelModalActions}>
+              <TouchableOpacity
+                style={[styles.cancelModalButton, styles.cancelModalSecondaryButton]}
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setOrderToCancel(null);
+                  setCancelReason(CUSTOMER_CANCELLATION_REASONS[0]);
+                  setCancelCustomReason('');
+                }}
+                disabled={cancelling}
+              >
+                <Text style={styles.cancelModalSecondaryButtonText}>Back</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.cancelModalButton,
+                  styles.cancelModalPrimaryButton,
+                  (!getCancellationReasonText().trim() || cancelling) && styles.cancelModalPrimaryButtonDisabled,
+                ]}
+                onPress={confirmCancelOrder}
+                disabled={!getCancellationReasonText().trim() || cancelling}
+              >
+                {cancelling ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.cancelModalPrimaryButtonText}>Confirm Cancellation</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <CustomAlertModal
         visible={showArchiveModal}
@@ -1624,6 +1736,120 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  cancelModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  cancelModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    maxHeight: '85%',
+    overflow: 'hidden',
+  },
+  cancelModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF2FF',
+  },
+  cancelModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  cancelModalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  cancelModalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4B5563',
+    marginBottom: 16,
+  },
+  cancelReasonList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  cancelReasonChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#F9FAFB',
+  },
+  cancelReasonChipSelected: {
+    backgroundColor: '#E5EEFF',
+    borderColor: '#0033A0',
+  },
+  cancelReasonChipText: {
+    fontSize: 13,
+    color: '#374151',
+  },
+  cancelReasonChipTextSelected: {
+    color: '#0033A0',
+    fontWeight: '700',
+  },
+  cancelCustomReasonSection: {
+    marginTop: 16,
+  },
+  cancelCustomReasonLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  cancelCustomReasonInput: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#111827',
+    backgroundColor: '#fff',
+  },
+  cancelModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#EEF2FF',
+  },
+  cancelModalButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelModalSecondaryButton: {
+    backgroundColor: '#F3F4F6',
+  },
+  cancelModalSecondaryButtonText: {
+    color: '#374151',
+    fontWeight: '700',
+  },
+  cancelModalPrimaryButton: {
+    backgroundColor: '#EF4444',
+  },
+  cancelModalPrimaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  cancelModalPrimaryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
   detailsSection: {
     backgroundColor: '#fff',

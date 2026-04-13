@@ -7,3 +7,17 @@ export const formatCurrency = (amount) => {
     minimumFractionDigits: 2
   }).format(amount);
 };
+
+export const formatOrderNumber = (orderNumber, orderId) => {
+  const rawValue = orderNumber ?? orderId;
+  if (rawValue == null || rawValue === '') return '#-';
+
+  const str = String(rawValue).trim();
+  const match = str.match(/(\d+)$/);
+
+  if (match) {
+    return `#${parseInt(match[1], 10)}`;
+  }
+
+  return `#${str}`;
+};

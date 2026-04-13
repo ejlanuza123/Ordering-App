@@ -21,7 +21,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
@@ -458,7 +458,7 @@ export default function RiderDashboardScreen({ navigation }) {
   const getStatusText = (status) => {
     switch(status) {
       case 'assigned': return 'Ready to Accept';
-      case 'accepted': return 'Accepted';
+      case 'accepted': return 'Accepted - Ready to Pick Up';
       case 'picked_up': return 'Picked Up';
       case 'out_for_delivery': return 'On Delivery';
       case 'delivered': return 'Delivered';
@@ -674,7 +674,7 @@ export default function RiderDashboardScreen({ navigation }) {
                 <View style={styles.deliveryHeader}>
                   <View>
                     <Text style={styles.deliveryOrderNumber}>
-                      Order #{delivery.orders?.order_number || delivery.order_id}
+                      Order {formatOrderNumber(delivery.orders?.order_number, delivery.order_id)}
                     </Text>
                     <View style={styles.deliveryStatus}>
                       <View style={[styles.statusDot, { backgroundColor: getStatusColor(delivery.status) }]} />
@@ -734,7 +734,7 @@ export default function RiderDashboardScreen({ navigation }) {
                 </View>
                 <View style={styles.recentInfo}>
                   <Text style={styles.recentOrder}>
-                    Order #{delivery.orders?.order_number || delivery.order_id}
+                    Order {formatOrderNumber(delivery.orders?.order_number, delivery.order_id)}
                   </Text>
                   <Text style={styles.recentTime}>
                     {formatTimeAgo(delivery.delivered_at)}
@@ -767,7 +767,7 @@ export default function RiderDashboardScreen({ navigation }) {
               <View style={styles.modalBody}>
                 <View style={styles.modalDeliveryInfo}>
                   <Text style={styles.modalOrderNumber}>
-                    Order #{selectedDelivery.orders?.order_number || selectedDelivery.order_id}
+                    Order {formatOrderNumber(selectedDelivery.orders?.order_number, selectedDelivery.order_id)}
                   </Text>
                   
                   <View style={styles.modalInfoRow}>

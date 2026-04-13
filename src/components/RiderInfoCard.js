@@ -36,8 +36,8 @@ export default function RiderInfoCard({ delivery }) {
 
   const getStatusText = (status) => {
     switch(status) {
-      case 'assigned': return 'Ready to Pick Up';
-      case 'accepted': return 'Accepted by Rider';
+      case 'assigned': return 'Waiting for Acceptance';
+      case 'accepted': return 'Accepted - Ready to Pick Up';
       case 'picked_up': return 'Picked Up';
       case 'out_for_delivery': return 'Out for Delivery';
       case 'delivered': return 'Delivered';
