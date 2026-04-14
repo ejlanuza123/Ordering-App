@@ -13,7 +13,8 @@ import {
   Alert,
   Modal,
   TextInput,
-  Linking
+  Linking,
+  Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -67,25 +68,29 @@ export default function RiderDashboardScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      const fetchLatestAvatar = async () => {
+      const fetchLatestProfileState = async () => {
         if (!profile) return;
         
         try {
           const { data, error } = await supabase
             .from('profiles')
-            .select('avatar_url')
+            .select('avatar_url, is_online')
             .eq('id', profile.id)
             .single();
             
           if (!error && data?.avatar_url) {
             setCurrentAvatarUrl(data.avatar_url);
           }
+
+          if (!error && typeof data?.is_online === 'boolean') {
+            setOnlineStatus(data.is_online);
+          }
         } catch (error) {
-          console.error('Error fetching latest avatar:', error);
+          console.error('Error fetching latest profile state:', error);
         }
       };
 
-      fetchLatestAvatar();
+      fetchLatestProfileState();
     }, [profile])
   );
 
@@ -387,31 +392,6 @@ export default function RiderDashboardScreen({ navigation }) {
     }
   };
 
-  const toggleOnlineStatus = async () => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          is_online: !onlineStatus,
-          last_seen: new Date().toISOString()
-        })
-        .eq('id', profile.id);
-
-      if (error) throw error;
-      
-      setOnlineStatus(!onlineStatus);
-      
-      setAlertConfig({
-        type: 'success',
-        title: 'Status Updated',
-        message: `You are now ${!onlineStatus ? 'online' : 'offline'}`
-      });
-      setShowAlert(true);
-    } catch (error) {
-      console.error('Error toggling status:', error);
-    }
-  };
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
@@ -483,21 +463,29 @@ export default function RiderDashboardScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'},</Text>
-            <Text style={styles.userName}>{profile?.full_name?.split(' ')[0] || 'Rider'}</Text>
+          <View style={styles.riderIdentity}>
+            <View style={styles.riderLogoWrap}>
+              <Image
+                source={require('../../../assets/petron-logo.png')}
+                style={styles.riderLogo}
+                resizeMode="contain"
+              />
+            </View>
+            <View>
+              <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'},</Text>
+              <Text style={styles.userName}>{profile?.full_name?.split(' ')[0] || 'Rider'}</Text>
+            </View>
           </View>
           
           <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={[styles.statusToggle, onlineStatus ? styles.statusOnline : styles.statusOffline]}
-              onPress={toggleOnlineStatus}
+            <View
+              style={[
+                styles.statusIndicator,
+                onlineStatus ? styles.statusOnline : styles.statusOffline
+              ]}
             >
               <View style={[styles.statusDot, onlineStatus ? styles.dotOnline : styles.dotOffline]} />
-              <Text style={[styles.statusText, onlineStatus ? styles.textOnline : styles.textOffline]}>
-                {onlineStatus ? 'Online' : 'Offline'}
-              </Text>
-            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity 
               style={styles.iconButton}
@@ -592,6 +580,7 @@ export default function RiderDashboardScreen({ navigation }) {
       </View>
 
       <ScrollView
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0033A0']} />
@@ -895,6 +884,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+  scrollView: {
+    flex: 1,
+    zIndex: 0,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -908,23 +901,44 @@ const styles = StyleSheet.create({
   },
   // Header Styles
   header: {
+    position: 'relative',
+    zIndex: 10,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    elevation: 10,
+    elevation: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 15,
+  },
+  riderIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  riderLogoWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#0033A0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    padding: 3,
+  },
+  riderLogo: {
+    width: 34,
+    height: 34,
+    borderRadius: 6,
   },
   greeting: {
     fontSize: 14,
@@ -941,12 +955,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  statusToggle: {
-    flexDirection: 'row',
+  statusIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
     borderWidth: 1,
   },
   statusOnline: {
@@ -958,26 +972,15 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   dotOnline: {
     backgroundColor: '#10B981',
   },
   dotOffline: {
     backgroundColor: '#EF4444',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  textOnline: {
-    color: '#10B981',
-  },
-  textOffline: {
-    color: '#EF4444',
   },
   iconButton: {
     width: 40,

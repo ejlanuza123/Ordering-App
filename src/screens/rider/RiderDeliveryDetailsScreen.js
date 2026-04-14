@@ -528,7 +528,12 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
   const copyAddress = () => {
     Clipboard.setString(orderData?.delivery_address || '');
-    Alert.alert('Success', 'Address copied to clipboard');
+    setAlertConfig({
+      type: 'success',
+      title: 'Success',
+      message: 'Address copied to clipboard'
+    });
+    setShowAlert(true);
   };
 
   const shareDelivery = async () => {
@@ -935,7 +940,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setShowNotesModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Delivery Notes</Text>
               <TouchableOpacity onPress={() => setShowNotesModal(false)}>

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
+import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
@@ -47,6 +48,8 @@ export default function RiderProfileScreen({ navigation }) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
+  const [onlineStatus, setOnlineStatus] = useState(true);
+  const [togglingOnlineStatus, setTogglingOnlineStatus] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -60,31 +63,40 @@ export default function RiderProfileScreen({ navigation }) {
       setAvatarUrl(profile.avatar_url || '');
       // Load notification preference
       setNotificationsEnabled(profile.notifications_enabled !== false); // Default to true
+      setOnlineStatus(profile.is_online !== false);
     }
     fetchRiderStats();
   }, [profile]);
 
   useFocusEffect(
     useCallback(() => {
-      const fetchLatestAvatar = async () => {
+      const fetchLatestProfileState = async () => {
         if (!profile?.id) return;
         
         try {
           const { data, error } = await supabase
             .from('profiles')
-            .select('avatar_url')
+            .select('avatar_url, notifications_enabled, is_online')
             .eq('id', profile.id)
             .single();
             
-          if (!error && data?.avatar_url) {
-            setAvatarUrl(data.avatar_url);
+          if (!error && data) {
+            if (data.avatar_url) {
+              setAvatarUrl(data.avatar_url);
+            }
+            if (typeof data.notifications_enabled === 'boolean') {
+              setNotificationsEnabled(data.notifications_enabled);
+            }
+            if (typeof data.is_online === 'boolean') {
+              setOnlineStatus(data.is_online);
+            }
           }
         } catch (error) {
-          console.error('Error fetching latest avatar:', error);
+          console.error('Error fetching latest profile state:', error);
         }
       };
 
-      fetchLatestAvatar();
+      fetchLatestProfileState();
     }, [profile?.id])
   );
 
@@ -160,6 +172,42 @@ export default function RiderProfileScreen({ navigation }) {
       setShowAlert(true);
     } finally {
       setTogglingNotifications(false);
+    }
+  };
+
+  const handleOnlineStatusToggle = async (newValue) => {
+    try {
+      setTogglingOnlineStatus(true);
+      setOnlineStatus(newValue);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_online: newValue,
+          last_seen: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (error) throw error;
+
+      setAlertConfig({
+        type: 'success',
+        title: 'Success',
+        message: newValue ? 'You are now online' : 'You are now offline'
+      });
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Error toggling online status:', error);
+      setOnlineStatus(!newValue);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update online status'
+      });
+      setShowAlert(true);
+    } finally {
+      setTogglingOnlineStatus(false);
     }
   };
 
@@ -301,7 +349,7 @@ export default function RiderProfileScreen({ navigation }) {
           />
           <StatCard 
             label="Earnings" 
-            value={`₱${stats.totalEarnings}`} 
+            value={formatCurrency(stats.totalEarnings)} 
             icon="wallet" 
             color="#F59E0B" 
           />
@@ -395,16 +443,40 @@ export default function RiderProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
           
+          <View style={[styles.preferenceItem, styles.onlinePreferenceItem]}>
+            <View style={styles.preferenceInfo}>
+              <View style={[styles.preferenceIconWrap, onlineStatus ? styles.preferenceIconOnline : styles.preferenceIconOffline]}>
+                <Ionicons name="radio-button-on" size={18} color={onlineStatus ? '#10B981' : '#EF4444'} />
+              </View>
+              <View>
+                <Text style={styles.preferenceText}>Online Status</Text>
+                <Text style={styles.preferenceSubtext}>Allow dispatch to mark you as available for deliveries</Text>
+              </View>
+            </View>
+            <Switch
+              value={onlineStatus}
+              onValueChange={handleOnlineStatusToggle}
+              disabled={togglingOnlineStatus}
+              trackColor={{ false: '#d1d5db', true: '#10B981' }}
+              thumbColor="#fff"
+            />
+          </View>
+
           <View style={styles.preferenceItem}>
             <View style={styles.preferenceInfo}>
-              <Ionicons name="notifications" size={22} color="#0033A0" />
-              <Text style={styles.preferenceText}>Push Notifications</Text>
+              <View style={styles.preferenceIconWrap}>
+                <Ionicons name="notifications" size={18} color="#0033A0" />
+              </View>
+              <View>
+                <Text style={styles.preferenceText}>Push Notifications</Text>
+                <Text style={styles.preferenceSubtext}>Receive delivery and app alerts</Text>
+              </View>
             </View>
             <Switch
               value={notificationsEnabled}
               onValueChange={handleNotificationsToggle}
               disabled={togglingNotifications}
-              trackColor={{ false: '#e9ecef', true: '#0033A0' }}
+              trackColor={{ false: '#d1d5db', true: '#0033A0' }}
               thumbColor="#fff"
             />
           </View>
@@ -671,15 +743,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f8fafc',
+    marginBottom: 12,
+  },
+  onlinePreferenceItem: {
+    backgroundColor: '#f7fff9',
+    borderColor: '#d1fae5',
   },
   preferenceInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flex: 1,
+    paddingRight: 12,
+  },
+  preferenceIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  preferenceIconOnline: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#bbf7d0',
+  },
+  preferenceIconOffline: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
   },
   preferenceText: {
     fontSize: 16,
-    color: '#333',
+    color: '#111827',
+    fontWeight: '600',
+  },
+  preferenceSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+    maxWidth: 240,
+    lineHeight: 16,
   },
   helpAction: {
     backgroundColor: '#f8f9fa',

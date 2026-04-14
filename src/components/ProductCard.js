@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Alert } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 45) / 2;
-
-export default function ProductCard({ product, onPress, onAddToCart, isFavorite = false, onToggleFavorite }) {
+export default function ProductCard({
+  product,
+  onPress,
+  onAddToCart,
+  isFavorite = false,
+  onToggleFavorite,
+  showActionHint = true,
+}) {
   const isFuel = product.category === 'Fuel';
   
   const getCategoryColor = () => {
@@ -131,7 +135,7 @@ export default function ProductCard({ product, onPress, onAddToCart, isFavorite 
           activeOpacity={0.7}
         >
           <Text style={styles.actionButtonText}>
-            {product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+            {product.stock_quantity > 0 ? 'Quick Add' : 'Out of Stock'}
           </Text>
           <Ionicons 
             name="cart" 
@@ -140,6 +144,10 @@ export default function ProductCard({ product, onPress, onAddToCart, isFavorite 
             style={styles.actionButtonIcon}
           />
         </TouchableOpacity>
+
+        {showActionHint && product.stock_quantity > 0 && (
+          <Text style={styles.actionHintText}>Tap card to choose custom amount</Text>
+        )}
       </View>
       
       {/* Favorite Button */}
@@ -160,7 +168,7 @@ export default function ProductCard({ product, onPress, onAddToCart, isFavorite 
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
+    width: '100%',
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
@@ -286,6 +294,13 @@ const styles = StyleSheet.create({
   },
   actionButtonIcon: {
     marginLeft: 6,
+  },
+  actionHintText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#5B6B85',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   favoriteButton: {
     position: 'absolute',

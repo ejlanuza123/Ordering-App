@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import NotificationIcon from '../../components/NotificationIcon';
 import { useNotifications } from '../../context/NotificationContext';
+import { useCart } from '../../context/CartContext';
 import Avatar from '../../components/Avatar';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
@@ -26,6 +27,7 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
+  const { cartItems } = useCart();
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
@@ -76,16 +78,20 @@ export default function HomeScreen({ navigation }) {
       {/* Fixed Header - Modern Design */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>{getGreeting()},</Text>
-            <View style={styles.userNameContainer}>
-              <Text style={styles.userName}>{getUserFirstName()}</Text>
-              <View style={styles.greetingEmoji}>
-                <Text style={styles.greetingEmojiText}>👋</Text>
-              </View>
+          <View style={styles.brandContainerHeader}>
+            <View style={styles.logoWrapperHeader}>
+              <Image
+                source={require('../../../assets/petron-logo.png')}
+                style={styles.petronLogoHeader}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.brandTextContainer}>
+              <Text style={styles.brandTitleHeader}>Petron San Pedro</Text>
+              <Text style={styles.brandSubtitleHeader}>Fuel & Lubricants Delivery</Text>
             </View>
           </View>
-          
+
           <View style={styles.headerActions}>
             <NotificationIcon 
               onPress={() => navigation.navigate('Notifications')}
@@ -107,18 +113,13 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Petron Branding with Gradient Effect */}
-        <View style={styles.brandContainer}>
-          <View style={styles.logoWrapper}>
-            <Image 
-              source={require('../../../assets/petron-logo.png')} 
-              style={styles.petronLogo}
-              resizeMode="contain"
-            />
-          </View>
-          <View style={styles.brandTextContainer}>
-            <Text style={styles.brandTitle}>Petron San Pedro</Text>
-            <Text style={styles.brandSubtitle}>Fuel & Lubricants Delivery</Text>
+        <View style={styles.greetingSection}>
+          <Text style={styles.greeting}>{getGreeting()},</Text>
+          <View style={styles.userNameContainer}>
+            <Text style={styles.userName}>{getUserFirstName()}</Text>
+            <View style={styles.greetingEmoji}>
+              <Text style={styles.greetingEmojiText}>👋</Text>
+            </View>
           </View>
         </View>
 
@@ -131,6 +132,13 @@ export default function HomeScreen({ navigation }) {
           >
             <View style={[styles.headerActionIcon, { backgroundColor: '#0033A0' }]}>
               <Ionicons name="cart" size={20} color="#fff" />
+              {cartItems.length > 0 && (
+                <View style={styles.headerActionBadge}>
+                  <Text style={styles.headerActionBadgeText}>
+                    {cartItems.length > 9 ? '9+' : cartItems.length}
+                  </Text>
+                </View>
+              )}
             </View>
             <Text style={styles.headerActionText}>Cart</Text>
           </TouchableOpacity>
@@ -400,29 +408,62 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    zIndex: 0,
   },
   scrollContent: {
     flexGrow: 1,
   },
   // Header Styles - Modern Design
   header: {
+    position: 'relative',
+    zIndex: 10,
     backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 5,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
-    elevation: 8,
+    elevation: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
+  },
+  brandContainerHeader: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  logoWrapperHeader: {
+    backgroundColor: '#0033A0',
+    borderRadius: 10,
+    padding: 4,
+    marginRight: 10,
+  },
+  petronLogoHeader: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+  },
+  brandTitleHeader: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0033A0',
+    marginBottom: 1,
+  },
+  brandSubtitleHeader: {
+    fontSize: 11,
+    color: '#666',
+  },
+  greetingSection: {
+    marginBottom: 14,
   },
   greeting: {
     fontSize: 14,
@@ -557,26 +598,61 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   headerActionButton: {
+    marginHorizontal: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 51, 160, 0.10)',
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'center',
+    elevation: 7,
+    shadowColor: '#0B2E6B',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
   },
   headerActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
-    elevation: 3,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 6,
+  },
+  headerActionBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#ED2939',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  headerActionBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   headerActionText: {
     fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
+    color: '#24324A',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   // Main Section
   mainSection: {

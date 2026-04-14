@@ -5,24 +5,28 @@ import {
   FlatList, 
   TouchableOpacity, 
   StyleSheet,
-  Alert,
-  Platform
+  Platform,
+  Modal,
+  TextInput
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCart } from '../../context/CartContext';
-import { Header } from '../../components/Header';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { supabase } from '../../lib/supabase';
 
 export default function CartScreen({ navigation }) {
-  const { cartItems, removeFromCart, getCartTotal } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, getCartTotal } = useCart();
   const insets = useSafeAreaInsets();
   const total = getCartTotal();
   const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(50);
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState(null);
+  const [editMode, setEditMode] = useState('liters');
+  const [editValue, setEditValue] = useState('1');
 
   const fetchDefaultDeliveryFee = useCallback(async () => {
     try {
@@ -68,11 +72,69 @@ export default function CartScreen({ navigation }) {
     }
   };
 
+  const handleEditPress = (item) => {
+    const isFuel = item.category === 'Fuel';
+    const mode = isFuel ? 'liters' : 'bottle';
+
+    setItemToEdit(item);
+    setEditMode(mode);
+    setEditValue(isFuel ? String(item.quantity.toFixed(2)) : String(item.quantity));
+    setEditModalVisible(true);
+  };
+
+  const getEditedMetrics = () => {
+    if (!itemToEdit) {
+      return { quantity: 0, total: 0 };
+    }
+
+    const parsed = parseFloat(editValue);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      return { quantity: 0, total: 0 };
+    }
+
+    if (itemToEdit.category === 'Fuel') {
+      if (editMode === 'amount') {
+        const liters = parsed / itemToEdit.current_price;
+        return { quantity: liters, total: parsed };
+      }
+      return { quantity: parsed, total: parsed * itemToEdit.current_price };
+    }
+
+    if (editMode === 'amount') {
+      const bottles = parsed / itemToEdit.current_price;
+      return { quantity: bottles, total: parsed };
+    }
+
+    return { quantity: parsed, total: parsed * itemToEdit.current_price };
+  };
+
+  const handleSaveEdit = () => {
+    if (!itemToEdit) return;
+
+    const { quantity } = getEditedMetrics();
+    if (quantity <= 0) {
+      return;
+    }
+
+    const normalizedQuantity =
+      itemToEdit.category === 'Fuel'
+        ? parseFloat(quantity.toFixed(2))
+        : Math.max(1, Math.round(quantity));
+
+    if (itemToEdit.stock_quantity !== undefined && normalizedQuantity > itemToEdit.stock_quantity) {
+      return;
+    }
+
+    updateQuantity(itemToEdit.id, normalizedQuantity);
+    setEditModalVisible(false);
+    setItemToEdit(null);
+  };
+
   const renderItem = ({ item }) => {
     const isFuel = item.category === 'Fuel';
     
     return (
-      <View style={styles.cartItem}>
+      <TouchableOpacity style={styles.cartItem} activeOpacity={0.85} onPress={() => handleEditPress(item)}>
         <View style={styles.itemInfo}>
           <View style={styles.itemHeader}>
             <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
@@ -96,8 +158,12 @@ export default function CartScreen({ navigation }) {
               ₱{item.totalItemPrice.toFixed(2)}
             </Text>
           </View>
+
+          <Text style={styles.editHintText}>
+            Tap item to edit by {isFuel ? 'liters/amount' : 'bottle/amount'}
+          </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -155,6 +221,99 @@ export default function CartScreen({ navigation }) {
         showCancelButton={true}
         onConfirm={confirmRemove}
       />
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlayEditor}>
+          <View style={styles.modalCardEditor}>
+            <View style={styles.modalEditorHeader}>
+              <Text style={styles.modalEditorTitle}>Edit Order Amount</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            {itemToEdit && (
+              <>
+                <Text style={styles.modalEditorItemName}>{itemToEdit.name}</Text>
+                <Text style={styles.modalEditorItemPrice}>₱{itemToEdit.current_price.toFixed(2)} per {itemToEdit.unit}</Text>
+
+                <View style={styles.modalModeRow}>
+                  {itemToEdit.category === 'Fuel' ? (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.modalModeBtn, editMode === 'liters' && styles.modalModeBtnActive]}
+                        onPress={() => {
+                          setEditMode('liters');
+                          setEditValue(String(itemToEdit.quantity.toFixed(2)));
+                        }}
+                      >
+                        <Text style={[styles.modalModeText, editMode === 'liters' && styles.modalModeTextActive]}>By Liters</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalModeBtn, editMode === 'amount' && styles.modalModeBtnActive]}
+                        onPress={() => {
+                          setEditMode('amount');
+                          setEditValue(String(itemToEdit.totalItemPrice.toFixed(2)));
+                        }}
+                      >
+                        <Text style={[styles.modalModeText, editMode === 'amount' && styles.modalModeTextActive]}>By Amount</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.modalModeBtn, editMode === 'bottle' && styles.modalModeBtnActive]}
+                        onPress={() => {
+                          setEditMode('bottle');
+                          setEditValue(String(itemToEdit.quantity));
+                        }}
+                      >
+                        <Text style={[styles.modalModeText, editMode === 'bottle' && styles.modalModeTextActive]}>By Bottle</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalModeBtn, editMode === 'amount' && styles.modalModeBtnActive]}
+                        onPress={() => {
+                          setEditMode('amount');
+                          setEditValue(String(itemToEdit.totalItemPrice.toFixed(2)));
+                        }}
+                      >
+                        <Text style={[styles.modalModeText, editMode === 'amount' && styles.modalModeTextActive]}>By Amount</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                <View style={styles.modalInputWrap}>
+                  <TextInput
+                    style={styles.modalInput}
+                    keyboardType="numeric"
+                    value={editValue}
+                    onChangeText={(text) => setEditValue(text.replace(/[^0-9.]/g, ''))}
+                    placeholder={editMode === 'amount' ? 'Enter amount' : 'Enter quantity'}
+                  />
+                </View>
+
+                <View style={styles.modalSummaryBox}>
+                  <Text style={styles.modalSummaryText}>
+                    Qty: {itemToEdit.category === 'Fuel' ? getEditedMetrics().quantity.toFixed(2) : Math.max(1, Math.round(getEditedMetrics().quantity || 0))}
+                  </Text>
+                  <Text style={styles.modalSummaryText}>
+                    Total: ₱{getEditedMetrics().total.toFixed(2)}
+                  </Text>
+                </View>
+
+                <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSaveEdit}>
+                  <Text style={styles.modalSaveText}>Save Changes</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
       <View style={[styles.container, { paddingTop: insets.top }]}>
         {/* Custom header for main screen */}
         <View style={styles.header}>
@@ -348,6 +507,107 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#0033A0',
+  },
+  editHintText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#4B628A',
+    fontWeight: '600',
+  },
+  modalOverlayEditor: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCardEditor: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 18,
+  },
+  modalEditorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalEditorTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  modalEditorItemName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0033A0',
+    marginBottom: 2,
+  },
+  modalEditorItemPrice: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 14,
+  },
+  modalModeRow: {
+    flexDirection: 'row',
+    backgroundColor: '#EEF4FF',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 12,
+  },
+  modalModeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 9,
+  },
+  modalModeBtnActive: {
+    backgroundColor: '#0033A0',
+  },
+  modalModeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#34507E',
+  },
+  modalModeTextActive: {
+    color: '#fff',
+  },
+  modalInputWrap: {
+    borderWidth: 1,
+    borderColor: '#DCE5F5',
+    borderRadius: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  modalInput: {
+    height: 46,
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  modalSummaryBox: {
+    backgroundColor: '#F8FBFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2EAF7',
+    padding: 12,
+    marginBottom: 14,
+  },
+  modalSummaryText: {
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modalSaveBtn: {
+    backgroundColor: '#0033A0',
+    borderRadius: 12,
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  modalSaveText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   // Footer styles
   footer: {

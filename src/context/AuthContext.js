@@ -25,11 +25,27 @@ export const AuthProvider = ({ children }) => {
     setRole(null);
   };
 
+  const clearPersistedAuthStorage = async () => {
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const authKeys = keys.filter((key) =>
+        key.includes('supabase') || key.includes('sb-') || key.includes('auth_recovery_')
+      );
+
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
+      }
+    } catch (storageError) {
+      console.warn('Failed to clear persisted auth storage:', storageError);
+    }
+  };
+
   const signOutLocalFirst = async () => {
     const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) {
       await supabase.auth.signOut();
     }
+    await clearPersistedAuthStorage();
   };
 
   const shouldSuppressRecoverySession = async () => {
@@ -120,6 +136,15 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.log('Auth check error:', error);
+      const message = error?.message || '';
+      if (message.toLowerCase().includes('invalid refresh token') || message.toLowerCase().includes('refresh token not found')) {
+        await clearPersistedAuthStorage();
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch {
+          await supabase.auth.signOut().catch(() => {});
+        }
+      }
       clearAuthState();
     } finally {
       setLoading(false);

@@ -11,7 +11,8 @@ import {
   Platform,
   TextInput,
   Modal,
-  ScrollView
+  ScrollView,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -45,9 +46,11 @@ export default function SelectionScreen({ navigation, route }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [sortBy, setSortBy] = useState('name_asc');
+  const [tabContainerWidth, setTabContainerWidth] = useState(0);
   const { cartItems, addToCart } = useCart();
   const { user } = useAuth();
   const [showAlert, setShowAlert] = useState(false);
+  const [showUsageHints, setShowUsageHints] = useState(true);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
     title: '',
@@ -55,6 +58,7 @@ export default function SelectionScreen({ navigation, route }) {
   });
 
   const selectedCategory = route.params?.category || 'Fuel';
+  const tabTranslateX = useRef(new Animated.Value(0)).current;
 
   // favorites handled by context
   const { isFavorite, toggleFavorite, favorites } = useFavorites();
@@ -173,6 +177,18 @@ export default function SelectionScreen({ navigation, route }) {
     }
   }, [products, sortBy, searchQuery, selectedCategory, applyFilters]);
 
+  useEffect(() => {
+    const tabWidth = tabContainerWidth / 2;
+    if (!tabWidth) return;
+
+    const tabIndex = selectedCategory === 'Fuel' ? 0 : 1;
+    Animated.timing(tabTranslateX, {
+      toValue: tabIndex * tabWidth,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [selectedCategory, tabContainerWidth, tabTranslateX]);
+
   const onRefresh = () => {
     setRefreshing(true);
     refreshProducts().finally(() => setRefreshing(false));
@@ -250,7 +266,21 @@ export default function SelectionScreen({ navigation, route }) {
             </View>
 
           {/* Category Tabs */}
-          <View style={styles.categoryTabs}>
+          <View
+            style={styles.categoryTabs}
+            onLayout={(event) => setTabContainerWidth(event.nativeEvent.layout.width)}
+          >
+            {!!tabContainerWidth && (
+              <Animated.View
+                style={[
+                  styles.categoryTabIndicator,
+                  {
+                    width: tabContainerWidth / 2 - 4,
+                    transform: [{ translateX: tabTranslateX }],
+                  },
+                ]}
+              />
+            )}
             <TouchableOpacity 
               style={[
                 styles.categoryTab,
@@ -344,18 +374,40 @@ export default function SelectionScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
+            {showUsageHints ? (
+              <View style={styles.actionHintBanner}>
+                <Ionicons name="information-circle" size={16} color="#0033A0" />
+                <Text style={styles.actionHintBannerText}>
+                  Tap product card for custom quantity. Use Quick Add to add default amount.
+                </Text>
+                <TouchableOpacity
+                  style={styles.actionHintCloseButton}
+                  onPress={() => setShowUsageHints(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="close" size={18} color="#5B6B85" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.showTipsButton}
+                onPress={() => setShowUsageHints(true)}
+              >
+                <Ionicons name="information-circle-outline" size={16} color="#0033A0" />
+                <Text style={styles.showTipsButtonText}>Show Tips</Text>
+              </TouchableOpacity>
+            )}
+
             <FlatList
               data={filteredProducts}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item, index }) => (
-                <View style={[
-                  styles.productWrapper,
-                  index % 2 === 0 ? styles.productWrapperLeft : styles.productWrapperRight
-                ]}>
+                <View style={styles.productWrapper}>
                   <ProductCard 
                     product={item} 
                     onPress={() => handleProductPress(item)} 
                     onAddToCart={() => handleAddToCart(item)}
+                    showActionHint={showUsageHints}
                     isFavorite={isFavorite(item.id)}
                     onToggleFavorite={async (p) => {
                       const added = await toggleFavorite(p.id);
@@ -634,6 +686,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
     marginBottom: 20,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  categoryTabIndicator: {
+    position: 'absolute',
+    top: 2,
+    bottom: 2,
+    left: 2,
+    borderRadius: 9,
+    backgroundColor: '#0033A0',
   },
   categoryTab: {
     flex: 1,
@@ -642,9 +704,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 8,
+    zIndex: 1,
   },
   activeCategoryTab: {
-    backgroundColor: '#0033A0',
+    backgroundColor: 'transparent',
   },
   categoryTabText: {
     fontSize: 16,
@@ -688,7 +751,7 @@ const styles = StyleSheet.create({
   },
   productsContainer: {
     flex: 1,
-    paddingHorizontal: 15,
+    paddingHorizontal: 8,
   },
   productsHeader: {
     flexDirection: 'row',
@@ -696,6 +759,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 15,
     marginTop: 10,
+  },
+  actionHintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAF2FF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+  },
+  actionHintBannerText: {
+    flex: 1,
+    marginLeft: 8,
+    color: '#1F3F78',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  actionHintCloseButton: {
+    marginLeft: 8,
+    padding: 2,
+  },
+  showTipsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#EAF2FF',
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    borderRadius: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  showTipsButtonText: {
+    marginLeft: 6,
+    color: '#0033A0',
+    fontSize: 12,
+    fontWeight: '600',
   },
   productsCount: {
     fontSize: 14,
@@ -717,19 +820,15 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   columnWrapper: {
-    justifyContent: 'space-between',
+    paddingHorizontal: 2,
   },
   productWrapper: {
-    width: '48%',
-    marginBottom: 15,
-  },
-  productWrapperLeft: {
-    marginRight: '2%',
-  },
-  productWrapperRight: {
-    marginLeft: '2%',
+    width: '50%',
+    paddingHorizontal: 6,
+    marginBottom: 16,
   },
   listContent: {
+    paddingHorizontal: 2,
     paddingBottom: 100,
   },
   emptyContainer: {
