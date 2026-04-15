@@ -81,7 +81,7 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.brandContainerHeader}>
             <View style={styles.logoWrapperHeader}>
               <Image
-                source={require('../../../assets/petron-logo.png')}
+                source={require('../../../assets/petron-logo.jpg')}
                 style={styles.petronLogoHeader}
                 resizeMode="contain"
               />
@@ -295,7 +295,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.footerCard}>
           <View style={styles.footerHeader}>
             <Image 
-              source={require('../../../assets/petron-logo.png')} 
+              source={require('../../../assets/petron-logo.jpg')} 
               style={styles.footerLogo}
               resizeMode="contain"
             />

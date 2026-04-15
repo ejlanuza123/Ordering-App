@@ -524,7 +524,7 @@ export default function LoginScreen({ navigation }) {
           <Animated.View style={[styles.logoContainer, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
             <View style={styles.logoWrapper}>
               <Image 
-                source={require('../../../assets/petron-logo.png')} 
+                source={require('../../../assets/petron-logo.jpg')} 
                 style={styles.logo}
                 resizeMode="contain"
               />

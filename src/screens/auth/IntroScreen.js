@@ -256,7 +256,7 @@ export default function IntroScreen({ onGetStarted }) {
 
       {stage === 'hero' ? (
         <Animated.View style={[styles.logoCard, { transform: [{ scale: logoScaleAnim }, { translateY: logoMoveAnim }] }]}>
-          <Image source={require('../../../assets/petron-logo.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../../../assets/petron-logo.jpg')} style={styles.logo} resizeMode="contain" />
         </Animated.View>
       ) : null}
 

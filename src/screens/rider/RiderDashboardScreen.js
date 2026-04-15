@@ -466,7 +466,7 @@ export default function RiderDashboardScreen({ navigation }) {
           <View style={styles.riderIdentity}>
             <View style={styles.riderLogoWrap}>
               <Image
-                source={require('../../../assets/petron-logo.png')}
+                source={require('../../../assets/petron-logo.jpg')}
                 style={styles.riderLogo}
                 resizeMode="contain"
               />
