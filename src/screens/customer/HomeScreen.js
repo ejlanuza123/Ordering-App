@@ -140,7 +140,14 @@ export default function HomeScreen({ navigation }) {
                 </View>
               )}
             </View>
-            <Text style={styles.headerActionText}>Cart</Text>
+            <Text
+              style={styles.headerActionText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Cart
+            </Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -151,7 +158,14 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.headerActionIcon, { backgroundColor: '#ED2939' }]}>
               <Ionicons name="time" size={20} color="#fff" />
             </View>
-            <Text style={styles.headerActionText}>Orders</Text>
+            <Text
+              style={styles.headerActionText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Orders
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -162,7 +176,32 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.headerActionIcon, { backgroundColor: '#ED2939' }]}>    
               <Ionicons name="heart" size={20} color="#fff" />
             </View>
-            <Text style={styles.headerActionText}>Favorites</Text>
+            <Text
+              style={styles.headerActionText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Favorites
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerActionButton}
+            onPress={() => navigation.navigate('Reservation')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.headerActionIcon, { backgroundColor: '#10B981' }]}>
+              <Ionicons name="calendar" size={20} color="#fff" />
+            </View>
+            <Text
+              style={styles.headerActionText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Reserve
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -173,7 +212,14 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.headerActionIcon, { backgroundColor: '#F59E0B' }]}>
               <Ionicons name="star" size={20} color="#fff" />
             </View>
-            <Text style={styles.headerActionText}>Reviews</Text>
+            <Text
+              style={styles.headerActionText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              Reviews
+            </Text>
           </TouchableOpacity>
           
         </View>
@@ -598,9 +644,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   headerActionButton: {
-    marginHorizontal: 4,
+    marginHorizontal: 2,
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.96)',
     borderWidth: 1,
@@ -649,10 +695,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerActionText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#24324A',
     fontWeight: '700',
     letterSpacing: 0.2,
+    textAlign: 'center',
+    width: '100%',
   },
   // Main Section
   mainSection: {

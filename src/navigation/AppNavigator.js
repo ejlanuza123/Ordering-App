@@ -18,6 +18,7 @@ import ProductDetailsScreen from '../screens/customer/ProductDetailsScreen';
 import CartScreen from '../screens/customer/CartScreen';
 import CheckoutScreen from '../screens/customer/CheckoutScreen';
 import OrderHistoryScreen from '../screens/customer/OrderHistoryScreen';
+import ReservationScreen from '../screens/customer/ReservationScreen';
 import ProfileScreen from '../screens/customer/ProfileScreen';
 import SelectionScreen from '../screens/customer/SelectionScreen';
 import MyFavoritesScreen from '../screens/customer/MyFavoritesScreen';
@@ -50,6 +51,7 @@ const CustomerStack = () => (
     <Stack.Screen name="Cart" component={CartScreen} />
     <Stack.Screen name="Checkout" component={CheckoutScreen} />
     <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+    <Stack.Screen name="Reservation" component={ReservationScreen} />
     <Stack.Screen name="CustomerDeliveryTracking" component={CustomerDeliveryTrackingScreen} />
     <Stack.Screen name="ReviewsChoice" component={ReviewsChoiceScreen} />
     <Stack.Screen name="RiderReviews" component={RiderReviewsScreen} />

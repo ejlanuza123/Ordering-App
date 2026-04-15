@@ -82,6 +82,21 @@ export const mobileNotificationService = {
       const token = await Notifications.getExpoPushTokenAsync({ projectId });
       return token.data;
     } catch (error) {
+      const errorMessage = String(error?.message || error || '');
+
+      // Common Android dev/build case: FCM credentials or Firebase app init not configured yet.
+      const isExpectedAndroidFcmSetupIssue =
+        errorMessage.includes('Default FirebaseApp is not initialized') ||
+        errorMessage.includes('fcm-credentials') ||
+        errorMessage.includes('FirebaseApp.initializeApp');
+
+      if (isExpectedAndroidFcmSetupIssue) {
+        console.warn(
+          'Push token unavailable: Android FCM credentials are not configured yet. Local notifications will still work.'
+        );
+        return null;
+      }
+
       console.error('Error getting push token:', error);
       return null;
     }

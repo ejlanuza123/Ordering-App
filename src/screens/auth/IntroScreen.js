@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
   View,
   Text,
   StyleSheet,
@@ -9,14 +10,13 @@ import {
   Image,
   StatusBar,
   useWindowDimensions,
-  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function IntroScreen({ onGetStarted }) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [stage, setStage] = useState('hero');
   const [currentInfoIndex, setCurrentInfoIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -30,9 +30,10 @@ export default function IntroScreen({ onGetStarted }) {
   const infoEnterTranslate = useRef(new Animated.Value(20)).current;
   const infoExitOpacity = useRef(new Animated.Value(1)).current;
   const infoExitTranslate = useRef(new Animated.Value(0)).current;
-  const infoPagerTranslateX = useRef(new Animated.Value(0)).current;
   const dotSlideTranslateX = useRef(new Animated.Value(0)).current;
+  const infoListRef = useRef(null);
   const slideWidth = screenWidth;
+  const isCompact = screenHeight < 760;
 
   const DOT_SLOT = 18;
   const DOT_GAP = 8;
@@ -43,11 +44,15 @@ export default function IntroScreen({ onGetStarted }) {
       {
         icon: 'bag-check-outline',
         title: 'What This App Can Do',
-        description: 'You can place and manage delivery orders from your phone without calling or texting manually.',
+        description: 'You can place orders and also schedule reservations from your phone without manual calls or texts.',
         sections: [
           {
             heading: 'Order Fast',
             body: 'Browse products, add to cart, and complete checkout quickly with saved details.',
+          },
+          {
+            heading: 'Schedule Reservation',
+            body: 'Choose date and time using the reservation flow, then submit your preferred slot in-app.',
           },
           {
             heading: 'Track Deliveries Live',
@@ -62,11 +67,15 @@ export default function IntroScreen({ onGetStarted }) {
       {
         icon: 'people-outline',
         title: 'Built For Customer And Rider Workflow',
-        description: 'The app supports both sides of delivery so updates stay accurate for everyone involved.',
+        description: 'The app supports both delivery workflow and reservation management so updates stay accurate for everyone involved.',
         sections: [
           {
             heading: 'Customer Side',
             body: 'Manage account profile, check order history, and monitor active deliveries with clear status visibility.',
+          },
+          {
+            heading: 'Manage Reservation',
+            body: 'View upcoming reservations, then change or cancel your slot directly from the reservation page.',
           },
           {
             heading: 'Rider Side',
@@ -104,9 +113,8 @@ export default function IntroScreen({ onGetStarted }) {
   const isLastInfoSlide = currentInfoIndex === infoSlides.length - 1;
 
   useEffect(() => {
-    infoPagerTranslateX.setValue(-currentInfoIndex * slideWidth);
     dotSlideTranslateX.setValue(currentInfoIndex * DOT_STEP);
-  }, [currentInfoIndex, dotSlideTranslateX, infoPagerTranslateX, slideWidth, DOT_STEP]);
+  }, [currentInfoIndex, dotSlideTranslateX, DOT_STEP]);
 
   useEffect(() => {
     Animated.sequence([
@@ -180,23 +188,16 @@ export default function IntroScreen({ onGetStarted }) {
 
     const targetIndex = currentInfoIndex - 1;
 
-    Animated.parallel([
-      Animated.timing(infoPagerTranslateX, {
-        toValue: -targetIndex * slideWidth,
-        duration: 420,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-        useNativeDriver: true,
-      }),
-      Animated.timing(dotSlideTranslateX, {
-        toValue: targetIndex * DOT_STEP,
-        duration: 420,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setCurrentInfoIndex(targetIndex);
-      setIsTransitioning(false);
-    });
+    Animated.timing(dotSlideTranslateX, {
+      toValue: targetIndex * DOT_STEP,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    infoListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+    setCurrentInfoIndex(targetIndex);
+    setTimeout(() => setIsTransitioning(false), 260);
   };
 
   const goToNextInfoSlide = () => {
@@ -228,23 +229,16 @@ export default function IntroScreen({ onGetStarted }) {
 
     const targetIndex = currentInfoIndex + 1;
 
-    Animated.parallel([
-      Animated.timing(infoPagerTranslateX, {
-        toValue: -targetIndex * slideWidth,
-        duration: 420,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-        useNativeDriver: true,
-      }),
-      Animated.timing(dotSlideTranslateX, {
-        toValue: targetIndex * DOT_STEP,
-        duration: 420,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setCurrentInfoIndex(targetIndex);
-      setIsTransitioning(false);
-    });
+    Animated.timing(dotSlideTranslateX, {
+      toValue: targetIndex * DOT_STEP,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    infoListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+    setCurrentInfoIndex(targetIndex);
+    setTimeout(() => setIsTransitioning(false), 260);
   };
 
   return (
@@ -291,60 +285,57 @@ export default function IntroScreen({ onGetStarted }) {
             },
           ]}
         >
-          <ScrollView
-            style={styles.infoScroll}
-            contentContainerStyle={styles.infoScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.infoBody}>
             <View style={styles.infoPagerViewport}>
-              <Animated.View
-                style={[
-                  styles.infoPagerRow,
-                  {
-                    width: slideWidth * infoSlides.length,
-                    transform: [{ translateX: infoPagerTranslateX }],
-                  },
-                ]}
-              >
-                {infoSlides.map((slide, index) => {
-                  const center = -index * slideWidth;
-                  const headerParallaxX = infoPagerTranslateX.interpolate({
-                    inputRange: [center - slideWidth, center, center + slideWidth],
-                    outputRange: [12, 0, -12],
-                    extrapolate: 'clamp',
-                  });
-                  const cardParallaxX = infoPagerTranslateX.interpolate({
-                    inputRange: [center - slideWidth, center, center + slideWidth],
-                    outputRange: [18, 0, -18],
-                    extrapolate: 'clamp',
-                  });
-
-                  return (
-                    <View key={slide.title} style={[styles.infoSlideArea, { width: slideWidth }]}>
+              <FlatList
+                ref={infoListRef}
+                data={infoSlides}
+                horizontal
+                pagingEnabled
+                scrollEnabled={false}
+                initialScrollIndex={0}
+                keyExtractor={(item) => item.title}
+                getItemLayout={(_, index) => ({
+                  length: slideWidth,
+                  offset: slideWidth * index,
+                  index,
+                })}
+                showsHorizontalScrollIndicator={false}
+                renderItem={({ item: slide }) => (
+                  <View style={[styles.infoSlideArea, { width: slideWidth }]}>
                     <View style={styles.infoSlideInner}>
-                      <Animated.View style={[styles.infoHeaderArea, { transform: [{ translateX: headerParallaxX }] }]}>
+                      <View
+                        style={[
+                          styles.infoHeaderArea,
+                          isCompact && styles.infoHeaderAreaCompact,
+                        ]}
+                      >
                         <View style={styles.infoIconWrap}>
                           <Ionicons name={slide.icon} size={28} color="#0033A0" />
                         </View>
-                        <Text style={styles.infoTitle}>{slide.title}</Text>
-                        <Text style={styles.infoDescription}>{slide.description}</Text>
-                      </Animated.View>
+                        <Text style={[styles.infoTitle, isCompact && styles.infoTitleCompact]}>{slide.title}</Text>
+                        <Text style={[styles.infoDescription, isCompact && styles.infoDescriptionCompact]}>{slide.description}</Text>
+                      </View>
 
-                      <Animated.View style={[styles.featuresCard, { transform: [{ translateX: cardParallaxX }] }]}>
+                      <View
+                        style={[
+                          styles.featuresCard,
+                          isCompact && styles.featuresCardCompact,
+                        ]}
+                      >
                         {slide.sections.map((section) => (
-                          <View key={section.heading} style={styles.featureRow}>
-                            <Text style={styles.featureHeading}>{section.heading}</Text>
-                            <Text style={styles.featureText}>{section.body}</Text>
+                          <View key={section.heading} style={[styles.featureRow, isCompact && styles.featureRowCompact]}>
+                            <Text style={[styles.featureHeading, isCompact && styles.featureHeadingCompact]}>{section.heading}</Text>
+                            <Text style={[styles.featureText, isCompact && styles.featureTextCompact]}>{section.body}</Text>
                           </View>
                         ))}
-                      </Animated.View>
+                      </View>
                     </View>
                   </View>
-                  );
-                })}
-              </Animated.View>
+                )}
+              />
             </View>
-          </ScrollView>
+          </View>
 
           <View style={[styles.infoFooter, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <View style={styles.paginationRow}>
@@ -454,11 +445,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'space-between',
   },
-  infoScroll: {
+  infoBody: {
     width: '100%',
     flex: 1,
-  },
-  infoScrollContent: {
     paddingTop: 4,
     paddingBottom: 10,
   },
@@ -472,14 +461,14 @@ const styles = StyleSheet.create({
   infoPagerViewport: {
     width: '100%',
     overflow: 'hidden',
-  },
-  infoPagerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flex: 1,
   },
   infoHeaderArea: {
     width: '100%',
     alignItems: 'center',
+  },
+  infoHeaderAreaCompact: {
+    marginTop: 0,
   },
   infoFooter: {
     width: '100%',
@@ -515,12 +504,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
+  infoTitleCompact: {
+    fontSize: 22,
+    lineHeight: 28,
+  },
   infoDescription: {
     marginTop: 10,
     color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  infoDescriptionCompact: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
   },
   featuresCard: {
     marginTop: 22,
@@ -531,10 +529,19 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 14,
   },
+  featuresCardCompact: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
   featureRow: {
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     paddingBottom: 10,
+  },
+  featureRowCompact: {
+    paddingBottom: 8,
   },
   featureHeading: {
     color: '#0F172A',
@@ -542,10 +549,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 4,
   },
+  featureHeadingCompact: {
+    fontSize: 13,
+    marginBottom: 3,
+  },
   featureText: {
     color: '#334155',
     fontSize: 13,
     lineHeight: 18,
+  },
+  featureTextCompact: {
+    fontSize: 12,
+    lineHeight: 17,
   },
   paginationRow: {
     alignItems: 'center',
