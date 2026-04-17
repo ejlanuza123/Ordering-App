@@ -94,7 +94,37 @@ If PowerShell or cmd still cannot find `pg_dump`, use the full path version belo
   -f "C:\Projects\full-backup.sql"
 ```
 
-## 3. Restore a `.dump` file
+## 3. Schema-only backup (no data)
+
+Use this when you want database structure only (tables, views, functions, triggers, policies) without any row data.
+
+If `pg_dump.exe` is already available in your `PATH`:
+
+```powershell
+pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
+```
+
+Command Prompt (cmd):
+
+```cmd
+pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
+```
+
+Full path (PowerShell):
+
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
+  -h aws-1-ap-south-1.pooler.supabase.com `
+  -p 5432 `
+  -U postgres.etypzzzobbacpvwvjhuf `
+  -d postgres `
+  --schema-only `
+  --no-owner `
+  --no-acl `
+  -f "C:\Projects\schema-only.sql"
+```
+
+## 4. Restore a `.dump` file
 
 Use `pg_restore` to import a custom-format dump into a local PostgreSQL database.
 
@@ -115,7 +145,7 @@ Command Prompt (cmd):
 "C:\Program Files\PostgreSQL\17\bin\pg_restore.exe" -h localhost -p 5432 -U postgres -d postgres --clean --if-exists "C:\Projects\backup.dump"
 ```
 
-## 4. Restore a `.sql` file
+## 5. Restore a `.sql` file
 
 Use `psql` to import a plain SQL backup.
 
@@ -131,7 +161,7 @@ Command Prompt (cmd):
 "C:\Program Files\PostgreSQL\17\bin\psql.exe" "host=localhost port=5432 dbname=postgres user=postgres sslmode=disable" -f "C:\Projects\full-backup.sql"
 ```
 
-## 5. Common problems
+## 6. Common problems
 
 ### `pg_dump` is not recognized
 
@@ -153,14 +183,15 @@ Command Prompt (cmd):
 - That usually means the machine cannot reach the IPv6 direct host.
 - Use the pooler host instead of the direct database host.
 
-## 6. Recommended backup workflow
+## 7. Recommended backup workflow
 
 1. Create a `.dump` backup for the best restore experience.
 2. Keep a `.sql` backup if you want a readable copy.
-3. Store the backup file outside the app repo if possible.
-4. Rotate the database password if it was exposed in chat or logs.
+3. Use a schema-only backup when you need structure only and no data.
+4. Store the backup file outside the app repo if possible.
+5. Rotate the database password if it was exposed in chat or logs.
 
-## 7. Short version
+## 8. Short version
 
 ### Backup to dump
 
@@ -174,7 +205,13 @@ Command Prompt (cmd):
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup.sql"
 ```
 
-## 8. Using a different computer
+### Backup schema only (no data)
+
+```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
+```
+
+## 9. Using a different computer
 
 The backup file path is local to the computer where you run `pg_dump`.
 
