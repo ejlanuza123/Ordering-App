@@ -40,5 +40,6 @@ yarn-error.*
 /ios
 /android
 /database
+/supabase
 repomix-output.xml
 APP_IMPROVEMENTS_PLAN.md
