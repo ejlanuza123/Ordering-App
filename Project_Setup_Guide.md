@@ -1,5 +1,9 @@
 # Project Setup Fix Guide
 
+For full CLI-only Android requirements (without Android Studio), see:
+
+- [docs/ANDROID_CLI_ONLY_SETUP_GUIDE.md](docs/ANDROID_CLI_ONLY_SETUP_GUIDE.md)
+
 ## Pre-requisites
 
 1.  Delete `node_modules`

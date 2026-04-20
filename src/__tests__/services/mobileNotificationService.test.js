@@ -8,6 +8,8 @@ const mockChannelSubscribe = jest.fn();
 const mockChannelOn = jest.fn();
 const mockChannelUnsubscribe = jest.fn();
 const mockChannel = jest.fn();
+const mockGetAllScheduledNotificationsAsync = jest.fn();
+const mockCancelScheduledNotificationAsync = jest.fn();
 
 const mockSetNotificationHandler = jest.fn();
 const mockScheduleNotificationAsync = jest.fn();
@@ -24,6 +26,8 @@ jest.mock('expo-constants', () => ({
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: (...args) => mockSetNotificationHandler(...args),
   scheduleNotificationAsync: (...args) => mockScheduleNotificationAsync(...args),
+  getAllScheduledNotificationsAsync: (...args) => mockGetAllScheduledNotificationsAsync(...args),
+  cancelScheduledNotificationAsync: (...args) => mockCancelScheduledNotificationAsync(...args),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
   getExpoPushTokenAsync: jest.fn(),
@@ -61,6 +65,8 @@ describe('mobileNotificationService', () => {
     mockChannelOn.mockReturnValue({ subscribe: mockChannelSubscribe });
     mockChannelSubscribe.mockReturnValue({ unsubscribe: mockChannelUnsubscribe });
     mockChannel.mockReturnValue({ on: mockChannelOn });
+    mockGetAllScheduledNotificationsAsync.mockResolvedValue([]);
+    mockCancelScheduledNotificationAsync.mockResolvedValue(undefined);
   });
 
   it('returns failure when savePushToken has missing userId', async () => {
@@ -201,8 +207,68 @@ describe('mobileNotificationService', () => {
         sound: true,
         badge: 1,
       },
-      trigger: { seconds: 1 },
+      trigger: expect.objectContaining({
+        type: 'timeInterval',
+        seconds: 1,
+        repeats: false,
+      }),
     });
+  });
+
+  it('schedules a reservation reminder and clears any previous reminder for the same reservation', async () => {
+    mockGetAllScheduledNotificationsAsync.mockResolvedValue([
+      {
+        identifier: 'old-reminder',
+        content: { data: { type: 'reservation_reminder', reservationId: 'r-1' } },
+      },
+    ]);
+    mockScheduleNotificationAsync.mockResolvedValue('new-reminder');
+
+    const { mobileNotificationService } = require('../../services/mobileNotificationService');
+
+    const result = await mobileNotificationService.scheduleReservationReminder({
+      reservationId: 'r-1',
+      scheduledAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      customerName: 'Alex',
+    });
+
+    expect(result).toEqual({ success: true, identifier: 'new-reminder' });
+    expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith('old-reminder');
+    expect(mockScheduleNotificationAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.objectContaining({
+          title: 'Reservation Reminder',
+          data: expect.objectContaining({
+            type: 'reservation_reminder',
+            reservationId: 'r-1',
+          }),
+        }),
+        trigger: expect.objectContaining({
+          type: 'date',
+        }),
+      })
+    );
+  });
+
+  it('cancels reservation reminders by reservation id', async () => {
+    mockGetAllScheduledNotificationsAsync.mockResolvedValue([
+      {
+        identifier: 'reminder-1',
+        content: { data: { type: 'reservation_reminder', reservationId: 'r-9' } },
+      },
+      {
+        identifier: 'reminder-2',
+        content: { data: { type: 'reservation_reminder', reservationId: 'r-2' } },
+      },
+    ]);
+
+    const { mobileNotificationService } = require('../../services/mobileNotificationService');
+
+    const result = await mobileNotificationService.cancelReservationReminder('r-9');
+
+    expect(result).toEqual({ success: true, cancelledCount: 1 });
+    expect(mockCancelScheduledNotificationAsync).toHaveBeenCalledWith('reminder-1');
+    expect(mockCancelScheduledNotificationAsync).not.toHaveBeenCalledWith('reminder-2');
   });
 
   it('subscribes to realtime notifications, forwards events, and unsubscribes', async () => {
@@ -244,7 +310,11 @@ describe('mobileNotificationService', () => {
         sound: true,
         badge: 1,
       },
-      trigger: { seconds: 1 },
+      trigger: expect.objectContaining({
+        type: 'timeInterval',
+        seconds: 1,
+        repeats: false,
+      }),
     });
 
     cleanup();

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { mobileNotificationService } from './mobileNotificationService';
 
 const RESERVATION_STATUS = {
   RESERVED: 'reserved',
@@ -56,6 +57,15 @@ async function createReservation({ userId, scheduledAt, customerName, customerPh
     .single();
 
   if (error) throw error;
+
+  mobileNotificationService.scheduleReservationReminder({
+    reservationId: data.id,
+    scheduledAt: data.scheduled_at,
+    customerName: data.customer_name || customerName || null,
+  }).catch((reminderError) => {
+    console.error('Failed to schedule reservation reminder:', reminderError);
+  });
+
   return data;
 }
 
@@ -88,6 +98,11 @@ async function cancelReservation({ reservationId, userId }) {
     .single();
 
   if (error) throw error;
+
+  mobileNotificationService.cancelReservationReminder(reservationId).catch((reminderError) => {
+    console.error('Failed to cancel reservation reminder:', reminderError);
+  });
+
   return data;
 }
 
@@ -102,10 +117,19 @@ async function updateReservation({ reservationId, userId, scheduledAt, notes = '
     .eq('id', reservationId)
     .eq('user_id', userId)
     .eq('status', RESERVATION_STATUS.RESERVED)
-    .select('id, scheduled_at')
+    .select('id, scheduled_at, customer_name')
     .single();
 
   if (error) throw error;
+
+  mobileNotificationService.scheduleReservationReminder({
+    reservationId: data.id,
+    scheduledAt: data.scheduled_at,
+    customerName: data.customer_name || null,
+  }).catch((reminderError) => {
+    console.error('Failed to reschedule reservation reminder:', reminderError);
+  });
+
   return data;
 }
 

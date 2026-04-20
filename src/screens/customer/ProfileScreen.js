@@ -20,6 +20,10 @@ import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
 import { getAddressFromCurrentLocation } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import Avatar from '../../components/Avatar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const HOME_WELCOME_VERSION = 'v1';
+const getHomeWelcomeReplayStorageKey = (userId) => `home_welcome_replay_${userId}_${HOME_WELCOME_VERSION}`;
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
@@ -494,6 +498,29 @@ export default function ProfileScreen({ navigation }) {
                 <Ionicons name="document-text" size={22} color="#0033A0" />
               </View>
               <Text style={styles.actionText}>Terms & Privacy</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={async () => {
+                const replayToken = String(Date.now());
+
+                if (user?.id) {
+                  try {
+                    await AsyncStorage.setItem(getHomeWelcomeReplayStorageKey(user.id), replayToken);
+                  } catch (error) {
+                    console.warn('Failed to save replay welcome state:', error?.message || error);
+                  }
+                }
+
+                navigation.navigate('Home', { replayWelcomeGuideAt: replayToken });
+              }}
+            >
+              <View style={styles.actionIconContainer}>
+                <Ionicons name="play-circle" size={22} color="#0033A0" />
+              </View>
+              <Text style={styles.actionText}>Replay Welcome Guide</Text>
               <Ionicons name="chevron-forward" size={20} color="#999" />
             </TouchableOpacity>
           </View>

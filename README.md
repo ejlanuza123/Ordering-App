@@ -5,6 +5,7 @@ React Native + Expo application for customer ordering, rider delivery workflows,
 ## Documentation
 
 - Developer setup: [docs/MOBILE_DEVELOPER_SETUP_GUIDE.md](docs/MOBILE_DEVELOPER_SETUP_GUIDE.md)
+- Android CLI-only setup (no Android Studio): [docs/ANDROID_CLI_ONLY_SETUP_GUIDE.md](docs/ANDROID_CLI_ONLY_SETUP_GUIDE.md)
 - Local infra + DB tools setup: [docs/LOCAL_INFRA_AND_DB_TOOLS_SETUP_GUIDE.md](docs/LOCAL_INFRA_AND_DB_TOOLS_SETUP_GUIDE.md)
 - Rider manual: [docs/RIDER_USER_MANUAL.md](docs/RIDER_USER_MANUAL.md)
 - Customer manual: [docs/CUSTOMER_USER_MANUAL.md](docs/CUSTOMER_USER_MANUAL.md)

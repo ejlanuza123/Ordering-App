@@ -7,6 +7,10 @@ import { supabase } from '../lib/supabase';
 const MAX_NOTIFICATION_LIMIT = 100;
 const DEFAULT_NOTIFICATION_LIMIT = 50;
 const ANDROID_NOTIFICATION_CHANNEL = 'default';
+const RESERVATION_REMINDER_TYPE = 'reservation_reminder';
+const RESERVATION_REMINDER_LEAD_MINUTES = 30;
+const TIME_INTERVAL_TRIGGER_TYPE = Notifications.SchedulableTriggerInputTypes?.TIME_INTERVAL || 'timeInterval';
+const DATE_TRIGGER_TYPE = Notifications.SchedulableTriggerInputTypes?.DATE || 'date';
 let channelReady = false;
 
 // Configure notification behavior
@@ -169,11 +173,86 @@ export const mobileNotificationService = {
           badge: 1,
           ...(Platform.OS === 'android' ? { channelId: ANDROID_NOTIFICATION_CHANNEL } : {}),
         },
-        trigger: null,
+        trigger: { type: TIME_INTERVAL_TRIGGER_TYPE, seconds: 1, repeats: false },
       });
       return { success: true };
     } catch (error) {
       console.error('Error sending notification:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async cancelReservationReminder(reservationId) {
+    if (!reservationId) {
+      return { success: false, error: 'Missing reservationId' };
+    }
+
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const matchingNotifications = scheduledNotifications.filter((notification) => {
+        const payload = notification?.content?.data || {};
+        return payload.type === RESERVATION_REMINDER_TYPE && String(payload.reservationId) === String(reservationId);
+      });
+
+      await Promise.all(
+        matchingNotifications.map((notification) =>
+          Notifications.cancelScheduledNotificationAsync(notification.identifier)
+        )
+      );
+
+      return { success: true, cancelledCount: matchingNotifications.length };
+    } catch (error) {
+      console.error('Error cancelling reservation reminder:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async scheduleReservationReminder({ reservationId, scheduledAt, customerName }) {
+    if (!reservationId) {
+      return { success: false, error: 'Missing reservationId' };
+    }
+
+    const reminderDate = new Date(scheduledAt);
+    if (Number.isNaN(reminderDate.getTime())) {
+      return { success: false, error: 'Invalid scheduledAt' };
+    }
+
+    try {
+      await this.cancelReservationReminder(reservationId);
+      await this.ensureAndroidNotificationChannel();
+
+      const reminderFireTime = new Date(reminderDate.getTime() - RESERVATION_REMINDER_LEAD_MINUTES * 60 * 1000);
+      const trigger = reminderFireTime > new Date()
+        ? { type: DATE_TRIGGER_TYPE, date: reminderFireTime }
+        : { type: TIME_INTERVAL_TRIGGER_TYPE, seconds: 1, repeats: false };
+      const scheduledLabel = reminderDate.toLocaleString('en-PH', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const identifier = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Reservation Reminder',
+          body: customerName
+            ? `${customerName}, your reservation on ${scheduledLabel} is coming up soon.`
+            : `Your reservation on ${scheduledLabel} is coming up soon.`,
+          data: {
+            type: RESERVATION_REMINDER_TYPE,
+            reservationId,
+            scheduledAt,
+          },
+          sound: true,
+          badge: 1,
+          ...(Platform.OS === 'android' ? { channelId: ANDROID_NOTIFICATION_CHANNEL } : {}),
+        },
+        trigger,
+      });
+
+      return { success: true, identifier };
+    } catch (error) {
+      console.error('Error scheduling reservation reminder:', error);
       return { success: false, error: error.message };
     }
   },
@@ -209,7 +288,7 @@ export const mobileNotificationService = {
               badge: 1,
               ...(Platform.OS === 'android' ? { channelId: ANDROID_NOTIFICATION_CHANNEL } : {}),
             },
-            trigger: null,
+            trigger: { type: TIME_INTERVAL_TRIGGER_TYPE, seconds: 1, repeats: false },
           }).catch((error) => {
             console.error('Error scheduling local notification:', error);
           });

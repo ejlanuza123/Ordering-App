@@ -9,7 +9,9 @@ import {
   ScrollView,
   Image,
   StatusBar,
-  Modal
+  Modal,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,16 +22,176 @@ import { useCart } from '../../context/CartContext';
 import Avatar from '../../components/Avatar';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+const HOME_WELCOME_VERSION = 'v1';
+const getHomeWelcomeStorageKey = (userId) => `home_welcome_seen_${userId}_${HOME_WELCOME_VERSION}`;
+const getHomeWelcomeReplayStorageKey = (userId) => `home_welcome_replay_${userId}_${HOME_WELCOME_VERSION}`;
+const WELCOME_DOT_SLOT = 18;
+const WELCOME_DOT_GAP = 8;
+const WELCOME_DOT_STEP = WELCOME_DOT_SLOT + WELCOME_DOT_GAP;
+const HOME_WELCOME_STEPS = [
+  {
+    icon: 'sparkles',
+    color: '#0033A0',
+    title: 'Welcome to Petron San Pedro',
+    description: 'Order fuel and lubricants quickly, monitor your notifications, and manage your account in one place.',
+  },
+  {
+    icon: 'flash',
+    color: '#ED2939',
+    title: 'Fast Ordering Flow',
+    description: 'Tap Quick Order to choose products, checkout, and get your delivery in as fast as 15-30 minutes.',
+  },
+  {
+    icon: 'calendar',
+    color: '#10B981',
+    title: 'Reserve Your Station Slot',
+    description: 'Use Reserve to schedule walk-in or drive-in station refuel times and manage your reservations easily.',
+  },
+];
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const { cartItems } = useCart();
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [welcomeStepIndex, setWelcomeStepIndex] = useState(0);
+  const lastReplayTokenRef = React.useRef(null);
+  const isWelcomeAnimatingRef = React.useRef(false);
+  const welcomeStepTransition = React.useRef(new Animated.Value(1)).current;
+  const welcomeDotSlideTranslateX = React.useRef(new Animated.Value(0)).current;
+
+  const welcomeStepTranslateX = welcomeStepTransition.interpolate({
+    inputRange: [0, 1],
+    outputRange: [28, 0],
+  });
+
+  React.useEffect(() => {
+    Animated.timing(welcomeDotSlideTranslateX, {
+      toValue: welcomeStepIndex * WELCOME_DOT_STEP,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [welcomeStepIndex, welcomeDotSlideTranslateX]);
+
+  React.useEffect(() => {
+    const maybeShowWelcomeModal = async () => {
+      if (!user?.id) {
+        setShowWelcomeModal(false);
+        setWelcomeStepIndex(0);
+        return;
+      }
+
+      try {
+        const storageKey = getHomeWelcomeStorageKey(user.id);
+        const seen = await AsyncStorage.getItem(storageKey);
+        if (seen === '1') {
+          setShowWelcomeModal(false);
+          return;
+        }
+
+        setWelcomeStepIndex(0);
+        setShowWelcomeModal(true);
+      } catch (error) {
+        console.warn('Failed to load home welcome state:', error?.message || error);
+      }
+    };
+
+    maybeShowWelcomeModal();
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const openReplayGuideIfRequested = async () => {
+        const routeToken = route?.params?.replayWelcomeGuideAt;
+        let storageToken = null;
+
+        if (user?.id) {
+          try {
+            storageToken = await AsyncStorage.getItem(getHomeWelcomeReplayStorageKey(user.id));
+          } catch (error) {
+            console.warn('Failed to read replay welcome state:', error?.message || error);
+          }
+        }
+
+        const replayToken = routeToken || storageToken;
+        if (!isActive || !replayToken) {
+          return;
+        }
+
+        if (replayToken !== lastReplayTokenRef.current) {
+          lastReplayTokenRef.current = replayToken;
+          setWelcomeStepIndex(0);
+          setShowWelcomeModal(true);
+        }
+
+        if (storageToken && user?.id) {
+          try {
+            await AsyncStorage.removeItem(getHomeWelcomeReplayStorageKey(user.id));
+          } catch (error) {
+            console.warn('Failed to clear replay welcome state:', error?.message || error);
+          }
+        }
+      };
+
+      openReplayGuideIfRequested();
+
+      return () => {
+        isActive = false;
+      };
+    }, [route?.params?.replayWelcomeGuideAt, user?.id])
+  );
+
+  const completeWelcomeFlow = useCallback(async () => {
+    if (!user?.id) {
+      setShowWelcomeModal(false);
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(getHomeWelcomeStorageKey(user.id), '1');
+    } catch (error) {
+      console.warn('Failed to save home welcome state:', error?.message || error);
+    } finally {
+      setShowWelcomeModal(false);
+      setWelcomeStepIndex(0);
+    }
+  }, [user?.id]);
+
+  const goToNextWelcomeStep = useCallback(() => {
+    if (isWelcomeAnimatingRef.current) {
+      return;
+    }
+
+    if (welcomeStepIndex >= HOME_WELCOME_STEPS.length - 1) {
+      completeWelcomeFlow();
+      return;
+    }
+
+    const nextStepIndex = welcomeStepIndex + 1;
+    isWelcomeAnimatingRef.current = true;
+    setWelcomeStepIndex(nextStepIndex);
+    welcomeStepTransition.setValue(0);
+
+    Animated.timing(welcomeStepTransition, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      isWelcomeAnimatingRef.current = false;
+    });
+  }, [welcomeStepIndex, completeWelcomeFlow, welcomeStepTransition]);
+
+  const currentWelcomeStep = HOME_WELCOME_STEPS[welcomeStepIndex] || HOME_WELCOME_STEPS[0];
 
   useFocusEffect(
     useCallback(() => {
@@ -188,7 +350,7 @@ export default function HomeScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.headerActionButton}
-            onPress={() => navigation.navigate('Reservation')}
+            onPress={() => navigation.navigate('Reservation', { openNotice: true })}
             activeOpacity={0.7}
           >
             <View style={[styles.headerActionIcon, { backgroundColor: '#10B981' }]}>
@@ -440,6 +602,83 @@ export default function HomeScreen({ navigation }) {
                 <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showWelcomeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={completeWelcomeFlow}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.welcomeModalContent}>
+            <View style={styles.welcomeModalHeader}>
+              <Text style={styles.welcomeModalLabel}>Getting Started</Text>
+              <TouchableOpacity
+                onPress={completeWelcomeFlow}
+                style={styles.modalCloseButton}
+                accessibilityRole="button"
+                accessibilityLabel="Close welcome guide"
+              >
+                <Ionicons name="close" size={24} color="#1F2937" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.welcomeStepIconWrap}>
+              <Animated.View
+                style={{
+                  opacity: welcomeStepTransition,
+                  transform: [{ translateX: welcomeStepTranslateX }],
+                }}
+              >
+                <View style={[styles.welcomeStepIconCircle, { backgroundColor: currentWelcomeStep.color }]}>
+                  <Ionicons name={currentWelcomeStep.icon} size={30} color="#fff" />
+                </View>
+              </Animated.View>
+            </View>
+
+            <Animated.View
+              style={[
+                styles.welcomeStepContent,
+                {
+                  opacity: welcomeStepTransition,
+                  transform: [{ translateX: welcomeStepTranslateX }],
+                },
+              ]}
+            >
+              <Text style={styles.welcomeStepTitle}>{currentWelcomeStep.title}</Text>
+              <Text style={styles.welcomeStepDescription}>{currentWelcomeStep.description}</Text>
+            </Animated.View>
+
+            <View style={styles.welcomeProgressRow}>
+              <View style={styles.welcomeProgressTrack}>
+                {HOME_WELCOME_STEPS.map((_, index) => (
+                  <View
+                    key={`welcome-step-${index + 1}`}
+                    style={styles.welcomeProgressDotSlot}
+                  >
+                    <View style={styles.welcomeProgressDot} />
+                  </View>
+                ))}
+                <Animated.View
+                  style={[
+                    styles.welcomeProgressDotActive,
+                    {
+                      transform: [{ translateX: welcomeDotSlideTranslateX }],
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.welcomeNextButton} onPress={goToNextWelcomeStep}>
+              <Text style={styles.welcomeNextButtonText}>
+                {welcomeStepIndex === HOME_WELCOME_STEPS.length - 1 ? 'Start Exploring' : 'Next'}
+              </Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1081,5 +1320,104 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 18,
+  },
+  welcomeModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    minHeight: 430,
+    padding: 20,
+    alignItems: 'center',
+  },
+  welcomeModalHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  welcomeModalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  welcomeStepIconWrap: {
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  welcomeStepContent: {
+    width: '100%',
+    minHeight: 132,
+  },
+  welcomeStepIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeStepTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  welcomeStepDescription: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 6,
+    minHeight: 70,
+  },
+  welcomeProgressRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  welcomeProgressTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: WELCOME_DOT_GAP,
+    position: 'relative',
+  },
+  welcomeProgressDotSlot: {
+    width: WELCOME_DOT_SLOT,
+    alignItems: 'center',
+  },
+  welcomeProgressDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0, 51, 160, 0.28)',
+  },
+  welcomeProgressDotActive: {
+    position: 'absolute',
+    left: 0,
+    width: WELCOME_DOT_SLOT,
+    height: 8,
+    top: 0,
+    borderRadius: 999,
+    backgroundColor: '#0033A0',
+  },
+  welcomeNextButton: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0033A0',
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  welcomeNextButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
   },
 });
