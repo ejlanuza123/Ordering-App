@@ -112,9 +112,19 @@ export default function IntroScreen({ onGetStarted }) {
 
   const isLastInfoSlide = currentInfoIndex === infoSlides.length - 1;
 
-  useEffect(() => {
-    dotSlideTranslateX.setValue(currentInfoIndex * DOT_STEP);
-  }, [currentInfoIndex, dotSlideTranslateX, DOT_STEP]);
+  const animateDotToIndex = (targetIndex, onDone) => {
+    dotSlideTranslateX.stopAnimation();
+    Animated.timing(dotSlideTranslateX, {
+      toValue: targetIndex * DOT_STEP,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      if (typeof onDone === 'function') {
+        onDone();
+      }
+    });
+  };
 
   useEffect(() => {
     Animated.sequence([
@@ -188,16 +198,9 @@ export default function IntroScreen({ onGetStarted }) {
 
     const targetIndex = currentInfoIndex - 1;
 
-    Animated.timing(dotSlideTranslateX, {
-      toValue: targetIndex * DOT_STEP,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-
     infoListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
     setCurrentInfoIndex(targetIndex);
-    setTimeout(() => setIsTransitioning(false), 260);
+    animateDotToIndex(targetIndex, () => setIsTransitioning(false));
   };
 
   const goToNextInfoSlide = () => {
@@ -229,16 +232,9 @@ export default function IntroScreen({ onGetStarted }) {
 
     const targetIndex = currentInfoIndex + 1;
 
-    Animated.timing(dotSlideTranslateX, {
-      toValue: targetIndex * DOT_STEP,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-
     infoListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
     setCurrentInfoIndex(targetIndex);
-    setTimeout(() => setIsTransitioning(false), 260);
+    animateDotToIndex(targetIndex, () => setIsTransitioning(false));
   };
 
   return (

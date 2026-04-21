@@ -4,7 +4,8 @@ import { chatService } from '../../services/chatService';
 jest.mock('../../lib/supabase', () => ({
   supabase: {
     from: jest.fn(),
-    channel: jest.fn()
+    channel: jest.fn(),
+    rpc: jest.fn()
   }
 }));
 
@@ -24,19 +25,16 @@ describe('chatService', () => {
         created_at: '2026-04-20T00:00:00Z'
       };
 
-      supabase.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: mockConversation, error: null })
-          })
-        })
+      supabase.rpc.mockResolvedValue({
+        data: { conversation: mockConversation, is_new: false },
+        error: null
       });
 
       const result = await chatService.getOrCreateOrderConversation('order-1', 'user-1', 'user-2');
 
       expect(result.success).toBe(true);
       expect(result.conversation).toEqual(mockConversation);
-      expect(result.isNew).toBeUndefined();
+      expect(result.isNew).toBe(false);
     });
 
     it('creates new conversation if none exists', async () => {
@@ -47,43 +45,9 @@ describe('chatService', () => {
         created_at: '2026-04-20T00:00:00Z'
       };
 
-      const insertMock = jest.fn()
-        .mockReturnValueOnce({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-          })
-        })
-        .mockReturnValueOnce({
-          insert: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({ data: mockNewConversation, error: null })
-            })
-          })
-        })
-        .mockReturnValueOnce({
-          insert: jest.fn().mockResolvedValue({ error: null })
-        });
-
-      supabase.from.mockImplementation((table) => {
-        if (table === 'conversations') {
-          return {
-            select: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
-              })
-            }),
-            insert: jest.fn().mockReturnValue({
-              select: jest.fn().mockReturnValue({
-                single: jest.fn().mockResolvedValue({ data: mockNewConversation, error: null })
-              })
-            })
-          };
-        }
-        if (table === 'conversation_participants') {
-          return {
-            insert: jest.fn().mockResolvedValue({ error: null })
-          };
-        }
+      supabase.rpc.mockResolvedValue({
+        data: { conversation: mockNewConversation, is_new: true },
+        error: null
       });
 
       const result = await chatService.getOrCreateOrderConversation('order-2', 'user-1', 'user-2');
@@ -94,15 +58,9 @@ describe('chatService', () => {
     });
 
     it('returns error if conversation fetch fails', async () => {
-      supabase.from.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Database error' }
-            })
-          })
-        })
+      supabase.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'Database error' }
       });
 
       const result = await chatService.getOrCreateOrderConversation('order-1', 'user-1', 'user-2');
@@ -257,6 +215,26 @@ describe('chatService', () => {
       const unsubscribe = chatService.subscribeToMessages('conv-1', mockCallback);
 
       expect(supabase.channel).toHaveBeenCalledWith('conversation-conv-1');
+      expect(typeof unsubscribe).toBe('function');
+    });
+  });
+
+  describe('subscribeToUnreadChanges', () => {
+    it('subscribes to unread-related realtime events', () => {
+      const mockUnsubscribe = jest.fn();
+      const mockSubscribe = jest.fn().mockReturnValue({ unsubscribe: mockUnsubscribe });
+      const mockOn = jest.fn().mockReturnThis();
+
+      supabase.channel.mockReturnValue({
+        on: mockOn,
+        subscribe: mockSubscribe,
+      });
+
+      const callback = jest.fn();
+      const unsubscribe = chatService.subscribeToUnreadChanges('user-1', callback);
+
+      expect(supabase.channel).toHaveBeenCalledWith('unread-changes-user-1');
+      expect(mockOn).toHaveBeenCalledTimes(3);
       expect(typeof unsubscribe).toBe('function');
     });
   });

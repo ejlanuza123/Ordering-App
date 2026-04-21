@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
 import { orderService } from '../../services/orderService';
+import { chatService } from '../../services/chatService';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -655,6 +656,49 @@ export default function OrderHistoryScreen({ navigation, route }) {
     });
   };
 
+  const handleChatRider = async (order) => {
+    const delivery = order?.deliveries?.[0];
+
+    if (!delivery?.rider?.id) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'No Rider',
+        message: 'This order does not have a rider assigned yet.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (!user?.id) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Chat unavailable',
+        message: 'Please sign in again to start a chat.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    try {
+      const result = await chatService.getOrCreateOrderConversation(order.id, user.id, delivery.rider.id);
+
+      if (!result.success || !result.conversation?.id) {
+        throw new Error(result.error || 'Failed to open chat');
+      }
+
+      setOrderDetailsModal(false);
+      navigation.navigate('ChatThread', { conversationId: result.conversation.id });
+    } catch (error) {
+      console.error('Error opening customer chat:', error);
+      setAlertConfig({
+        type: 'error',
+        title: 'Chat unavailable',
+        message: error?.message || 'Unable to open the conversation right now.'
+      });
+      setShowAlert(true);
+    }
+  };
+
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
     const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
@@ -927,7 +971,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
             {/* Rider Information - Show when there's a delivery record */}
             {selectedOrder.deliveries && selectedOrder.deliveries.length > 0 && (
               <>
-                <RiderInfoCard delivery={selectedOrder.deliveries[0]} />
+                <RiderInfoCard delivery={selectedOrder.deliveries[0]} onChatPress={() => handleChatRider(selectedOrder)} />
 
                 {canTrackOrder(selectedOrder.status) && (
                   <TouchableOpacity

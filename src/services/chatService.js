@@ -8,48 +8,21 @@ export const chatService = {
    */
   async getOrCreateOrderConversation(orderId, currentUserId, otherUserId) {
     try {
-      // Try to find existing conversation for this order
-      const { data: existing, error: fetchError } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('order_id', orderId)
-        .eq('type', 'customer_rider')
-        .single();
+      const { data, error } = await supabase.rpc('get_or_create_order_conversation', {
+        p_order_id: orderId,
+        p_current_user_id: currentUserId,
+        p_other_user_id: otherUserId
+      });
 
-      if (existing) {
-        return { success: true, conversation: existing };
-      }
+      if (error) throw error;
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // PGRST116 = no rows found, which is expected
-        throw fetchError;
-      }
+      const conversation = data?.conversation || data || null;
 
-      // Create new conversation
-      const { data: newConversation, error: createError } = await supabase
-        .from('conversations')
-        .insert([
-          {
-            type: 'customer_rider',
-            order_id: orderId
-          }
-        ])
-        .select()
-        .single();
-
-      if (createError) throw createError;
-
-      // Add participants
-      const { error: participantsError } = await supabase
-        .from('conversation_participants')
-        .insert([
-          { conversation_id: newConversation.id, user_id: currentUserId },
-          { conversation_id: newConversation.id, user_id: otherUserId }
-        ]);
-
-      if (participantsError) throw participantsError;
-
-      return { success: true, conversation: newConversation, isNew: true };
+      return {
+        success: true,
+        conversation,
+        isNew: Boolean(data?.is_new)
+      };
     } catch (error) {
       console.error('Error getting/creating conversation:', error);
       return { success: false, error: error.message };
@@ -63,7 +36,16 @@ export const chatService = {
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select(`
+          *,
+          orders (id, status, total_amount),
+          conversation_participants (
+            user_id,
+            joined_at,
+            last_seen_at,
+            profiles (id, full_name, avatar_url, role)
+          )
+        `)
         .eq('id', conversationId)
         .single();
 
@@ -260,6 +242,64 @@ export const chatService = {
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log(`Subscribed to conversations for user ${userId}`);
+        }
+      });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  },
+
+  /**
+   * Subscribe to events that affect unread counters in realtime.
+   */
+  subscribeToUnreadChanges(userId, onUnreadChange) {
+    const channel = supabase
+      .channel(`unread-changes-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          if (typeof onUnreadChange === 'function') {
+            onUnreadChange({ source: 'messages', payload });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          if (typeof onUnreadChange === 'function') {
+            onUnreadChange({ source: 'participants', payload });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          if (typeof onUnreadChange === 'function') {
+            onUnreadChange({ source: 'participants', payload });
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to unread changes for user ${userId}`);
         }
       });
 

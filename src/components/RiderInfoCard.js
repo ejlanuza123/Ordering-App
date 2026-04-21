@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function RiderInfoCard({ delivery }) {
+export default function RiderInfoCard({ delivery, onChatPress }) {
   // If no delivery or no rider, show "Not assigned yet" message
   if (!delivery || !delivery.rider) {
     return (
@@ -128,9 +128,19 @@ export default function RiderInfoCard({ delivery }) {
       )}
 
       <View style={styles.bottomActions}>
+        {onChatPress && (
+          <TouchableOpacity
+            style={[styles.callButton, styles.chatButton, styles.actionButtonFullWidth]}
+            onPress={onChatPress}
+          >
+            <Ionicons name="chatbubbles" size={18} color="#fff" />
+            <Text style={styles.callButtonText}>Chat Rider</Text>
+          </TouchableOpacity>
+        )}
+
         {rider.phone_number && (
           <TouchableOpacity 
-            style={styles.callButton}
+            style={[styles.callButton, styles.actionButtonFullWidth]}
             onPress={() => Linking.openURL(`tel:${rider.phone_number}`)}
           >
             <Ionicons name="call" size={18} color="#fff" />
@@ -140,7 +150,7 @@ export default function RiderInfoCard({ delivery }) {
 
         {rider.address_lat && rider.address_lng && (
           <TouchableOpacity
-            style={[styles.callButton, { backgroundColor: '#F59E0B' }]}
+            style={[styles.callButton, styles.actionButtonFullWidth, { backgroundColor: '#F59E0B' }]}
             onPress={() => {
               const url = `https://www.google.com/maps/dir/?api=1&destination=${rider.address_lat},${rider.address_lng}`;
               Linking.openURL(url);
@@ -251,11 +261,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  chatButton: {
+    backgroundColor: '#0033A0',
+  },
   bottomActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     marginTop: 12,
-    gap: 8,
+    gap: 10,
+  },
+  actionButtonFullWidth: {
+    width: '100%',
   },
   // New styles for empty state
   notAssignedContainer: {

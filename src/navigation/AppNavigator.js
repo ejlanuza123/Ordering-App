@@ -1,10 +1,11 @@
 // src/navigation/AppNavigator.js (updated)
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FloatingChatHead from '../components/FloatingChatHead';
 
 // --- IMPORT SCREENS ---
 // Auth Screens
@@ -91,6 +92,8 @@ export default function AppNavigator() {
   const { user, loading, role } = useAuth();
   const [introSeen, setIntroSeen] = useState(true);
   const [introLoading, setIntroLoading] = useState(true);
+  const [currentRouteName, setCurrentRouteName] = useState(null);
+  const navigationRef = useNavigationContainerRef();
 
   useEffect(() => {
     const loadIntroState = async () => {
@@ -130,28 +133,54 @@ export default function AppNavigator() {
     return <IntroScreen onGetStarted={handleGetStarted} />;
   }
 
-  return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        
-        {!user ? (
-          // Auth Stack
-          <Stack.Group>
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-          </Stack.Group>
-        ) : (
-          // Role-based navigation
-          <>
-            {role === 'rider' ? (
-              <Stack.Screen name="RiderStack" component={RiderStack} />
-            ) : (
-              <Stack.Screen name="CustomerStack" component={CustomerStack} />
-            )}
-          </>
-        )}
+  const handleOpenChat = () => {
+    if (!navigationRef?.isReady()) return;
 
-      </Stack.Navigator>
-    </NavigationContainer>
+    if (role === 'rider') {
+      navigationRef.navigate('RiderStack', { screen: 'ChatList' });
+      return;
+    }
+
+    navigationRef.navigate('CustomerStack', { screen: 'ChatList' });
+  };
+
+  const hideRoutes = ['Login', 'Register', 'ChatList', 'ChatThread'];
+  const isChatHeadVisible = Boolean(user) && ['customer', 'rider'].includes(role) && !hideRoutes.includes(currentRouteName);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
+        onStateChange={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
+      >
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          
+          {!user ? (
+            // Auth Stack
+            <Stack.Group>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+            </Stack.Group>
+          ) : (
+            // Role-based navigation
+            <>
+              {role === 'rider' ? (
+                <Stack.Screen name="RiderStack" component={RiderStack} />
+              ) : (
+                <Stack.Screen name="CustomerStack" component={CustomerStack} />
+              )}
+            </>
+          )}
+
+        </Stack.Navigator>
+      </NavigationContainer>
+
+      <FloatingChatHead
+        userId={user?.id}
+        visible={isChatHeadVisible}
+        onPress={handleOpenChat}
+      />
+    </View>
   );
 }

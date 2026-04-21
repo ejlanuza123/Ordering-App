@@ -19,6 +19,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
+import { chatService } from '../../services/chatService';
 import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import * as ImagePicker from 'expo-image-picker';
@@ -57,6 +58,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const [cancelReason, setCancelReason] = useState(RIDER_CANCELLATION_REASONS[0]);
   const [cancelCustomReason, setCancelCustomReason] = useState('');
   const [selectedAction, setSelectedAction] = useState(null);
+  const [openingChat, setOpeningChat] = useState(false);
 
   // proof of delivery state
   const [proofModalVisible, setProofModalVisible] = useState(false);
@@ -84,6 +86,32 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
 
     return cancelReason;
+  };
+
+  const handleChatCustomer = async () => {
+    const orderId = orderData?.id || deliveryData?.order_id;
+    const customerId = orderData?.user_id;
+
+    if (!orderId || !customerId || !profile?.id) {
+      Alert.alert('Chat unavailable', 'This delivery is missing customer or order information.');
+      return;
+    }
+
+    setOpeningChat(true);
+    try {
+      const result = await chatService.getOrCreateOrderConversation(orderId, profile.id, customerId);
+
+      if (!result.success || !result.conversation?.id) {
+        throw new Error(result.error || 'Failed to open chat');
+      }
+
+      navigation.navigate('ChatThread', { conversationId: result.conversation.id });
+    } catch (error) {
+      console.error('Error opening rider chat:', error);
+      Alert.alert('Chat unavailable', error?.message || 'Unable to open the conversation right now.');
+    } finally {
+      setOpeningChat(false);
+    }
   };
 
   useEffect(() => {
@@ -210,7 +238,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           if (orderRecord.user_id) {
             const { data: profileRecord, error: profileError } = await supabase
               .from('profiles')
-              .select('full_name, phone_number')
+              .select('full_name, phone_number, avatar_url')
               .eq('id', orderRecord.user_id)
               .maybeSingle();
 
@@ -731,6 +759,45 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           </View>
         )}
 
+        <View style={styles.chatCard}>
+          <View style={styles.chatCardRow}>
+            <View style={styles.chatAvatarWrap}>
+              {customerData?.avatar_url ? (
+                <Image source={{ uri: customerData.avatar_url }} style={styles.chatAvatarImage} />
+              ) : (
+                <View style={styles.chatAvatarFallback}>
+                  <Text style={styles.chatAvatarFallbackText}>
+                    {(customerData?.full_name || 'Customer')
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join('')
+                      .toUpperCase() || 'C'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.onlineDot} />
+            </View>
+            <View style={styles.chatCardCopy}>
+              <Text style={styles.chatCardTitle}>Message customer</Text>
+              <Text style={styles.chatCardSubtitle} numberOfLines={2}>
+                Open the live conversation for order updates, delivery notes, and quick replies.
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.chatCardButton, openingChat && styles.chatCardButtonDisabled]}
+              onPress={handleChatCustomer}
+              disabled={openingChat}
+              activeOpacity={0.85}
+            >
+              <Ionicons name={openingChat ? 'hourglass' : 'chatbubbles'} size={18} color="#fff" />
+              <Text style={styles.chatCardButtonText}>{openingChat ? 'Opening' : 'Chat'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={callCustomer}>
@@ -738,6 +805,17 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
               <Ionicons name="call" size={24} color="#0033A0" />
             </View>
             <Text style={styles.quickActionText}>Call</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={handleChatCustomer}
+            disabled={openingChat}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A015' }]}>
+              <Ionicons name={openingChat ? 'hourglass' : 'chatbubble-ellipses'} size={24} color="#0033A0" />
+            </View>
+            <Text style={styles.quickActionText}>{openingChat ? 'Opening' : 'Chat'}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickAction} onPress={messageCustomer}>
@@ -1040,46 +1118,44 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                   <ActivityIndicator size="large" color="#0033A0" />
                   <Text style={styles.uploadingText}>Uploading proof...</Text>
                 </View>
-              ) : (
-                proofImageUri && (
-                  <View style={styles.proofModalActions}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.saveModalButton, styles.fullWidthModalButton]}
-                      onPress={async () => {
-                        setUploadingProof(true);
-                        try {
-                          // upload and save then update status
-                          const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
-                          if (!success) throw new Error(error || 'Could not upload photo');
+              ) : proofImageUri ? (
+                <View style={styles.proofModalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveModalButton, styles.fullWidthModalButton]}
+                    onPress={async () => {
+                      setUploadingProof(true);
+                      try {
+                        // upload and save then update status
+                        const { success, photoUrl, error } = await uploadProofPhoto(proofImageUri, deliveryData.id);
+                        if (!success) throw new Error(error || 'Could not upload photo');
 
-                          const { success: saved, error: saveError } = await saveDeliveryProof({
-                            delivery_id: deliveryData.id,
-                            photo_url: photoUrl
-                          });
+                        const { success: saved, error: saveError } = await saveDeliveryProof({
+                          delivery_id: deliveryData.id,
+                          photo_url: photoUrl
+                        });
 
-                          if (!saved) throw new Error(saveError || 'Could not save proof data');
+                        if (!saved) throw new Error(saveError || 'Could not save proof data');
 
-                          if (selectedAction) {
-                            await updateDeliveryStatus(selectedAction.value);
-                            setSelectedAction(null);
-                          }
-
-                          setProofImageUri(null);
-                          setProofModalVisible(false);
-                        } catch (err) {
-                          console.error('Proof upload/save error:', err);
-                          Alert.alert('Error', err.message || 'Failed to upload proof');
-                        } finally {
-                          setUploadingProof(false);
+                        if (selectedAction) {
+                          await updateDeliveryStatus(selectedAction.value);
+                          setSelectedAction(null);
                         }
-                      }}
-                      disabled={uploadingProof}
-                    >
-                      <Text style={styles.saveModalButtonText}>Upload & Continue</Text>
-                    </TouchableOpacity>
-                  </View>
-                )
-              )}
+
+                        setProofImageUri(null);
+                        setProofModalVisible(false);
+                      } catch (err) {
+                        console.error('Proof upload/save error:', err);
+                        Alert.alert('Error', err.message || 'Failed to upload proof');
+                      } finally {
+                        setUploadingProof(false);
+                      }
+                    }}
+                    disabled={uploadingProof}
+                  >
+                    <Text style={styles.saveModalButtonText}>Upload & Continue</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -1452,6 +1528,93 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
+  },
+  chatCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  chatCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  chatAvatarWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    position: 'relative',
+    padding: 2,
+    backgroundColor: '#EAF1FF',
+  },
+  chatAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 25,
+    backgroundColor: '#D1D5DB',
+  },
+  chatAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0033A0',
+  },
+  chatAvatarFallbackText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  chatCardCopy: {
+    flex: 1,
+  },
+  chatCardTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  chatCardSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  chatCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0033A0',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  chatCardButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  chatCardButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
   },
   quickActions: {
     flexDirection: 'row',
