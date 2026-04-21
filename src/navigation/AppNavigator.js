@@ -27,6 +27,8 @@ import ReviewsChoiceScreen from '../screens/customer/ReviewsChoiceScreen';
 import RiderReviewsScreen from '../screens/customer/RiderReviewsScreen';
 import ProductReviewsScreen from '../screens/customer/ProductReviewsScreen';
 import CustomerDeliveryTrackingScreen from '../screens/customer/CustomerDeliveryTrackingScreen';
+import ChatListScreen from '../screens/customer/ChatListScreen';
+import ChatThreadScreen from '../screens/customer/ChatThreadScreen';
 import HelpCenterScreen from '../screens/common/HelpCenterScreen';
 import ManualViewerScreen from '../screens/common/ManualViewerScreen';
 import TermsPrivacyScreen from '../screens/common/TermsPrivacyScreen';
@@ -37,6 +39,8 @@ import RiderDeliveriesScreen from '../screens/rider/RiderDeliveriesScreen';
 import RiderDeliveryDetailsScreen from '../screens/rider/RiderDeliveryDetailsScreen';
 import RiderProfileScreen from '../screens/rider/RiderProfileScreen';
 import RiderMapScreen from '../screens/rider/RiderMapScreen';
+import RiderChatListScreen from '../screens/rider/ChatListScreen';
+import RiderChatThreadScreen from '../screens/rider/ChatThreadScreen';
 
 const Stack = createNativeStackNavigator();
 const INTRO_SEEN_KEY = 'mobile_intro_seen_v1';
@@ -58,6 +62,8 @@ const CustomerStack = () => (
     <Stack.Screen name="ProductReviews" component={ProductReviewsScreen} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="ChatList" component={ChatListScreen} />
+    <Stack.Screen name="ChatThread" component={ChatThreadScreen} />
     <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
     <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
     <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
@@ -73,6 +79,8 @@ const RiderStack = () => (
     <Stack.Screen name="RiderMap" component={RiderMapScreen} />
     <Stack.Screen name="RiderProfile" component={RiderProfileScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    <Stack.Screen name="ChatList" component={RiderChatListScreen} />
+    <Stack.Screen name="ChatThread" component={RiderChatThreadScreen} />
     <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
     <Stack.Screen name="ManualViewer" component={ManualViewerScreen} />
     <Stack.Screen name="TermsPrivacy" component={TermsPrivacyScreen} />
