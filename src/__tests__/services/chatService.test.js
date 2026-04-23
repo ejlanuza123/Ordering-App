@@ -239,6 +239,62 @@ describe('chatService', () => {
     });
   });
 
+  describe('subscribeToTyping', () => {
+    it('subscribes to typing presence and exposes controls', () => {
+      const mockUnsubscribe = jest.fn();
+      const mockTrack = jest.fn().mockResolvedValue(undefined);
+      const mockUntrack = jest.fn();
+
+      const channel = {
+        on: jest.fn().mockReturnThis(),
+        subscribe: jest.fn().mockReturnValue({ unsubscribe: mockUnsubscribe }),
+        presenceState: jest.fn().mockReturnValue({}),
+        track: mockTrack,
+        untrack: mockUntrack,
+        unsubscribe: mockUnsubscribe,
+      };
+
+      supabase.channel.mockReturnValue(channel);
+
+      const callback = jest.fn();
+      const typing = chatService.subscribeToTyping('conv-1', 'user-1', callback);
+
+      expect(supabase.channel).toHaveBeenCalledWith('typing-conv-1', {
+        config: { presence: { key: 'user-1' } },
+      });
+      expect(channel.on).toHaveBeenCalledTimes(3);
+      expect(typeof typing.setTyping).toBe('function');
+      expect(typeof typing.unsubscribe).toBe('function');
+
+      typing.setTyping(true);
+      typing.unsubscribe();
+
+      expect(mockUntrack).toHaveBeenCalled();
+      expect(mockUnsubscribe).toHaveBeenCalled();
+    });
+  });
+
+  describe('subscribeToConversationParticipantSeen', () => {
+    it('subscribes to participant seen updates', () => {
+      const mockUnsubscribe = jest.fn();
+      const mockSubscribe = jest.fn().mockReturnValue({ unsubscribe: mockUnsubscribe });
+      const mockOn = jest.fn().mockReturnThis();
+
+      supabase.channel.mockReturnValue({
+        on: mockOn,
+        subscribe: mockSubscribe,
+        unsubscribe: mockUnsubscribe,
+      });
+
+      const callback = jest.fn();
+      const unsubscribe = chatService.subscribeToConversationParticipantSeen('conv-1', callback);
+
+      expect(supabase.channel).toHaveBeenCalledWith('conversation-seen-conv-1');
+      expect(mockOn).toHaveBeenCalledTimes(1);
+      expect(typeof unsubscribe).toBe('function');
+    });
+  });
+
   describe('getUnreadCount', () => {
     it('returns unread count', async () => {
       supabase.from.mockImplementation((table) => {
@@ -246,9 +302,11 @@ describe('chatService', () => {
           return {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
-                eq: jest.fn().mockResolvedValue({
-                  data: [{ last_seen_at: '2026-04-20T00:00:00Z' }],
-                  error: null
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: { last_seen_at: '2026-04-20T00:00:00Z' },
+                    error: null
+                  })
                 })
               })
             })

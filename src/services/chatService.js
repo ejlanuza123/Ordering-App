@@ -71,6 +71,7 @@ export const chatService = {
           conversations (
             id,
             type,
+            custom_name,
             order_id,
             created_at,
             updated_at,
@@ -160,6 +161,97 @@ export const chatService = {
   },
 
   /**
+   * Edit a message authored by the current user.
+   */
+  async editMessage(messageId, senderId, content) {
+    const trimmed = (content || '').trim();
+    if (!trimmed) {
+      return { success: false, error: 'Message cannot be empty' };
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .update({ content: trimmed })
+        .eq('id', messageId)
+        .eq('sender_id', senderId)
+        .select(`
+          *,
+          profiles!sender_id (id, full_name, avatar_url, role)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, message: data };
+    } catch (error) {
+      console.error('Error editing message:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Delete a message authored by the current user.
+   */
+  async deleteMessage(messageId, senderId) {
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId)
+        .eq('sender_id', senderId);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Update conversation custom name.
+   */
+  async updateConversationName(conversationId, customName) {
+    try {
+      const normalizedName = (customName || '').trim() || null;
+      const { data, error } = await supabase
+        .from('conversations')
+        .update({ custom_name: normalizedName })
+        .eq('id', conversationId)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, conversation: data };
+    } catch (error) {
+      console.error('Error updating conversation name:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Delete a conversation.
+   */
+  async deleteConversation(conversationId) {
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Subscribe to new messages in a conversation (realtime)
    */
   subscribeToMessages(conversationId, onNewMessage) {
@@ -197,6 +289,57 @@ export const chatService = {
           console.log(`Subscribed to messages in conversation ${conversationId}`);
         }
       });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  },
+
+  /**
+   * Subscribe to message update/delete events in a conversation.
+   */
+  subscribeToMessageMutations(conversationId, handlers = {}) {
+    const channel = supabase
+      .channel(`conversation-mutations-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`
+        },
+        async (payload) => {
+          if (typeof handlers.onUpdate !== 'function' || !payload?.new) return;
+
+          try {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, full_name, avatar_url, role')
+              .eq('id', payload.new.sender_id)
+              .single();
+
+            handlers.onUpdate({ ...payload.new, profiles: profile || null });
+          } catch {
+            handlers.onUpdate(payload.new);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`
+        },
+        (payload) => {
+          if (typeof handlers.onDelete === 'function' && payload?.old) {
+            handlers.onDelete(payload.old);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       channel.unsubscribe();
@@ -302,6 +445,102 @@ export const chatService = {
           console.log(`Subscribed to unread changes for user ${userId}`);
         }
       });
+
+    return () => {
+      channel.unsubscribe();
+    };
+  },
+
+  /**
+   * Subscribe to typing state in a conversation via realtime presence.
+   */
+  subscribeToTyping(conversationId, userId, onTypingChange) {
+    const channel = supabase.channel(`typing-${conversationId}`, {
+      config: {
+        presence: {
+          key: userId
+        }
+      }
+    });
+
+    const emitTypingUsers = () => {
+      const presenceState = channel.presenceState();
+      const typingUserIds = [];
+
+      Object.values(presenceState).forEach((entries) => {
+        (entries || []).forEach((entry) => {
+          if (!entry?.user_id || entry.user_id === userId) return;
+          if (entry.is_typing) {
+            typingUserIds.push(entry.user_id);
+          }
+        });
+      });
+
+      if (typeof onTypingChange === 'function') {
+        onTypingChange(Array.from(new Set(typingUserIds)));
+      }
+    };
+
+    channel
+      .on('presence', { event: 'sync' }, emitTypingUsers)
+      .on('presence', { event: 'join' }, emitTypingUsers)
+      .on('presence', { event: 'leave' }, emitTypingUsers)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: userId,
+            conversation_id: conversationId,
+            is_typing: false,
+            updated_at: new Date().toISOString()
+          });
+        }
+      });
+
+    const setTyping = async (isTyping) => {
+      try {
+        await channel.track({
+          user_id: userId,
+          conversation_id: conversationId,
+          is_typing: Boolean(isTyping),
+          updated_at: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Error updating typing state:', error);
+      }
+    };
+
+    return {
+      setTyping,
+      unsubscribe: () => {
+        if (typeof channel.untrack === 'function') {
+          channel.untrack();
+        }
+        channel.unsubscribe();
+      }
+    };
+  },
+
+  /**
+   * Subscribe to participant seen updates in a conversation.
+   */
+  subscribeToConversationParticipantSeen(conversationId, onParticipantSeen) {
+    const channel = supabase
+      .channel(`conversation-seen-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `conversation_id=eq.${conversationId}`
+        },
+        (payload) => {
+          if (typeof onParticipantSeen === 'function' && payload?.new) {
+            onParticipantSeen(payload.new);
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       channel.unsubscribe();

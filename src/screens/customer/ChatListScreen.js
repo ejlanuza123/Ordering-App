@@ -1,11 +1,25 @@
 // src/screens/customer/ChatListScreen.js
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo,useCallback } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Image, AppState } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { chatService } from '../../services/chatService';
 import { formatDistanceToNow } from 'date-fns';
+
+const RECONCILE_INTERVAL_MS = 75000;
+
+const toMillis = (value) => {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
+};
+
+const isConversationUnread = (conversation) => {
+  const lastSeenMs = toMillis(conversation?.lastSeenAt);
+  const updatedMs = toMillis(conversation?.updated_at);
+  if (lastSeenMs === null || updatedMs === null) return false;
+  return lastSeenMs < updatedMs;
+};
 
 const ChatListScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -13,16 +27,141 @@ const ChatListScreen = ({ navigation }) => {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const unsubscribeRef = useRef(null);
   const unreadUnsubscribeRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState);
+  const syncTimerRef = useRef(null);
+  const bootstrapCompleteRef = useRef(false);
 
   const unreadCount = useMemo(
-    () => conversations.filter((conversation) => new Date(conversation.lastSeenAt) < new Date(conversation.updated_at)).length,
+    () => conversations.filter((conversation) => isConversationUnread(conversation)).length,
     [conversations]
   );
 
+  const loadConversations = useCallback(async (options = {}) => {
+    const { showLoader = true } = options;
+    if (!user?.id) return;
+
+    if (showLoader) {
+      setLoading(true);
+    }
+
+    const result = await chatService.getConversations(user.id);
+    if (result.success) {
+      setConversations(result.conversations);
+    } else {
+      console.error('Error loading conversations:', result.error);
+    }
+
+    if (showLoader) {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const handleForegroundResync = useCallback(() => {
+    if (!bootstrapCompleteRef.current) {
+      return;
+    }
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = setTimeout(() => {
+      setIsSyncing(true);
+    }, 500);
+
+    loadConversations({ showLoader: false }).finally(() => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+      setIsSyncing(false);
+    });
+  }, [loadConversations]);
+
+  const handleScreenFocus = useCallback(() => {
+    if (!bootstrapCompleteRef.current) {
+      return;
+    }
+
+    loadConversations({ showLoader: false });
+  }, [loadConversations]);
+
+  const applyRealtimeConversationUpdate = useCallback((event) => {
+    const row = event?.payload?.new;
+    if (!row) return false;
+
+    if (event.source === 'participants') {
+      const conversationId = row.conversation_id;
+      if (!conversationId) return false;
+
+      let didChange = false;
+
+      setConversations((prev) => {
+        let changed = false;
+        const next = prev.map((conversation) => {
+          if (String(conversation.conversationId) !== String(conversationId)) {
+            return conversation;
+          }
+
+          changed = true;
+          return {
+            ...conversation,
+            lastSeenAt: row.last_seen_at || conversation.lastSeenAt
+          };
+        });
+
+        didChange = changed;
+
+        return changed ? next : prev;
+      });
+
+      return didChange;
+    }
+
+    if (event.source === 'messages') {
+      const conversationId = row.conversation_id;
+      if (!conversationId) return false;
+
+      let didChange = false;
+
+      setConversations((prev) => {
+        const index = prev.findIndex(
+          (conversation) => String(conversation.conversationId) === String(conversationId)
+        );
+        if (index === -1) return prev;
+
+        const next = [...prev];
+        const existing = next[index];
+        const updatedAt = row.created_at || existing.updated_at;
+        const lastSeenAt = row.sender_id === user?.id ? updatedAt : existing.lastSeenAt;
+        const patched = {
+          ...existing,
+          updated_at: updatedAt,
+          last_message: row.content || existing.last_message,
+          lastSeenAt
+        };
+
+        didChange = true;
+        next.splice(index, 1);
+        return [patched, ...next];
+      });
+
+      return didChange;
+    }
+
+    return false;
+  }, [user?.id]);
+
   useEffect(() => {
-    loadConversations();
+    const bootstrap = async () => {
+      await loadConversations();
+      bootstrapCompleteRef.current = true;
+    };
+
+    bootstrap();
     
     // Subscribe to new conversations
     if (user?.id) {
@@ -30,17 +169,26 @@ const ChatListScreen = ({ navigation }) => {
         user.id,
         (newConversation) => {
           setConversations((prev) => {
-            const index = prev.findIndex((c) => c.id === newConversation.id);
+            const index = prev.findIndex((c) => String(c.conversationId) === String(newConversation.id));
             if (index > -1) {
               return prev;
             }
-            return [newConversation, ...prev];
+
+            return [{
+              conversationId: newConversation.id,
+              ...newConversation,
+              participants: newConversation.conversation_participants || [],
+              lastSeenAt: newConversation.updated_at
+            }, ...prev];
           });
         }
       );
 
-        unreadUnsubscribeRef.current = chatService.subscribeToUnreadChanges(user.id, () => {
-          loadConversations();
+        unreadUnsubscribeRef.current = chatService.subscribeToUnreadChanges(user.id, (event) => {
+          const handled = applyRealtimeConversationUpdate(event);
+          if (!handled) {
+            loadConversations({ showLoader: false });
+          }
         });
     }
 
@@ -52,31 +200,66 @@ const ChatListScreen = ({ navigation }) => {
         if (unreadUnsubscribeRef.current) {
           unreadUnsubscribeRef.current();
         }
+
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+
+      bootstrapCompleteRef.current = false;
     };
-  }, [user?.id]);
+  }, [user?.id, loadConversations, applyRealtimeConversationUpdate]);
 
-  const loadConversations = async () => {
-    if (!user?.id) return;
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      const wasInactive = appStateRef.current === 'inactive' || appStateRef.current === 'background';
+      if (wasInactive && nextAppState === 'active') {
+        handleForegroundResync();
+      }
+      appStateRef.current = nextAppState;
+    });
 
-    setLoading(true);
-    const result = await chatService.getConversations(user.id);
-    if (result.success) {
-      setConversations(result.conversations);
-    } else {
-      console.error('Error loading conversations:', result.error);
-    }
-    setLoading(false);
-  };
+    return () => {
+      subscription.remove();
+    };
+  }, [handleForegroundResync]);
+
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener('focus', handleScreenFocus);
+
+    return () => {
+      unsubscribeFocus();
+    };
+  }, [navigation, handleScreenFocus]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (!bootstrapCompleteRef.current) {
+        return;
+      }
+
+      if (appStateRef.current !== 'active') {
+        return;
+      }
+
+      loadConversations({ showLoader: false });
+    }, RECONCILE_INTERVAL_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [loadConversations]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadConversations();
+    await loadConversations({ showLoader: false });
     setRefreshing(false);
   };
 
   const getOtherParticipant = (conversation) => {
+    if (conversation?.custom_name) return conversation.custom_name;
     const other = conversation.participants?.find((p) => p.user_id !== user?.id);
-    return other?.profiles?.full_name || 'Unknown';
+    return other?.profiles?.full_name || (conversation.type === 'admin_rider' ? 'Admin Support' : 'Rider');
   };
 
   const getOrderReference = (conversation) => {
@@ -101,7 +284,7 @@ const ChatListScreen = ({ navigation }) => {
     const otherParticipant = item.participants?.find((p) => p.user_id !== user?.id);
     const avatarSource = getAvatarSource(otherParticipant);
     const timeAgo = formatDistanceToNow(new Date(item.updated_at), { addSuffix: true });
-    const isUnread = new Date(item.lastSeenAt) < new Date(item.updated_at);
+    const isUnread = isConversationUnread(item);
     const preview = item.last_message || (item.type === 'customer_rider' ? `Order #${getOrderReference(item)} chat` : 'Direct support chat');
 
     return (
@@ -180,6 +363,11 @@ const ChatListScreen = ({ navigation }) => {
                 <Ionicons name="chatbubbles" size={14} color="#0033A0" />
                 <Text style={styles.headerPillText}>{unreadCount} unread</Text>
               </View>
+              {isSyncing && (
+                <View style={styles.syncingPill}>
+                  <Text style={styles.syncingPillText}>Syncing...</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -301,6 +489,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0033A0'
+  },
+  syncingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FDE68A',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  syncingPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
   },
   listContent: {
     paddingHorizontal: 16,
