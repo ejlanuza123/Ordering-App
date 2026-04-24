@@ -15,7 +15,6 @@ import {
   Image,
   AppState,
   Modal,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,11 +36,12 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
   const [messageMenuVisible, setMessageMenuVisible] = useState(false);
   const [conversationMenuVisible, setConversationMenuVisible] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
-  const [messageActionPosition, setMessageActionPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [conversationActionBusy, setConversationActionBusy] = useState(false);
   const flatListRef = useRef(null);
+  const initialScrollPendingRef = useRef(false);
   const unsubscribeRef = useRef(null);
   const seenUnsubscribeRef = useRef(null);
   const messageMutationUnsubscribeRef = useRef(null);
@@ -112,6 +112,12 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
     };
   }, [navigation, resyncThreadData]);
 
+  useEffect(() => {
+    if (!loading && messages.length > 0 && initialScrollPendingRef.current) {
+      scrollToLatest(false);
+      initialScrollPendingRef.current = false;
+    }
+  }, [loading, messages.length, scrollToLatest]);
   const loadInitialData = async () => {
     setLoading(true);
     try {
@@ -123,6 +129,7 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
       const messagesResult = await chatService.getMessages(conversationId, 100);
       if (messagesResult.success) {
         setMessages(messagesResult.messages);
+        initialScrollPendingRef.current = true;
       }
 
       if (user?.id) {
@@ -279,28 +286,20 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
     setSelectedMessage(null);
   };
 
-  const handleDeleteConversation = async () => {
-    Alert.alert(
-      'Delete Conversation',
-      'Are you sure you want to delete this conversation? This action cannot be undone.',
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Delete',
-          onPress: async () => {
-            const result = await chatService.deleteConversation(conversationId);
-            if (!result.success) {
-              console.error('Delete conversation failed:', result.error || 'Failed to delete conversation');
-              return;
-            }
+  const handleDeleteConversation = () => {
+    setConversationMenuVisible(false);
+    setDeleteConfirmVisible(true);
+  };
 
-            setConversationMenuVisible(false);
-            navigation.goBack();
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+  const confirmDeleteConversation = async () => {
+    const result = await chatService.deleteConversation(conversationId);
+    if (!result.success) {
+      console.error('Delete conversation failed:', result.error || 'Failed to delete conversation');
+      return;
+    }
+
+    setDeleteConfirmVisible(false);
+    navigation.goBack();
   };
 
   const handleRenameConversation = async () => {
@@ -428,10 +427,6 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
               onPress={() => {
                 setSelectedMessage(item);
                 setMessageMenuVisible(true);
-              }}
-              onLayout={(event) => {
-                const { x, y, width, height } = event.nativeEvent.layout;
-                setMessageActionPosition({ x, y, width, height });
               }}
               activeOpacity={0.8}
             >
@@ -569,7 +564,11 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
       </KeyboardAvoidingView>
 
       <Modal visible={conversationMenuVisible} transparent animationType="fade" onRequestClose={() => setConversationMenuVisible(false)}>
-        <TouchableOpacity style={styles.menuBackdrop} activeOpacity={1} onPress={() => setConversationMenuVisible(false)}>
+        <TouchableOpacity
+          style={[styles.menuBackdrop, { paddingTop: Math.max(insets.top, 12) + 42 }]}
+          activeOpacity={1}
+          onPress={() => setConversationMenuVisible(false)}
+        >
           <View style={styles.dropdownMenuCard}>
             <TouchableOpacity style={styles.dropdownMenuItem} onPress={() => { setConversationMenuVisible(false); setRenameDraft(conversation?.custom_name || ''); setRenameModalVisible(true); }}>
               <Text style={styles.dropdownMenuItemText}>Rename</Text>
@@ -613,6 +612,25 @@ const RiderChatThreadScreen = ({ route, navigation }) => {
                 <Text style={[styles.renameModalButtonText, styles.renameModalButtonPrimaryText]}>
                   {conversationActionBusy ? 'Saving...' : 'Save'}
                 </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={deleteConfirmVisible} transparent animationType="fade" onRequestClose={() => setDeleteConfirmVisible(false)}>
+        <View style={styles.renameModalBackdrop}>
+          <View style={styles.renameModalCard}>
+            <Text style={styles.renameModalTitle}>Delete conversation?</Text>
+            <Text style={styles.deleteModalBodyText}>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </Text>
+            <View style={styles.renameModalActions}>
+              <TouchableOpacity onPress={() => setDeleteConfirmVisible(false)} style={styles.renameModalButton}>
+                <Text style={styles.renameModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={confirmDeleteConversation} style={[styles.renameModalButton, styles.deleteModalButton]}>
+                <Text style={[styles.renameModalButtonText, styles.renameModalButtonPrimaryText]}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1047,6 +1065,15 @@ const styles = StyleSheet.create({
   },
   renameModalButtonPrimaryText: {
     color: '#FFFFFF',
+  },
+  deleteModalBodyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#334155',
+    marginBottom: 14,
+  },
+  deleteModalButton: {
+    backgroundColor: '#B91C1C',
   },
 });
 

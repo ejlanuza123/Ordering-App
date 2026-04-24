@@ -23,6 +23,7 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
   const [toggleSide, setToggleSide] = useState('left');
+  const [toggleTop, setToggleTop] = useState(Math.max(EDGE_PADDING, screenHeight - 190));
   const inactivityTimerRef = useRef(null);
   const position = useRef(
     new Animated.ValueXY({
@@ -80,7 +81,20 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
     }
 
     inactivityTimerRef.current = setTimeout(() => {
-      setIsHidden(true);
+      position.stopAnimation((value) => {
+        const currentX = value?.x ?? EDGE_PADDING;
+        const currentY = value?.y ?? Math.max(EDGE_PADDING, screenHeight - 190);
+        const midpointX = (bounds.minX + bounds.maxX) / 2;
+        const targetSide = currentX <= midpointX ? 'left' : 'right';
+        const targetTop = Math.min(
+          Math.max(currentY, EDGE_PADDING),
+          Math.max(EDGE_PADDING, screenHeight - TOGGLE_TAB_HEIGHT - EDGE_PADDING)
+        );
+
+        setToggleSide(targetSide);
+        setToggleTop(targetTop);
+        setIsHidden(true);
+      });
     }, INACTIVITY_TIMEOUT_MS);
   };
 
@@ -141,7 +155,6 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
 
   if (isHidden) {
     const toggleX = toggleSide === 'left' ? 0 : screenWidth - TOGGLE_TAB_WIDTH;
-    const toggleY = Math.max(EDGE_PADDING, screenHeight - 190);
 
     const toggleTabDynamicStyle =
       toggleSide === 'left'
@@ -166,7 +179,7 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
           {
             left: toggleSide === 'left' ? 0 : undefined,
             right: toggleSide === 'right' ? 0 : undefined,
-            top: toggleY,
+            top: toggleTop,
           },
         ]}
         onPress={() => {

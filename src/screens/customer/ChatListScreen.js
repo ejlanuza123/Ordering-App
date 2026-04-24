@@ -118,7 +118,7 @@ const ChatListScreen = ({ navigation }) => {
         return changed ? next : prev;
       });
 
-      return didChange;
+      return true;
     }
 
     if (event.source === 'messages') {
@@ -149,7 +149,7 @@ const ChatListScreen = ({ navigation }) => {
         return [patched, ...next];
       });
 
-      return didChange;
+      return true;
     }
 
     return false;

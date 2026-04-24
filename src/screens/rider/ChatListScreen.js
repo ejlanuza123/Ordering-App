@@ -129,7 +129,7 @@ const RiderChatListScreen = ({ navigation }) => {
         return changed ? next : prev;
       });
 
-      return didChange;
+      return true;
     }
 
     if (event.source === 'messages') {
@@ -160,7 +160,7 @@ const RiderChatListScreen = ({ navigation }) => {
         return [patched, ...next];
       });
 
-      return didChange;
+      return true;
     }
 
     return false;
