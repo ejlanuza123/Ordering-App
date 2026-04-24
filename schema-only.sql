@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict QbLQ2bulHfVuPj414wNnvc4gQGRnh75tJqXfXoqT7MQCy3gVPMLGDew5wRbzQlb
+\restrict nTLqjIySdLNkLbndDzV6awcbuv1XdvgERHwrfTzaA94UjT8PEvz9scCIYEi7y41
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.9
@@ -1978,6 +1978,27 @@ BEGIN
     updated_at = NOW()
   WHERE id = NEW.id;
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: touch_conversation_timestamp_on_message_mutation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.touch_conversation_timestamp_on_message_mutation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  v_conversation_id UUID;
+BEGIN
+  v_conversation_id := COALESCE(NEW.conversation_id, OLD.conversation_id);
+
+  UPDATE conversations
+  SET updated_at = NOW()
+  WHERE id = v_conversation_id;
+
+  RETURN COALESCE(NEW, OLD);
 END;
 $$;
 
@@ -4533,6 +4554,7 @@ CREATE TABLE public.conversations (
     order_id bigint,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    custom_name text,
     CONSTRAINT conversations_type_check CHECK ((type = ANY (ARRAY['customer_rider'::text, 'admin_rider'::text])))
 );
 
@@ -5074,54 +5096,6 @@ PARTITION BY RANGE (inserted_at);
 
 
 --
--- Name: messages_2026_04_18; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.messages_2026_04_18 (
-    topic text NOT NULL,
-    extension text NOT NULL,
-    payload jsonb,
-    event text,
-    private boolean DEFAULT false,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
-);
-
-
---
--- Name: messages_2026_04_19; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.messages_2026_04_19 (
-    topic text NOT NULL,
-    extension text NOT NULL,
-    payload jsonb,
-    event text,
-    private boolean DEFAULT false,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
-);
-
-
---
--- Name: messages_2026_04_20; Type: TABLE; Schema: realtime; Owner: -
---
-
-CREATE TABLE realtime.messages_2026_04_20 (
-    topic text NOT NULL,
-    extension text NOT NULL,
-    payload jsonb,
-    event text,
-    private boolean DEFAULT false,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL,
-    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
-    id uuid DEFAULT gen_random_uuid() NOT NULL
-);
-
-
---
 -- Name: messages_2026_04_21; Type: TABLE; Schema: realtime; Owner: -
 --
 
@@ -5174,6 +5148,54 @@ CREATE TABLE realtime.messages_2026_04_23 (
 --
 
 CREATE TABLE realtime.messages_2026_04_24 (
+    topic text NOT NULL,
+    extension text NOT NULL,
+    payload jsonb,
+    event text,
+    private boolean DEFAULT false,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL
+);
+
+
+--
+-- Name: messages_2026_04_25; Type: TABLE; Schema: realtime; Owner: -
+--
+
+CREATE TABLE realtime.messages_2026_04_25 (
+    topic text NOT NULL,
+    extension text NOT NULL,
+    payload jsonb,
+    event text,
+    private boolean DEFAULT false,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL
+);
+
+
+--
+-- Name: messages_2026_04_26; Type: TABLE; Schema: realtime; Owner: -
+--
+
+CREATE TABLE realtime.messages_2026_04_26 (
+    topic text NOT NULL,
+    extension text NOT NULL,
+    payload jsonb,
+    event text,
+    private boolean DEFAULT false,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    inserted_at timestamp without time zone DEFAULT now() NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL
+);
+
+
+--
+-- Name: messages_2026_04_27; Type: TABLE; Schema: realtime; Owner: -
+--
+
+CREATE TABLE realtime.messages_2026_04_27 (
     topic text NOT NULL,
     extension text NOT NULL,
     payload jsonb,
@@ -5393,27 +5415,6 @@ CREATE TABLE supabase_migrations.seed_files (
 
 
 --
--- Name: messages_2026_04_18; Type: TABLE ATTACH; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_18 FOR VALUES FROM ('2026-04-18 00:00:00') TO ('2026-04-19 00:00:00');
-
-
---
--- Name: messages_2026_04_19; Type: TABLE ATTACH; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_19 FOR VALUES FROM ('2026-04-19 00:00:00') TO ('2026-04-20 00:00:00');
-
-
---
--- Name: messages_2026_04_20; Type: TABLE ATTACH; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_20 FOR VALUES FROM ('2026-04-20 00:00:00') TO ('2026-04-21 00:00:00');
-
-
---
 -- Name: messages_2026_04_21; Type: TABLE ATTACH; Schema: realtime; Owner: -
 --
 
@@ -5439,6 +5440,27 @@ ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_23
 --
 
 ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_24 FOR VALUES FROM ('2026-04-24 00:00:00') TO ('2026-04-25 00:00:00');
+
+
+--
+-- Name: messages_2026_04_25; Type: TABLE ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_25 FOR VALUES FROM ('2026-04-25 00:00:00') TO ('2026-04-26 00:00:00');
+
+
+--
+-- Name: messages_2026_04_26; Type: TABLE ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_26 FOR VALUES FROM ('2026-04-26 00:00:00') TO ('2026-04-27 00:00:00');
+
+
+--
+-- Name: messages_2026_04_27; Type: TABLE ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages ATTACH PARTITION realtime.messages_2026_04_27 FOR VALUES FROM ('2026-04-27 00:00:00') TO ('2026-04-28 00:00:00');
 
 
 --
@@ -5913,30 +5935,6 @@ ALTER TABLE ONLY realtime.messages
 
 
 --
--- Name: messages_2026_04_18 messages_2026_04_18_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages_2026_04_18
-    ADD CONSTRAINT messages_2026_04_18_pkey PRIMARY KEY (id, inserted_at);
-
-
---
--- Name: messages_2026_04_19 messages_2026_04_19_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages_2026_04_19
-    ADD CONSTRAINT messages_2026_04_19_pkey PRIMARY KEY (id, inserted_at);
-
-
---
--- Name: messages_2026_04_20 messages_2026_04_20_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
---
-
-ALTER TABLE ONLY realtime.messages_2026_04_20
-    ADD CONSTRAINT messages_2026_04_20_pkey PRIMARY KEY (id, inserted_at);
-
-
---
 -- Name: messages_2026_04_21 messages_2026_04_21_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
 --
 
@@ -5966,6 +5964,30 @@ ALTER TABLE ONLY realtime.messages_2026_04_23
 
 ALTER TABLE ONLY realtime.messages_2026_04_24
     ADD CONSTRAINT messages_2026_04_24_pkey PRIMARY KEY (id, inserted_at);
+
+
+--
+-- Name: messages_2026_04_25 messages_2026_04_25_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages_2026_04_25
+    ADD CONSTRAINT messages_2026_04_25_pkey PRIMARY KEY (id, inserted_at);
+
+
+--
+-- Name: messages_2026_04_26 messages_2026_04_26_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages_2026_04_26
+    ADD CONSTRAINT messages_2026_04_26_pkey PRIMARY KEY (id, inserted_at);
+
+
+--
+-- Name: messages_2026_04_27 messages_2026_04_27_pkey; Type: CONSTRAINT; Schema: realtime; Owner: -
+--
+
+ALTER TABLE ONLY realtime.messages_2026_04_27
+    ADD CONSTRAINT messages_2026_04_27_pkey PRIMARY KEY (id, inserted_at);
 
 
 --
@@ -6871,27 +6893,6 @@ CREATE INDEX messages_inserted_at_topic_index ON ONLY realtime.messages USING bt
 
 
 --
--- Name: messages_2026_04_18_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE INDEX messages_2026_04_18_inserted_at_topic_idx ON realtime.messages_2026_04_18 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
-
-
---
--- Name: messages_2026_04_19_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE INDEX messages_2026_04_19_inserted_at_topic_idx ON realtime.messages_2026_04_19 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
-
-
---
--- Name: messages_2026_04_20_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
---
-
-CREATE INDEX messages_2026_04_20_inserted_at_topic_idx ON realtime.messages_2026_04_20 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
-
-
---
 -- Name: messages_2026_04_21_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
 --
 
@@ -6917,6 +6918,27 @@ CREATE INDEX messages_2026_04_23_inserted_at_topic_idx ON realtime.messages_2026
 --
 
 CREATE INDEX messages_2026_04_24_inserted_at_topic_idx ON realtime.messages_2026_04_24 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
+
+
+--
+-- Name: messages_2026_04_25_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
+--
+
+CREATE INDEX messages_2026_04_25_inserted_at_topic_idx ON realtime.messages_2026_04_25 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
+
+
+--
+-- Name: messages_2026_04_26_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
+--
+
+CREATE INDEX messages_2026_04_26_inserted_at_topic_idx ON realtime.messages_2026_04_26 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
+
+
+--
+-- Name: messages_2026_04_27_inserted_at_topic_idx; Type: INDEX; Schema: realtime; Owner: -
+--
+
+CREATE INDEX messages_2026_04_27_inserted_at_topic_idx ON realtime.messages_2026_04_27 USING btree (inserted_at DESC, topic) WHERE ((extension = 'broadcast'::text) AND (private IS TRUE));
 
 
 --
@@ -6983,48 +7005,6 @@ CREATE UNIQUE INDEX vector_indexes_name_bucket_id_idx ON storage.vector_indexes 
 
 
 --
--- Name: messages_2026_04_18_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_18_inserted_at_topic_idx;
-
-
---
--- Name: messages_2026_04_18_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_18_pkey;
-
-
---
--- Name: messages_2026_04_19_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_19_inserted_at_topic_idx;
-
-
---
--- Name: messages_2026_04_19_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_19_pkey;
-
-
---
--- Name: messages_2026_04_20_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_20_inserted_at_topic_idx;
-
-
---
--- Name: messages_2026_04_20_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
---
-
-ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_20_pkey;
-
-
---
 -- Name: messages_2026_04_21_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
 --
 
@@ -7081,6 +7061,48 @@ ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_24
 
 
 --
+-- Name: messages_2026_04_25_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_25_inserted_at_topic_idx;
+
+
+--
+-- Name: messages_2026_04_25_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_25_pkey;
+
+
+--
+-- Name: messages_2026_04_26_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_26_inserted_at_topic_idx;
+
+
+--
+-- Name: messages_2026_04_26_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_26_pkey;
+
+
+--
+-- Name: messages_2026_04_27_inserted_at_topic_idx; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_inserted_at_topic_index ATTACH PARTITION realtime.messages_2026_04_27_inserted_at_topic_idx;
+
+
+--
+-- Name: messages_2026_04_27_pkey; Type: INDEX ATTACH; Schema: realtime; Owner: -
+--
+
+ALTER INDEX realtime.messages_pkey ATTACH PARTITION realtime.messages_2026_04_27_pkey;
+
+
+--
 -- Name: users handle_user_delete_on_auth_users; Type: TRIGGER; Schema: auth; Owner: -
 --
 
@@ -7102,6 +7124,13 @@ CREATE TRIGGER sync_user_email_on_auth_users AFTER INSERT OR UPDATE OF email ON 
 
 
 --
+-- Name: messages on_message_delete_touch_conversation; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_message_delete_touch_conversation AFTER DELETE ON public.messages FOR EACH ROW EXECUTE FUNCTION public.touch_conversation_timestamp_on_message_mutation();
+
+
+--
 -- Name: messages on_message_insert_create_notification; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -7120,6 +7149,13 @@ CREATE TRIGGER on_message_insert_update_conversation AFTER INSERT ON public.mess
 --
 
 CREATE TRIGGER on_message_insert_update_last_seen AFTER INSERT ON public.messages FOR EACH ROW EXECUTE FUNCTION public.reset_last_seen_on_new_message();
+
+
+--
+-- Name: messages on_message_update_touch_conversation; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER on_message_update_touch_conversation AFTER UPDATE ON public.messages FOR EACH ROW EXECUTE FUNCTION public.touch_conversation_timestamp_on_message_mutation();
 
 
 --
@@ -8319,6 +8355,20 @@ CREATE POLICY orders_update_rider ON public.orders FOR UPDATE USING ((rider_id =
 
 
 --
+-- Name: conversations participants_can_delete_conversations; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY participants_can_delete_conversations ON public.conversations FOR DELETE USING (public.is_conversation_participant(id, auth.uid()));
+
+
+--
+-- Name: conversations participants_can_update_conversations; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY participants_can_update_conversations ON public.conversations FOR UPDATE USING (public.is_conversation_participant(id, auth.uid())) WITH CHECK (public.is_conversation_participant(id, auth.uid()));
+
+
+--
 -- Name: product_reviews; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -8530,6 +8580,13 @@ CREATE POLICY user_addresses_own ON public.user_addresses USING ((auth.uid() = u
 
 
 --
+-- Name: messages users_can_delete_own_messages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY users_can_delete_own_messages ON public.messages FOR DELETE USING (((auth.uid() = sender_id) AND public.is_conversation_participant(conversation_id, auth.uid())));
+
+
+--
 -- Name: messages users_can_insert_messages; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -8548,6 +8605,13 @@ CREATE POLICY users_can_read_own_messages ON public.messages FOR SELECT USING (p
 --
 
 CREATE POLICY users_can_update_own_last_seen ON public.conversation_participants FOR UPDATE USING ((user_id = auth.uid())) WITH CHECK ((user_id = auth.uid()));
+
+
+--
+-- Name: messages users_can_update_own_messages; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY users_can_update_own_messages ON public.messages FOR UPDATE USING (((auth.uid() = sender_id) AND public.is_conversation_participant(conversation_id, auth.uid()))) WITH CHECK (((auth.uid() = sender_id) AND public.is_conversation_participant(conversation_id, auth.uid())));
 
 
 --
@@ -8818,5 +8882,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QbLQ2bulHfVuPj414wNnvc4gQGRnh75tJqXfXoqT7MQCy3gVPMLGDew5wRbzQlb
+\unrestrict nTLqjIySdLNkLbndDzV6awcbuv1XdvgERHwrfTzaA94UjT8PEvz9scCIYEi7y41
 
