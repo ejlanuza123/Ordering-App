@@ -65,6 +65,7 @@ export default function RiderDashboardScreen({ navigation }) {
     monthly: 0,
     pending: 0
   });
+  const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(50);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,6 +98,17 @@ export default function RiderDashboardScreen({ navigation }) {
   const fetchDashboardData = useCallback(async () => {
     try {
       if (!profile) return;
+
+      const { data: deliveryFeeSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'default_delivery_fee')
+        .single();
+
+      const parsedDefaultFee = parseFloat(deliveryFeeSetting?.value);
+      if (!Number.isNaN(parsedDefaultFee) && parsedDefaultFee >= 0) {
+        setDefaultDeliveryFee(parsedDefaultFee);
+      }
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -599,7 +611,7 @@ export default function RiderDashboardScreen({ navigation }) {
               <Text style={styles.earningsAmount}>{formatCurrency(stats.totalEarnings)}</Text>
             </View>
             <View style={styles.earningsBadge}>
-              <Text style={styles.earningsBadgeText}>+₱50/delivery</Text>
+              <Text style={styles.earningsBadgeText}>Default fee: {formatCurrency(defaultDeliveryFee)}</Text>
             </View>
           </View>
           
@@ -729,7 +741,7 @@ export default function RiderDashboardScreen({ navigation }) {
                     {formatTimeAgo(delivery.delivered_at)}
                   </Text>
                 </View>
-                <Text style={styles.recentAmount}>+₱50</Text>
+                <Text style={styles.recentAmount}>+{formatCurrency(parseFloat(delivery.orders?.delivery_fee) || 0)}</Text>
               </View>
             ))}
           </View>
@@ -859,7 +871,7 @@ export default function RiderDashboardScreen({ navigation }) {
               </View>
 
               <Text style={styles.earningsNote}>
-                * ₱50 per completed delivery
+                * Earnings are based on each order's delivery fee.
               </Text>
             </View>
           </View>
