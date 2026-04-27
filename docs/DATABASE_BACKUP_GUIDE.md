@@ -64,18 +64,37 @@ This is the recommended format because it is easier to restore with `pg_restore`
 If `pg_dump` is already added to your Windows `PATH`, you can run it without the full executable path:
 
 ```powershell
+# Use a timestamp to avoid overwriting previous backups (format: yyyyMMdd-HHmmss)
+$ts = Get-Date -Format yyyyMMdd-HHmmss
+pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup-$ts.dump"
+
+# Or, if you prefer a predictable filename (no timestamp):
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup.dump"
 ```
 
 Command Prompt (cmd):
 
 ```cmd
+for /f "usebackq" %t in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"`) do pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup-%t.dump"
+
+:: Or, without timestamp:
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup.dump"
 ```
 
 If you have not refreshed your terminal after installing PostgreSQL, open a new PowerShell or cmd window first. If Windows still cannot find `pg_dump`, use the full path version below.
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
+  -h aws-1-ap-south-1.pooler.supabase.com `
+  -p 5432 `
+  -U postgres.etypzzzobbacpvwvjhuf `
+  -d postgres `
+  -Fc `
+  --no-owner `
+  --no-acl `
+  -f "C:\Projects\backup-$(Get-Date -Format yyyyMMdd-HHmmss).dump"
+
+# Or, without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
   -h aws-1-ap-south-1.pooler.supabase.com `
   -p 5432 `
@@ -92,6 +111,13 @@ When prompted, enter the Supabase database password.
 ### Verify the dump file
 
 ```powershell
+# If you used $ts in the same session:
+Get-Item "C:\Projects\backup-$ts.dump"
+
+# Or list recent backups:
+Get-ChildItem "C:\Projects\backup-*.dump" | Sort-Object LastWriteTime -Descending
+
+# Or, if you used a predictable filename:
 Get-Item "C:\Projects\backup.dump"
 ```
 
@@ -102,18 +128,37 @@ Use this if you want a human-readable SQL file.
 If `pg_dump.exe` is already available in your `PATH`, you can use the shorter command:
 
 ```powershell
+# Use a timestamp to avoid overwriting previous backups (format: yyyyMMdd-HHmmss)
+$ts = Get-Date -Format yyyyMMdd-HHmmss
+pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup-$ts.sql"
+
+# Or, without timestamp:
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup.sql"
 ```
 
 Command Prompt (cmd):
 
 ```cmd
+for /f "usebackq" %t in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"`) do pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup-%t.sql"
+
+:: Or without timestamp:
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup.sql"
 ```
 
 If PowerShell or cmd still cannot find `pg_dump`, use the full path version below.
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
+  -h aws-1-ap-south-1.pooler.supabase.com `
+  -p 5432 `
+  -U postgres.etypzzzobbacpvwvjhuf `
+  -d postgres `
+  -Fp `
+  --no-owner `
+  --no-acl `
+  -f "C:\Projects\full-backup-$(Get-Date -Format yyyyMMdd-HHmmss).sql"
+
+# Or without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
   -h aws-1-ap-south-1.pooler.supabase.com `
   -p 5432 `
@@ -132,18 +177,37 @@ Use this when you want database structure only (tables, views, functions, trigge
 If `pg_dump` is already available in your `PATH`:
 
 ```powershell
+# Use a timestamp to avoid overwriting previous backups (format: yyyyMMdd-HHmmss)
+$ts = Get-Date -Format yyyyMMdd-HHmmss
+pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only-$ts.sql"
+
+# Or without timestamp:
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
 ```
 
 Command Prompt (cmd):
 
 ```cmd
+for /f "usebackq" %t in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"`) do pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only-%t.sql"
+
+:: Or without timestamp:
 pg_dump -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
 ```
 
 Full path (PowerShell):
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
+  -h aws-1-ap-south-1.pooler.supabase.com `
+  -p 5432 `
+  -U postgres.etypzzzobbacpvwvjhuf `
+  -d postgres `
+  --schema-only `
+  --no-owner `
+  --no-acl `
+  -f "C:\Projects\schema-only-$(Get-Date -Format yyyyMMdd-HHmmss).sql"
+
+# Or without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" `
   -h aws-1-ap-south-1.pooler.supabase.com `
   -p 5432 `
@@ -327,18 +391,27 @@ SELECT COUNT(*) FROM your_table_name;
 ### Backup to dump
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup-$(Get-Date -Format yyyyMMdd-HHmmss).dump"
+
+# Or without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f "C:\Projects\backup.dump"
 ```
 
 ### Backup to SQL
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup-$(Get-Date -Format yyyyMMdd-HHmmss).sql"
+
+# Or without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "C:\Projects\full-backup.sql"
 ```
 
 ### Backup schema only (no data)
 
 ```powershell
+& "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only-$(Get-Date -Format yyyyMMdd-HHmmss).sql"
+
+# Or without timestamp:
 & "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres --schema-only --no-owner --no-acl -f "C:\Projects\schema-only.sql"
 ```
 
@@ -361,13 +434,13 @@ The backup file path is local to the computer where you run `pg_dump`.
   -Fc `
   --no-owner `
   --no-acl `
-  -f ".\backup.dump"
+  -f ".\backup-$(Get-Date -Format yyyyMMdd-HHmmss).dump"
 ```
 
 Command Prompt (cmd):
 
 ```cmd
-"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f ".\backup.dump"
+for /f "usebackq" %t in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"`) do "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fc --no-owner --no-acl -f ".\backup-%t.dump"
 ```
 
 ### Example using the Desktop
@@ -381,13 +454,13 @@ Command Prompt (cmd):
   -Fp `
   --no-owner `
   --no-acl `
-  -f "$env:USERPROFILE\Desktop\full-backup.sql"
+  -f "$env:USERPROFILE\Desktop\full-backup-$(Get-Date -Format yyyyMMdd-HHmmss).sql"
 ```
 
 Command Prompt (cmd):
 
 ```cmd
-"C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "%USERPROFILE%\Desktop\full-backup.sql"
+for /f "usebackq" %t in (`powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss"`) do "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -h aws-1-ap-south-1.pooler.supabase.com -p 5432 -U postgres.etypzzzobbacpvwvjhuf -d postgres -Fp --no-owner --no-acl -f "%USERPROFILE%\Desktop\full-backup-%t.sql"
 ```
 
 ### Restore on another computer
