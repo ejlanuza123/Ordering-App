@@ -16,8 +16,22 @@ export const AuthProvider = ({ children }) => {
 
   const ALLOWED_ROLES = ['customer', 'rider'];
   const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+  const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
   const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
   const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
+
+  const withTimeout = (operation, timeoutMs, timeoutMessage) => {
+    let timeoutId;
+
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    });
+
+    return Promise.race([
+      operation.finally(() => clearTimeout(timeoutId)),
+      timeoutPromise,
+    ]);
+  };
 
   const clearAuthState = () => {
     setUser(null);
@@ -123,7 +137,11 @@ export const AuthProvider = ({ children }) => {
 
   const checkUser = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_BOOTSTRAP_TIMEOUT_MS,
+        'Auth session check timed out.'
+      );
       if (session) {
         if (await shouldSuppressRecoverySession()) {
           await signOutLocalFirst();
@@ -132,7 +150,11 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Only set user after we confirm role is allowed.
-        await fetchUserProfile(session.user);
+        await withTimeout(
+          fetchUserProfile(session.user),
+          AUTH_BOOTSTRAP_TIMEOUT_MS,
+          'Auth profile lookup timed out.'
+        );
       }
     } catch (error) {
       console.log('Auth check error:', error);

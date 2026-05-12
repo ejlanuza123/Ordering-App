@@ -2,6 +2,17 @@ import React from 'react';
 import { render, waitFor, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+    multiRemove: jest.fn(),
+    getAllKeys: jest.fn(),
+  },
+}));
+
 const mockGetSession = jest.fn();
 const mockOnAuthStateChange = jest.fn();
 const mockSignOut = jest.fn();
@@ -386,5 +397,30 @@ describe('AuthContext provider', () => {
 
     unmount();
     expect(appStateRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the loading gate if auth bootstrap stalls', async () => {
+    jest.useFakeTimers();
+
+    try {
+      mockGetSession.mockReturnValue(new Promise(() => {}));
+
+      const { AuthProvider, useAuth } = require('../../context/AuthContext');
+
+      render(
+        <AuthProvider>
+          <AuthProbe useAuth={useAuth} />
+        </AuthProvider>
+      );
+
+      await act(async () => {
+        jest.advanceTimersByTime(10000);
+        await Promise.resolve();
+      });
+
+      expect(readCtx.current.loading).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

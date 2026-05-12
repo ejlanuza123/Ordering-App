@@ -783,7 +783,7 @@ export default function ReservationScreen({ navigation, route }) {
               <Text style={styles.noticeItem}>- For delivery orders, use the regular ordering flow.</Text>
               <Text style={styles.noticeItem}>- If your schedule changes, use Manage Reservation to change/cancel.</Text>
             </View>
-            <TouchableOpacity style={styles.submitButton} onPress={() => setNoticeVisible(false)}>
+            <TouchableOpacity style={styles.noticeActionButton} onPress={() => setNoticeVisible(false)}>
               <Text style={styles.submitText}>I Understand</Text>
             </TouchableOpacity>
           </View>
@@ -1367,6 +1367,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 48,
   },
+  noticeActionButton: {
+    backgroundColor: '#ED2939',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    alignSelf: 'stretch',
+  },
   submitText: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -1383,6 +1391,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     gap: 10,
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   modalHeaderRow: {
     flexDirection: 'row',
