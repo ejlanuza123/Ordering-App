@@ -34,6 +34,8 @@ export default function RegisterScreen({ navigation }) {
   const [showAlert, setShowAlert] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [termsContentHeight, setTermsContentHeight] = useState(0);
+  const [termsLayoutHeight, setTermsLayoutHeight] = useState(0);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'warning',
@@ -205,6 +207,8 @@ export default function RegisterScreen({ navigation }) {
               onScroll={handleTermsScroll}
               scrollEventThrottle={16}
               showsVerticalScrollIndicator={true}
+              onContentSizeChange={(w, h) => setTermsContentHeight(h)}
+              onLayout={(e) => setTermsLayoutHeight(e.nativeEvent.layout.height)}
             >
               <Text style={styles.termsHeading}>Welcome to Petron San Pedro</Text>
               <Text style={styles.termsParagraph}>
@@ -246,7 +250,7 @@ export default function RegisterScreen({ navigation }) {
               </Text>
             </ScrollView>
 
-            {hasScrolledToBottom && (
+            {(hasScrolledToBottom || (termsContentHeight > 0 && termsLayoutHeight > 0 && termsContentHeight <= termsLayoutHeight)) && (
               <TouchableOpacity style={styles.termsAcceptButton} onPress={handleAcceptTerms}>
                 <Text style={styles.termsAcceptButtonText}>I Have Read and Agree</Text>
               </TouchableOpacity>

@@ -115,6 +115,15 @@ export default function CheckoutScreen({ navigation }) {
 
   const saveAddressToProfile = async () => {
     if (!address.trim()) return;
+    if (addressLat == null || addressLng == null) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Missing Location',
+        message: 'Please pin your location on the map or use current location before saving the address.'
+      });
+      setShowAlert(true);
+      return;
+    }
 
     setSavingAddress(true);
     try {
@@ -190,6 +199,16 @@ export default function CheckoutScreen({ navigation }) {
         type: 'warning',
         title: 'Missing Info',
         message: 'Please enter your delivery address.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
+    if (addressLat == null || addressLng == null) {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Missing Location',
+        message: 'Please pin your delivery location on the map or use current location before placing your order.'
       });
       setShowAlert(true);
       return;
@@ -560,7 +579,7 @@ export default function CheckoutScreen({ navigation }) {
               <TouchableOpacity 
                 style={styles.saveAddressButton}
                 onPress={saveAddressToProfile}
-                disabled={savingAddress || !address.trim()}
+                disabled={savingAddress || !address.trim() || addressLat == null || addressLng == null}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 {savingAddress ? (
@@ -572,6 +591,11 @@ export default function CheckoutScreen({ navigation }) {
                   </>
                 )}
               </TouchableOpacity>
+              { (addressLat == null || addressLng == null) && (
+                <Text style={{ color: '#666', marginTop: 8, fontSize: 13 }}>
+                  Please pin your location on the map to enable saving the address.
+                </Text>
+              )}
             </View>
 
             {/* Payment Method Section */}
@@ -670,10 +694,10 @@ export default function CheckoutScreen({ navigation }) {
             <TouchableOpacity 
               style={[
                 styles.placeOrderButton,
-                (loading || cartItems.length === 0) && styles.placeOrderButtonDisabled
+                (loading || cartItems.length === 0 || addressLat == null || addressLng == null) && styles.placeOrderButtonDisabled
               ]}
               onPress={handlePlaceOrder}
-              disabled={loading || cartItems.length === 0}
+              disabled={loading || cartItems.length === 0 || addressLat == null || addressLng == null}
               activeOpacity={0.8}
             >
               {loading ? (

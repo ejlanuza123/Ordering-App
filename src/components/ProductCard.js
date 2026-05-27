@@ -126,7 +126,7 @@ export default function ProductCard({
           style={[
             styles.actionButton,
             { 
-              backgroundColor: product.stock_quantity > 0 ? getCategoryColor() : '#ccc',
+              backgroundColor: product.stock_quantity > 0 ? '#16A34A' : '#ccc',
               opacity: product.stock_quantity > 0 ? 1 : 0.6
             }
           ]}

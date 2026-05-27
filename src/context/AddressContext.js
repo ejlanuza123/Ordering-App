@@ -34,6 +34,10 @@ export const AddressProvider = ({ children }) => {
   // Add a new address
   const addAddress = useCallback(async (addressData) => {
     if (!user) return { success: false, error: 'Not authenticated' };
+    // Require pinned coordinates when adding a new address
+    if (addressData.address_lat == null || addressData.address_lng == null) {
+      return { success: false, error: 'Please pin the location on the map before saving the address.' };
+    }
 
     try {
       // If this is set as default, unset other defaults first

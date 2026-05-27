@@ -1,5 +1,6 @@
 // mobile-app/src/context/ProductContext.js
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { Alert } from 'react-native';
@@ -16,16 +17,20 @@ export const ProductProvider = ({ children }) => {
 
   // Fetch all products
   const fetchProducts = useCallback(async () => {
+    const timeoutMs = 15000;
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('fetch timeout')), timeoutMs));
+
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const fetchPromise = supabase
         .from('products')
         .select('*')
         .eq('is_active', true) // Only fetch active products
         .order('name');
 
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
       if (error) throw error;
-      
       setProducts(data || []);
       setLastUpdated(new Date());
     } catch (error) {
@@ -171,6 +176,33 @@ export const ProductProvider = ({ children }) => {
     },
     clearRealtimeUpdates: () => setHasRealtimeUpdates(false),
   };
+
+  // Auto-refresh when app comes to foreground if data is stale
+  useEffect(() => {
+    const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
+    const handleAppStateChange = (nextAppState) => {
+      if (nextAppState === 'active') {
+        try {
+          const age = lastUpdated ? (Date.now() - new Date(lastUpdated).getTime()) : Infinity;
+          if (age > REFRESH_THRESHOLD_MS) {
+            // reuse refresh logic
+            (async () => {
+              await fetchProducts();
+              setHasRealtimeUpdates(false);
+            })();
+          }
+        } catch (e) {
+          console.warn('AppState refresh check failed', e.message);
+        }
+      }
+    };
+
+    const sub = AppState.addEventListener ? AppState.addEventListener('change', handleAppStateChange) : null;
+    return () => {
+      if (sub && sub.remove) sub.remove();
+    };
+  }, [lastUpdated, fetchProducts]);
 
   return (
     <ProductContext.Provider value={value}>
