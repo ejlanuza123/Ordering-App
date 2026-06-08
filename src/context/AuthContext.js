@@ -83,7 +83,11 @@ export const AuthProvider = ({ children }) => {
             return;
           }
 
-          await fetchUserProfile(session.user);
+          await withTimeout(
+            fetchUserProfile(session.user),
+            AUTH_BOOTSTRAP_TIMEOUT_MS,
+            'Auth profile lookup timed out.'
+          );
         } catch {
           // If role is invalid we already signed out in fetchUserProfile
         }
@@ -214,15 +218,23 @@ export const AuthProvider = ({ children }) => {
       AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY),
     ]);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      }),
+      AUTH_BOOTSTRAP_TIMEOUT_MS,
+      'Login timed out. Please try again.'
+    );
     if (error) throw error;
     
     if (data.user) {
       try {
-        await fetchUserProfile(data.user);
+        await withTimeout(
+          fetchUserProfile(data.user),
+          AUTH_BOOTSTRAP_TIMEOUT_MS,
+          'Auth profile lookup timed out.'
+        );
       } catch (profileError) {
         const message = profileError?.message || '';
         if (message.toLowerCase().includes('cannot coerce the result to a single json object')) {
