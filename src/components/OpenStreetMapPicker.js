@@ -24,16 +24,17 @@ export default function OpenStreetMapPicker({
 }) {
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
+  const webViewReadyRef = useRef(false);
+  const pendingLocationRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [address, setAddress] = useState(initialAddress || '');
   const [searchQuery, setSearchQuery] = useState('');
-  const [mapHtml, setMapHtml] = useState('');
 
-  // Petron San Pedro Station coordinates
+  // MKC Foods coordinates
   const SAN_PEDRO_COORDS = {
-    lat: 9.7534772,
-    lng: 118.7478688
+    lat: 9.7394855,
+    lng: 118.7413605
   };
 
   // Smart formatter that fixes OSM's wrong boundary data
@@ -41,43 +42,60 @@ export default function OpenStreetMapPicker({
     if (!addressData) return '';
     
     const parts = [];
+
+    const pushUnique = (value) => {
+      if (value && !parts.includes(value)) parts.push(value);
+    };
     
-    // 1. Get specific building/shop name if available (e.g., "Petron")
-    const specificName = addressData.amenity || addressData.shop || addressData.building;
-    if (specificName) parts.push(specificName);
+    // 1. Get the most specific place/building information first
+    pushUnique(addressData.house_number);
+    pushUnique(addressData.amenity || addressData.shop || addressData.building || addressData.office || addressData.tourism);
 
     // 2. Get the road
-    const road = addressData.road || addressData.street;
-    if (road) parts.push(road);
+    pushUnique(addressData.road || addressData.street || addressData.pedestrian || addressData.residential || addressData.tertiary);
 
     // 3. Fix the Barangay Boundary Issue using distance calculation
-    // Calculate rough distance from the pin to Petron San Pedro
-    const distanceToPetron = Math.sqrt(
+    // Calculate rough distance from the pin to the MKC reference point
+    const distanceToReference = Math.sqrt(
       Math.pow(lat - SAN_PEDRO_COORDS.lat, 2) + 
       Math.pow(lng - SAN_PEDRO_COORDS.lng, 2)
     );
 
-    // If the pin is within ~1km of Petron, force it to say "Barangay San Pedro"
-    // Because OSM wrongly maps this area as San Miguel/Tiniguiban
-    if (distanceToPetron < 0.01) {
-      parts.push("Barangay San Pedro");
+    // If the pin is within ~1km of the reference point, force the local barangay label
+    // Because OSM may not label the MKC area consistently
+    if (distanceToReference < 0.01) {
+      pushUnique('Puerto Princesa City');
     } else {
       // If they are far away, trust OSM's barangay data
-      const brgy = addressData.suburb || addressData.village || addressData.neighbourhood || addressData.hamlet;
-      if (brgy) parts.push(brgy);
+      pushUnique(addressData.suburb || addressData.village || addressData.neighbourhood || addressData.hamlet || addressData.city_district);
     }
 
     // 4. Add City and Province
-    const city = addressData.city || addressData.town || addressData.municipality || 'Puerto Princesa City';
-    if (city && !parts.includes(city)) parts.push(city);
+    pushUnique(addressData.city || addressData.town || addressData.municipality || addressData.county || 'Puerto Princesa City');
     
-    parts.push('Palawan');
+    pushUnique(addressData.state || 'Palawan');
+    pushUnique(addressData.postcode);
 
     return parts.join(', ');
   };
 
-  useEffect(() => {
-    const html = `
+  const sendLocationToWebView = (latitude, longitude) => {
+    const payload = JSON.stringify({
+      type: 'SET_LOCATION',
+      lat: latitude,
+      lon: longitude
+    });
+
+    if (webViewRef.current && webViewReadyRef.current) {
+      webViewRef.current.postMessage(payload);
+      return;
+    }
+
+    pendingLocationRef.current = payload;
+  };
+
+  const mapHtml = React.useMemo(() => {
+    return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -106,43 +124,11 @@ export default function OpenStreetMapPicker({
             font-size: 10px;
             z-index: 1000;
           }
-          .search-box {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            border-radius: 8px;
-            padding: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            display: flex;
-            flex-direction: row;
-          }
-          .search-input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-          }
-          .search-button {
-            margin-left: 8px;
-            padding: 10px 15px;
-            background: #0033A0;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-          }
+          /* In-page search removed: RN native search bar will be used */
         </style>
       </head>
       <body>
-        <div class="search-box">
-          <input type="text" id="searchInput" class="search-input" placeholder="Search in Puerto Princesa..." />
-          <button class="search-button" onclick="searchLocation()">Search</button>
-        </div>
+        <!-- In-page search removed; use the native search bar in the app -->
         <div id="map"></div>
         <div class="attribution">© OpenStreetMap contributors</div>
         
@@ -150,9 +136,28 @@ export default function OpenStreetMapPicker({
           let map;
           let marker;
           let geocodeTimeout;
-          
-          const defaultLat = ${SAN_PEDRO_COORDS.lat};
-          const defaultLng = ${SAN_PEDRO_COORDS.lng};
+          let mapInitialized = false;
+          // Forward console and errors to React Native for easier debugging
+          (function() {
+            const origLog = console.log;
+            const origWarn = console.warn;
+            const origError = console.error;
+            console.log = function() {
+              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'log', message: Array.from(arguments).join(' ') })); } catch(e) {}
+              origLog.apply(console, arguments);
+            };
+            console.warn = function() {
+              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'warn', message: Array.from(arguments).join(' ') })); } catch(e) {}
+              origWarn.apply(console, arguments);
+            };
+            console.error = function() {
+              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'error', message: Array.from(arguments).join(' ') })); } catch(e) {}
+              origError.apply(console, arguments);
+            };
+            window.addEventListener('error', function(ev) {
+              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: ev.message + ' at ' + ev.filename + ':' + ev.lineno + ':' + ev.colno })); } catch(e) {}
+            });
+          })();
           
           function initMap(lat, lon) {
             map = L.map('map').setView([lat, lon], 17);
@@ -173,8 +178,8 @@ export default function OpenStreetMapPicker({
             }).addTo(map);
             
             function getAddressFromCoords(lat, lng) {
-              fetch(\`https://nominatim.openstreetmap.org/reverse?format=json&lat=\${lat}&lon=\${lng}&addressdetails=1&zoom=18\`, {
-                headers: { 'User-Agent': 'PetronSanPedroApp/1.0' }
+              fetch(\`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${lat}&lon=\${lng}&addressdetails=1&zoom=18&namedetails=1&accept-language=en\`, {
+                headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
               })
                 .then(response => response.json())
                 .then(data => {
@@ -212,39 +217,68 @@ export default function OpenStreetMapPicker({
               }, 600);
             });
 
-            // FIX: Listen for location updates from React Native and TRIGGER geocoding
-            window.addEventListener('message', function(event) {
-              const data = JSON.parse(event.data);
+            // Notify RN that the map is ready
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'MAP_READY'
+            }));
+          }
+
+          // Cross-platform listener for messages from React Native
+          function handleIncomingMessage(raw) {
+            try {
+              const data = JSON.parse(raw);
+
               if (data.type === 'SET_LOCATION') {
+                if (!mapInitialized) {
+                  initMap(data.lat, data.lon);
+                  mapInitialized = true;
+                  return;
+                }
                 map.setView([data.lat, data.lon], 18);
                 marker.setLatLng([data.lat, data.lon]);
-                
-                // We MUST call this so the app gets the text address of the GPS location
                 clearTimeout(geocodeTimeout);
-                getAddressFromCoords(data.lat, data.lon); 
+                getAddressFromCoords(data.lat, data.lon);
+              } else if (data.type === 'SEARCH') {
+                // Perform bounded search if viewbox provided for better accuracy
+                searchLocation(data.query, data.viewbox);
               }
-            });
+            } catch (e) {
+              // ignore malformed messages
+            }
           }
+
+          // webview bridge: Android sometimes uses document, others use window
+          window.addEventListener('message', (e) => handleIncomingMessage(e.data));
+          document.addEventListener('message', (e) => handleIncomingMessage(e.data));
+
+          // WAIT: Map will NOT initialize until GPS location arrives
           
-          window.searchLocation = function() {
-            const query = document.getElementById('searchInput').value;
+          // searchLocation accepts optional viewbox string (minLon,maxLat,maxLon,minLat)
+          window.searchLocation = function(query, viewbox) {
             if (!query) return;
-            
-            // Appending Puerto Princesa to limit scope
+
             const fullQuery = query + ', Puerto Princesa City, Palawan';
-            
-            fetch(\`https://nominatim.openstreetmap.org/search?format=json&q=\${encodeURIComponent(fullQuery)}&limit=5&countrycodes=PH&addressdetails=1\`, {
-              headers: { 'User-Agent': 'PetronSanPedroApp/1.0' }
-            })
+            let url = \`https://nominatim.openstreetmap.org/search?format=jsonv2&q=\${encodeURIComponent(fullQuery)}&limit=5&countrycodes=PH&addressdetails=1&namedetails=1&accept-language=en\`;
+            if (viewbox) {
+              url += \`&viewbox=\${encodeURIComponent(viewbox)}&bounded=1\`;
+            }
+
+            fetch(url, { headers: { 'User-Agent': 'MKCFoodsApp/2.0' } })
               .then(response => response.json())
               .then(results => {
+                if ((!results || results.length === 0) && viewbox) {
+                  return fetch(\`https://nominatim.openstreetmap.org/search?format=jsonv2&q=\${encodeURIComponent(fullQuery)}&limit=5&countrycodes=PH&addressdetails=1&namedetails=1&accept-language=en\`, {
+                    headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
+                  }).then(response => response.json());
+                }
+
                 if (results && results.length > 0) {
                   const first = results[0];
                   map.setView([first.lat, first.lon], 18);
                   marker.setLatLng([first.lat, first.lon]);
-                  
-                  fetch(\`https://nominatim.openstreetmap.org/reverse?format=json&lat=\${first.lat}&lon=\${first.lon}&addressdetails=1\`, {
-                    headers: { 'User-Agent': 'PetronSanPedroApp/1.0' }
+
+                  fetch(\`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${first.lat}&lon=\${first.lon}&addressdetails=1&zoom=18&namedetails=1&accept-language=en\`, {
+                    headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
                   })
                     .then(res => res.json())
                     .then(detail => {
@@ -256,27 +290,18 @@ export default function OpenStreetMapPicker({
                         address: detail.address
                       }));
                     });
-                  
-                  document.getElementById('searchInput').value = '';
                 } else {
                   alert('No results found');
                 }
               });
           };
           
-          window.onload = function() {
-            initMap(defaultLat, defaultLng);
-            // Fetch initial address for the default pin
-            setTimeout(() => {
-                // getAddressFromCoords is scoped inside initMap, let's trigger it via event
-                window.postMessage(JSON.stringify({type: 'SET_LOCATION', lat: defaultLat, lon: defaultLng}), '*');
-            }, 500);
-          };
+          // Map initialization waits for SET_LOCATION from React Native
+          // No onload init - map starts at provided GPS location
         </script>
       </body>
       </html>
     `;
-    setMapHtml(html);
   }, []);
 
   useEffect(() => {
@@ -290,6 +315,9 @@ export default function OpenStreetMapPicker({
       setLoading(true);
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
+        // If the user denies permission, send a sensible default so the map can initialize
+        sendLocationToWebView(SAN_PEDRO_COORDS.lat, SAN_PEDRO_COORDS.lng);
+        setSelectedLocation(SAN_PEDRO_COORDS);
         setLoading(false);
         return;
       }
@@ -300,19 +328,15 @@ export default function OpenStreetMapPicker({
       });
       const { latitude, longitude } = location.coords;
       
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'SET_LOCATION',
-          lat: latitude,
-          lon: longitude
-        }));
-      }
+      sendLocationToWebView(latitude, longitude);
 
       setSelectedLocation({ latitude, longitude });
       
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert('Error', 'Could not get your current location. Using default location.');
+      // Send the default coordinates to the WebView so the map initializes
+      sendLocationToWebView(SAN_PEDRO_COORDS.lat, SAN_PEDRO_COORDS.lng);
       setSelectedLocation(SAN_PEDRO_COORDS);
     } finally {
       setLoading(false);
@@ -340,6 +364,14 @@ export default function OpenStreetMapPicker({
       } else if (data.type === 'ERROR') {
         Alert.alert('Error', data.message);
         setLoading(false);
+      } else if (data.type === 'MAP_READY') {
+        // Map inside WebView initialized and ready
+        setLoading(false);
+        webViewReadyRef.current = true;
+        if (pendingLocationRef.current && webViewRef.current) {
+          webViewRef.current.postMessage(pendingLocationRef.current);
+          pendingLocationRef.current = null;
+        }
       }
     } catch (error) {
       console.error('Error parsing WebView message:', error);
@@ -350,9 +382,19 @@ export default function OpenStreetMapPicker({
   const handleSearch = () => {
     if (!searchQuery.trim() || !webViewRef.current) return;
     setLoading(true);
+    const delta = 0.01; // ~1km bounding box for local accuracy
+    const lat = selectedLocation?.latitude ?? SAN_PEDRO_COORDS.lat;
+    const lon = selectedLocation?.longitude ?? SAN_PEDRO_COORDS.lng;
+    const minLat = lat - delta;
+    const maxLat = lat + delta;
+    const minLon = lon - delta;
+    const maxLon = lon + delta;
+    const viewbox = `${minLon},${maxLat},${maxLon},${minLat}`; // left,top,right,bottom
+
     webViewRef.current.postMessage(JSON.stringify({
       type: 'SEARCH',
-      query: searchQuery
+      query: searchQuery,
+      viewbox,
     }));
   };
 
@@ -383,6 +425,13 @@ export default function OpenStreetMapPicker({
           <TouchableOpacity onPress={handleConfirm} style={styles.confirmButton}>
             <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.noticeBanner}>
+          <Ionicons name="information-circle-outline" size={18} color="#8a5b00" />
+          <Text style={styles.noticeText}>
+            The delivery address name shown here may not be accurate. Please edit it so the rider can read a correct delivery address.
+          </Text>
         </View>
 
         {/* Search Bar */}
@@ -420,7 +469,16 @@ export default function OpenStreetMapPicker({
             ref={webViewRef}
             source={{ html: mapHtml }}
             onMessage={handleWebViewMessage}
-            onLoadEnd={() => setLoading(false)}
+            onLoadEnd={() => {
+              webViewReadyRef.current = true;
+
+              if (pendingLocationRef.current && webViewRef.current) {
+                webViewRef.current.postMessage(pendingLocationRef.current);
+                pendingLocationRef.current = null;
+              }
+
+              // Keep loading until the page signals MAP_READY
+            }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             style={styles.webview}
@@ -509,12 +567,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  noticeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#fff4d6',
+    borderWidth: 1,
+    borderColor: '#f0d28a',
+  },
+  noticeText: {
+    flex: 1,
+    color: '#6b4a00',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f8f9fa',
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
