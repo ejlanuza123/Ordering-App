@@ -15,7 +15,6 @@ export const AuthProvider = ({ children }) => {
   const backgroundedAtRef = useRef(null);
 
   const ALLOWED_ROLES = ['customer', 'rider'];
-  const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
   const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
   const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
   const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
@@ -90,6 +89,8 @@ export const AuthProvider = ({ children }) => {
           );
         } catch {
           // If role is invalid we already signed out in fetchUserProfile
+        } finally {
+          setLoading(false);
         }
       } else {
         clearAuthState();
@@ -112,21 +113,7 @@ export const AuthProvider = ({ children }) => {
         const backgroundedAt = backgroundedAtRef.current;
         backgroundedAtRef.current = null;
 
-        if (backgroundedAt) {
-          const elapsed = Date.now() - backgroundedAt;
-
-          if (elapsed >= SESSION_TIMEOUT_MS) {
-            try {
-              await supabase.auth.signOut();
-            } finally {
-              setUser(null);
-              setProfile(null);
-              setRole(null);
-            }
-          } else {
-            checkUser();
-          }
-        }
+        checkUser();
       }
 
       appStateRef.current = nextState;
@@ -150,6 +137,7 @@ export const AuthProvider = ({ children }) => {
         if (await shouldSuppressRecoverySession()) {
           await signOutLocalFirst();
           clearAuthState();
+          setLoading(false);
           return;
         }
 
@@ -159,6 +147,8 @@ export const AuthProvider = ({ children }) => {
           AUTH_BOOTSTRAP_TIMEOUT_MS,
           'Auth profile lookup timed out.'
         );
+      } else {
+        clearAuthState();
       }
     } catch (error) {
       console.log('Auth check error:', error);
@@ -168,7 +158,7 @@ export const AuthProvider = ({ children }) => {
         try {
           await supabase.auth.signOut({ scope: 'local' });
         } catch {
-          await supabase.auth.signOut().catch(() => {});
+          // ignore
         }
       }
       clearAuthState();
@@ -199,7 +189,7 @@ export const AuthProvider = ({ children }) => {
 
     // Only allow customer/rider roles in this app.
     if (!ALLOWED_ROLES.includes(data.role)) {
-      await supabase.auth.signOut();
+      await signOutLocalFirst();
       clearAuthState();
       throw new Error('This account is not allowed to access the app.');
     }
