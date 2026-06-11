@@ -37,42 +37,65 @@ export default function OpenStreetMapPicker({
     lng: 118.7413605
   };
 
-  // Smart formatter that fixes OSM's wrong boundary data
+  // Smart formatter that improves barangay accuracy
   const formatSmartAddress = (addressData, lat, lng) => {
     if (!addressData) return '';
-    
+
     const parts = [];
-
     const pushUnique = (value) => {
-      if (value && !parts.includes(value)) parts.push(value);
+      if (value && !parts.includes(value)) parts.push(String(value));
     };
-    
-    // 1. Get the most specific place/building information first
+
+    // 1) Most specific info first
     pushUnique(addressData.house_number);
-    pushUnique(addressData.amenity || addressData.shop || addressData.building || addressData.office || addressData.tourism);
 
-    // 2. Get the road
-    pushUnique(addressData.road || addressData.street || addressData.pedestrian || addressData.residential || addressData.tertiary);
+    const buildingLabel =
+      addressData.amenity ||
+      addressData.shop ||
+      addressData.building ||
+      addressData.office ||
+      addressData.tourism;
+    pushUnique(buildingLabel);
 
-    // 3. Fix the Barangay Boundary Issue using distance calculation
-    // Calculate rough distance from the pin to the MKC reference point
-    const distanceToReference = Math.sqrt(
-      Math.pow(lat - SAN_PEDRO_COORDS.lat, 2) + 
-      Math.pow(lng - SAN_PEDRO_COORDS.lng, 2)
-    );
+    // 2) Road/street
+    const roadLabel =
+      addressData.road ||
+      addressData.street ||
+      addressData.pedestrian ||
+      addressData.residential ||
+      addressData.tertiary;
+    pushUnique(roadLabel);
 
-    // If the pin is within ~1km of the reference point, force the local barangay label
-    // Because OSM may not label the MKC area consistently
-    if (distanceToReference < 0.01) {
-      pushUnique('Puerto Princesa City');
-    } else {
-      // If they are far away, trust OSM's barangay data
-      pushUnique(addressData.suburb || addressData.village || addressData.neighbourhood || addressData.hamlet || addressData.city_district);
+    // 3) Barangay (PH)
+    // Nominatim commonly uses different keys for barangay.
+    const barangayCandidate =
+      addressData.suburb ||
+      addressData.village ||
+      addressData.neighbourhood ||
+      addressData.hamlet ||
+      addressData.city_district;
+
+    // Heuristic cleanup: drop generic/empty-like strings
+    const normalizedBarangay = barangayCandidate
+      ? String(barangayCandidate).trim()
+      : '';
+
+    if (
+      normalizedBarangay &&
+      !/^(philippines|palawan|puerto\s+princesa\s+city)$/i.test(normalizedBarangay)
+    ) {
+      pushUnique(normalizedBarangay);
     }
 
-    // 4. Add City and Province
-    pushUnique(addressData.city || addressData.town || addressData.municipality || addressData.county || 'Puerto Princesa City');
-    
+    // 4) City + Province
+    pushUnique(
+      addressData.city ||
+        addressData.town ||
+        addressData.municipality ||
+        addressData.county ||
+        'Puerto Princesa City'
+    );
+
     pushUnique(addressData.state || 'Palawan');
     pushUnique(addressData.postcode);
 
@@ -177,28 +200,59 @@ export default function OpenStreetMapPicker({
               icon: markerIcon
             }).addTo(map);
             
-            function getAddressFromCoords(lat, lng) {
-              fetch(\`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${lat}&lon=\${lng}&addressdetails=1&zoom=18&namedetails=1&accept-language=en\`, {
-                headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
-              })
-                .then(response => response.json())
-                .then(data => {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'LOCATION_SELECTED',
-                    lat: lat,
-                    lng: lng,
-                    display_name: data ? data.display_name : '',
-                    address: data ? data.address : null
-                  }));
-                })
-                .catch(() => {
-                  window.ReactNativeWebView.postMessage(JSON.stringify({
-                    type: 'LOCATION_SELECTED',
-                    lat: lat,
-                    lng: lng,
-                    display_name: lat.toFixed(6) + ', ' + lng.toFixed(6)
-                  }));
-                });
+            function isBarangayLike(value) {
+              if (!value) return false;
+              const s = String(value).trim();
+              if (!s) return false;
+              if (/^(philippines|palawan|puerto\s+princesa\s+city)$/i.test(s)) return false;
+              return true;
+            }
+
+            let geocodeRequestId = 0;
+
+            async function reverseGeocode(lat, lng, zoom) {
+              const url = \`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${lat}&lon=\${lng}&addressdetails=1&zoom=\${zoom}&namedetails=1&accept-language=en\`;
+              const res = await fetch(url, { headers: { 'User-Agent': 'MKCFoodsApp/2.0' } });
+              return res.json();
+            }
+
+            async function getAddressFromCoords(lat, lng) {
+              try {
+                let data = await reverseGeocode(lat, lng, 18);
+
+                const addr = data ? data.address : null;
+                const barangayCandidate = addr && (
+                  addr.suburb || addr.village || addr.neighbourhood || addr.hamlet || addr.city_district
+                );
+
+                // If barangay is missing/generic, retry with different zoom
+                if (!isBarangayLike(barangayCandidate)) {
+                  const data16 = await reverseGeocode(lat, lng, 16);
+                  const addr16 = data16 ? data16.address : null;
+                  const barangay16 = addr16 && (
+                    addr16.suburb || addr16.village || addr16.neighbourhood || addr16.hamlet || addr16.city_district
+                  );
+
+                  if (isBarangayLike(barangay16)) {
+                    data = data16;
+                  }
+                }
+
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'LOCATION_SELECTED',
+                  lat: lat,
+                  lng: lng,
+                  display_name: data ? data.display_name : '',
+                  address: data ? data.address : null
+                }));
+              } catch (e) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'LOCATION_SELECTED',
+                  lat: lat,
+                  lng: lng,
+                  display_name: lat.toFixed(6) + ', ' + lng.toFixed(6)
+                }));
+              }
             }
             
             marker.on('dragend', function(e) {
@@ -277,11 +331,15 @@ export default function OpenStreetMapPicker({
                   map.setView([first.lat, first.lon], 18);
                   marker.setLatLng([first.lat, first.lon]);
 
+                  const requestId = ++geocodeRequestId;
+
                   fetch(\`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${first.lat}&lon=\${first.lon}&addressdetails=1&zoom=18&namedetails=1&accept-language=en\`, {
                     headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
                   })
                     .then(res => res.json())
                     .then(detail => {
+                      if (requestId !== geocodeRequestId) return;
+
                       window.ReactNativeWebView.postMessage(JSON.stringify({
                         type: 'LOCATION_SELECTED',
                         lat: parseFloat(first.lat),
@@ -434,27 +492,7 @@ export default function OpenStreetMapPicker({
           </Text>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#999" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search location..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-            placeholderTextColor="#999"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#999" />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>Go</Text>
-          </TouchableOpacity>
-        </View>
+
 
         {/* Map View */}
         <View style={styles.mapContainer}>

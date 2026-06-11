@@ -44,6 +44,13 @@ export default function ProfileScreen({ navigation }) {
   const [addressLng, setAddressLng] = useState(null);
   const [notifications, setNotifications] = useState(true);
 
+  // Original Profile State
+  const [originalProfile, setOriginalProfile] = useState({
+    fullName: '',
+    phone: '',
+    address: ''
+  });
+
   // User stats
   const [orderCount, setOrderCount] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
@@ -75,6 +82,11 @@ export default function ProfileScreen({ navigation }) {
         setFullName(profileData.full_name || '');
         setPhone(profileData.phone_number || '');
         setAddress(profileData.address || '');
+        setOriginalProfile({
+          fullName: profileData.full_name || '',
+          phone: profileData.phone_number || '',
+          address: profileData.address || ''
+        });
         if (profileData.address_lat != null) setAddressLat(profileData.address_lat);
         if (profileData.address_lng != null) setAddressLng(profileData.address_lng);
         setAvatarUrl(profileData.avatar_url || '');
@@ -136,6 +148,16 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
+  const hasUnsavedChanges = () => {
+    const normalized = (v) => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim();
+
+    return (
+      normalized(fullName) !== normalized(originalProfile.fullName) ||
+      normalized(phone) !== normalized(originalProfile.phone) ||
+      normalized(address) !== normalized(originalProfile.address)
+    );
+  };
+
   // 2. Handle Update (Save Changes)
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -190,6 +212,12 @@ export default function ProfileScreen({ navigation }) {
         .eq('id', user.id);
 
       if (error) throw error;
+
+      setOriginalProfile({
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        address: address.trim()
+      });
 
       setAlertConfig({
         type: 'success',
@@ -439,6 +467,10 @@ export default function ProfileScreen({ navigation }) {
               </View>
               
               <Text style={styles.inputHint}>We'll deliver to this address by default</Text>
+
+              <Text style={[styles.inputHint, { marginTop: 8, color: '#8a5b00' }]}>
+                Tip: After using “Use My Location”, please edit the address if the barangay/name is not correct.
+              </Text>
             </View>
           </View>
 
@@ -527,9 +559,13 @@ export default function ProfileScreen({ navigation }) {
 
           {/* Save Changes Button */}
           <TouchableOpacity 
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving}
+            style={[styles.saveButton, (!hasUnsavedChanges() || saving) ? styles.saveButtonDisabled : null]}
+            onPress={() => {
+              if (!saving && hasUnsavedChanges()) {
+                handleSave();
+              }
+            }}
+            disabled={saving || !hasUnsavedChanges()}
             activeOpacity={0.8}
           >
             {saving ? (
@@ -554,8 +590,8 @@ export default function ProfileScreen({ navigation }) {
 
           {/* App Info */}
           <View style={styles.appInfo}>
-            <Text style={styles.appVersion}>Petron San Pedro v1.0.0</Text>
-            <Text style={styles.appCopyright}>© 2026 Petron San Pedro Delivery</Text>
+            <Text style={styles.appVersion}>MKC Foods App v2.0.0</Text>
+            <Text style={styles.appCopyright}>© 2026 MKC Foods Corporation</Text>
           </View>
         </ScrollView>
 
