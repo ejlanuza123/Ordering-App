@@ -224,6 +224,17 @@ export default function CheckoutScreen({ navigation }) {
       return;
     }
 
+    // Validate payment method is available
+    if (paymentMethod === 'GCash') {
+      setAlertConfig({
+        type: 'warning',
+        title: 'Payment Not Available',
+        message: 'GCash payment is not yet available. Please select Cash on Delivery.'
+      });
+      setShowAlert(true);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -638,18 +649,26 @@ export default function CheckoutScreen({ navigation }) {
                 <TouchableOpacity 
                   style={[
                     styles.paymentOption,
-                    paymentMethod === 'GCash' && styles.paymentOptionSelected
+                    styles.paymentOptionDisabled
                   ]}
-                  onPress={() => setPaymentMethod('GCash')}
+                  onPress={() => {
+                    setAlertConfig({
+                      type: 'info',
+                      title: 'Coming Soon',
+                      message: 'GCash payment will be available soon. Please use Cash on Delivery.'
+                    });
+                    setShowAlert(true);
+                  }}
                   activeOpacity={0.7}
+                  disabled={true}
                 >
-                  <View style={[styles.gcashIcon, { backgroundColor: paymentMethod === 'GCash' ? '#0033A0' : '#f0f4ff' }]}>
-                    <Text style={[styles.gcashText, { color: paymentMethod === 'GCash' ? '#fff' : '#0033A0' }]}>G</Text>
+                  <View style={[styles.gcashIcon, { backgroundColor: '#e0e0e0' }]}>
+                    <Text style={[styles.gcashText, { color: '#999' }]}>G</Text>
                   </View>
                   <View style={styles.paymentOptionInfo}>
                     <Text style={[
                       styles.paymentOptionTitle,
-                      paymentMethod === 'GCash' && styles.paymentOptionTitleSelected
+                      styles.paymentOptionTitleDisabled
                     ]}>
                       GCash
                     </Text>
@@ -657,9 +676,6 @@ export default function CheckoutScreen({ navigation }) {
                       Pay via GCash (Coming Soon)
                     </Text>
                   </View>
-                  {paymentMethod === 'GCash' && (
-                    <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
-                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -1009,6 +1025,11 @@ const styles = StyleSheet.create({
   paymentOptionSelected: {
     backgroundColor: '#f0f4ff',
     borderColor: '#0033A0',
+  },
+  paymentOptionDisabled: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#e0e0e0',
+    opacity: 0.7,
   },
   paymentOptionInfo: {
     flex: 1,
