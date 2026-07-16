@@ -236,6 +236,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
+    // Set rider offline before signing out (if applicable)
+    if (role === 'rider' && user?.id) {
+      try {
+        const { riderPresenceService } = await import('../services/riderPresenceService');
+        await riderPresenceService.setOnlineStatus(user.id, false);
+      } catch (err) {
+        console.warn('Failed to set rider offline before sign out:', err);
+      }
+    }
     await signOutLocalFirst();
     clearAuthState();
   };

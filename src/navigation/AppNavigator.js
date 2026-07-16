@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingChatHead from '../components/FloatingChatHead';
+import { riderPresenceService } from '../services/riderPresenceService';
 
 // --- IMPORT SCREENS ---
 // Auth Screens
@@ -110,6 +111,22 @@ export default function AppNavigator() {
 
     loadIntroState();
   }, []);
+
+  // Initialize / cleanup rider presence tracking when auth state changes.
+  // Customer logins do not need the heartbeat or AppState subscriptions.
+  useEffect(() => {
+    if (loading) return;
+
+    if (user && role === 'rider') {
+      riderPresenceService.initialize(user.id);
+    } else {
+      riderPresenceService.cleanup(user?.id);
+    }
+
+    return () => {
+      riderPresenceService.cleanup(user?.id);
+    };
+  }, [user, role, loading]);
 
   const handleGetStarted = async () => {
     try {
