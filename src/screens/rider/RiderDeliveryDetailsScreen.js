@@ -1,5 +1,5 @@
 // src/screens/rider/RiderDeliveryDetailsScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
 import { useAuth } from '../../context/AuthContext';
 import { RIDER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
+import { useFocusEffect } from '@react-navigation/native';
+import { riderPresenceService } from '../../services/riderPresenceService';
 
 const devLog = (...args) => {
   if (__DEV__) {
@@ -113,6 +115,26 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       setOpeningChat(false);
     }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      const ensureRiderOnline = async () => {
+        if (!profile?.id) return;
+        
+        try {
+          // Check current online status and set online if needed
+          const isCurrentlyOnline = await riderPresenceService.checkIfOnline(profile.id);
+          if (!isCurrentlyOnline) {
+            await riderPresenceService.setOnlineStatus(profile.id, true);
+          }
+        } catch (error) {
+          console.error('Error ensuring rider online status:', error);
+        }
+      };
+
+      ensureRiderOnline();
+    }, [profile?.id])
+  );
 
   useEffect(() => {
     fetchAllDeliveryData();

@@ -1,5 +1,5 @@
 // src/screens/rider/RiderMapScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import * as Location from 'expo-location';
 import { requestLocationPermission } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { startLocationTracking, stopLocationTracking } from '../../utils/riderLocation';
+import { riderPresenceService } from '../../services/riderPresenceService';
+import { useFocusEffect } from '@react-navigation/native';
 
 const devLog = (...args) => {
   if (__DEV__) {
@@ -50,7 +52,9 @@ export default function RiderMapScreen({ navigation }) {
     title: '',
     message: ''
   });
-  const [tracking, setTracking] = useState(false);
+  const [tracking, setTracking] = useState(true);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
+  const [onlineStatus, setOnlineStatus] = useState(true);
 
   // Petron San Pedro Station coordinates (default)
   const SAN_PEDRO_COORDS = {
@@ -65,6 +69,49 @@ export default function RiderMapScreen({ navigation }) {
     }
   }, [deliveries, loading, mapViewMode, focusedDeliveryId]);
 
+  // UseFocusEffect to ensure rider stays online when viewing map
+  useFocusEffect(
+    useCallback(() => {
+      const fetchLatestProfileState = async () => {
+        if (!profile) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('avatar_url, is_online')
+            .eq('id', profile.id)
+            .single();
+            
+          if (!error && data?.avatar_url) {
+            setCurrentAvatarUrl(data.avatar_url);
+          }
+
+          // CRITICAL FIX: Ensure rider is marked online when viewing the map
+          if (!error) {
+            const isOnline = data?.is_online === true;
+            setOnlineStatus(isOnline);
+            
+            // If the rider is supposed to be online but the DB says offline, fix it
+            if (!isOnline) {
+              devLog('Map screen: Setting rider online');
+              await riderPresenceService.setOnlineStatus(profile.id, true);
+              setOnlineStatus(true);
+            }
+          } else {
+            // On error, assume we should be online
+            devLog('Map screen: Error fetching status, setting online');
+            await riderPresenceService.setOnlineStatus(profile.id, true);
+            setOnlineStatus(true);
+          }
+        } catch (error) {
+          console.error('Error fetching latest profile state:', error);
+        }
+      };
+
+      fetchLatestProfileState();
+    }, [profile])
+  );
+
   // start/stop tracking when rider toggles or logs out
   useEffect(() => {
     let isActive = true;
@@ -77,6 +124,10 @@ export default function RiderMapScreen({ navigation }) {
         }
         return;
       }
+
+      // CRITICAL FIX: Ensure rider is marked online before starting tracking
+      await riderPresenceService.setOnlineStatus(profile.id, true);
+      setOnlineStatus(true);
 
       if (trackingSubscriptionRef.current) {
         stopLocationTracking(trackingSubscriptionRef.current);
@@ -112,6 +163,10 @@ export default function RiderMapScreen({ navigation }) {
 
     return () => {
       isActive = false;
+      if (trackingSubscriptionRef.current) {
+        stopLocationTracking(trackingSubscriptionRef.current);
+        trackingSubscriptionRef.current = null;
+      }
     };
   }, [tracking, profile?.id]);
 

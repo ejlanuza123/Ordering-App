@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
+import { useFocusEffect } from '@react-navigation/native';
+import { riderPresenceService } from '../../services/riderPresenceService';
 
 export default function RiderDeliveriesScreen({ navigation, route }) {
   const { profile } = useAuth();
@@ -67,6 +69,26 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
       setRefreshing(false);
     }
   }, [profile, filter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const ensureRiderOnline = async () => {
+        if (!profile?.id) return;
+        
+        try {
+          // Check current online status and set online if needed
+          const isCurrentlyOnline = await riderPresenceService.checkIfOnline(profile.id);
+          if (!isCurrentlyOnline) {
+            await riderPresenceService.setOnlineStatus(profile.id, true);
+          }
+        } catch (error) {
+          console.error('Error ensuring rider online status:', error);
+        }
+      };
+
+      ensureRiderOnline();
+    }, [profile?.id])
+  );
 
   useEffect(() => {
     fetchDeliveries();
