@@ -161,6 +161,9 @@ describe('riderPresenceService', () => {
     // initial setOnlineStatus(true)
     expect(mockUpdate).toHaveBeenCalledTimes(1);
 
+    await appStateCallback('inactive');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+
     // background -> should call setOnlineStatus(false)
     await appStateCallback('background');
     expect(mockUpdate).toHaveBeenCalledTimes(2);
@@ -219,6 +222,9 @@ describe('riderPresenceService', () => {
     await service.initialize('rider-1');
     expect(mockUpdate).toHaveBeenCalledTimes(1);
 
+    await netInfoCallback({ isConnected: null });
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+
     // Disconnect -> offline
     await netInfoCallback({ isConnected: false });
     expect(mockUpdate).toHaveBeenCalledTimes(2);
@@ -227,7 +233,7 @@ describe('riderPresenceService', () => {
     );
 
     // Reconnect -> online
-    await netInfoCallback({ isConnected: true });
+    await netInfoCallback({ isConnected: true, isInternetReachable: true });
     expect(mockUpdate).toHaveBeenCalledTimes(3);
     expect(mockUpdate).toHaveBeenLastCalledWith(
       expect.objectContaining({ is_online: true })
