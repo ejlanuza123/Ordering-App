@@ -1,3 +1,4 @@
+// src/__tests__/context/ReviewContext.test.js
 jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(() => Promise.resolve()),
   getItem: jest.fn(() => Promise.resolve(null)),
@@ -18,8 +19,12 @@ const mockAuthState = () => ({
 
 mockAuthState.user = { id: 'user-123', email: 'test@example.com' };
 
+// FIX: Properly mock AuthContext
 jest.mock('../../context/AuthContext', () => ({
-  useAuth: () => mockAuthState(),
+  useAuth: jest.fn(() => ({
+    user: { id: 'user-123', email: 'test@example.com' },
+    loading: false,
+  })),
 }));
 
 jest.mock('../../lib/supabase', () => ({
@@ -34,6 +39,13 @@ describe('ReviewContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthState.user = { id: 'user-123', email: 'test@example.com' };
+    
+    // Ensure the useAuth mock returns the correct user
+    const { useAuth } = require('../../context/AuthContext');
+    useAuth.mockReturnValue({
+      user: { id: 'user-123', email: 'test@example.com' },
+      loading: false,
+    });
   });
 
   it('should get product rating with count', async () => {
@@ -74,10 +86,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result.average).toBe(4.3);
     expect(result.count).toBe(3);
-  }, 15000);
+  }, 10000);
 
   it('should get product reviews with profile info', async () => {
     const mockReviews = [
@@ -132,11 +144,11 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(reviews).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(reviews).not.toBeNull(), { timeout: 10000 });
     expect(reviews).toHaveLength(2);
     expect(reviews[0].profiles.full_name).toBe('John Doe');
     expect(reviews[0].rating).toBe(5);
-  }, 15000);
+  }, 10000);
 
   it('should add review for authenticated user', async () => {
     const mockNewReview = {
@@ -180,13 +192,18 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result.success).toBe(true);
     expect(result.data.rating).toBe(5);
-  }, 15000);
+  }, 10000);
 
   it('should reject add review for unauthenticated user', async () => {
-    mockAuthState.user = null;
+    // Update the mock to return null user
+    const { useAuth } = require('../../context/AuthContext');
+    useAuth.mockReturnValue({
+      user: null,
+      loading: false,
+    });
 
     mockFrom.mockReturnValue({
       insert: jest.fn().mockReturnValue({
@@ -221,10 +238,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result.success).toBe(false);
     expect(result.error).toBe('Not authenticated');
-  }, 15000);
+  }, 10000);
 
   it('should update review for authenticated user', async () => {
     const updatedReview = {
@@ -267,10 +284,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result.success).toBe(true);
     expect(result.data.rating).toBe(4);
-  }, 15000);
+  }, 10000);
 
   it('should delete review for authenticated user', async () => {
     const eqUser = jest.fn().mockResolvedValue({ error: null });
@@ -301,11 +318,11 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result).toEqual({ success: true });
     expect(eqId).toHaveBeenCalledWith('id', 'review-1');
     expect(eqUser).toHaveBeenCalledWith('user_id', 'user-123');
-  }, 15000);
+  }, 10000);
 
   it('should check if user reviewed product and return user review', async () => {
     let singleCall = 0;
@@ -353,13 +370,17 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(state.review).not.toBeUndefined(), { timeout: 15000 });
+    await waitFor(() => expect(state.review).not.toBeUndefined(), { timeout: 10000 });
     expect(state.hasReviewed).toBe(true);
     expect(state.review).toEqual({ id: 'review-1', rating: 5, comment: 'Great' });
-  }, 15000);
+  }, 10000);
 
   it('should return empty list when unauthenticated user requests user reviews', async () => {
-    mockAuthState.user = null;
+    const { useAuth } = require('../../context/AuthContext');
+    useAuth.mockReturnValue({
+      user: null,
+      loading: false,
+    });
 
     const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
     let result;
@@ -383,9 +404,9 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).toBeDefined(), { timeout: 15000 });
+    await waitFor(() => expect(result).toBeDefined(), { timeout: 10000 });
     expect(result).toEqual([]);
-  }, 15000);
+  }, 10000);
 
   it('should load user reviews for authenticated user', async () => {
     const rows = [
@@ -423,10 +444,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).toBeDefined(), { timeout: 15000 });
+    await waitFor(() => expect(result).toBeDefined(), { timeout: 10000 });
     expect(result).toHaveLength(2);
     expect(result[0].products.name).toBe('Diesel');
-  }, 15000);
+  }, 10000);
 
   it('should return zero rating summary when there are no ratings', async () => {
     mockFrom.mockReturnValue({
@@ -457,9 +478,9 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result).toEqual({ average: 0, count: 0 });
-  }, 15000);
+  }, 10000);
 
   it('should return false/null for PGRST116 in hasUserReviewed and getUserReview', async () => {
     const single = jest.fn().mockResolvedValue({
@@ -498,13 +519,17 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(state.review).not.toBeUndefined(), { timeout: 15000 });
+    await waitFor(() => expect(state.review).not.toBeUndefined(), { timeout: 10000 });
     expect(state.hasReviewed).toBe(false);
     expect(state.review).toBeNull();
-  }, 15000);
+  }, 10000);
 
   it('should return not authenticated for update and delete when user is missing', async () => {
-    mockAuthState.user = null;
+    const { useAuth } = require('../../context/AuthContext');
+    useAuth.mockReturnValue({
+      user: null,
+      loading: false,
+    });
 
     const { ReviewProvider, useReviews } = require('../../context/ReviewContext');
     const state = { update: null, del: null };
@@ -529,10 +554,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 10000 });
     expect(state.update).toEqual({ success: false, error: 'Not authenticated' });
     expect(state.del).toEqual({ success: false, error: 'Not authenticated' });
-  }, 15000);
+  }, 10000);
 
   it('should return empty list when getProductReviews query fails', async () => {
     mockFrom.mockReturnValue({
@@ -567,9 +592,9 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result).toEqual([]);
-  }, 15000);
+  }, 10000);
 
   it('should return safe fallback when getProductRating query fails', async () => {
     mockFrom.mockReturnValue({
@@ -600,9 +625,9 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result).toEqual({ average: 0, count: 0 });
-  }, 15000);
+  }, 10000);
 
   it('should return failure result when addReview query fails', async () => {
     mockFrom.mockReturnValue({
@@ -635,9 +660,9 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(result).not.toBeNull(), { timeout: 10000 });
     expect(result).toEqual({ success: false, error: 'insert failed' });
-  }, 15000);
+  }, 10000);
 
   it('should return failure result when updateReview and deleteReview queries fail', async () => {
     const mockDeleteEq = jest.fn().mockResolvedValue({ error: { message: 'delete failed' } });
@@ -683,10 +708,10 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 15000 });
+    await waitFor(() => expect(state.del).not.toBeNull(), { timeout: 10000 });
     expect(state.update).toEqual({ success: false, error: 'update failed' });
     expect(state.del).toEqual({ success: false, error: 'delete failed' });
-  }, 15000);
+  }, 10000);
 
   it('should return safe defaults when hasUserReviewed/getUserReview/getUserReviews queries fail', async () => {
     const mockOrder = jest.fn().mockResolvedValue({ data: null, error: { message: 'list failed' } });
@@ -732,11 +757,11 @@ describe('ReviewContext', () => {
       </ReviewProvider>
     );
 
-    await waitFor(() => expect(state.list).not.toBeUndefined(), { timeout: 15000 });
+    await waitFor(() => expect(state.list).not.toBeUndefined(), { timeout: 10000 });
     expect(state.hasReviewed).toBe(false);
     expect(state.review).toBeNull();
     expect(state.list).toEqual([]);
-  }, 15000);
+  }, 10000);
 
   it('should throw error when useReviews used outside provider', () => {
     const { useReviews } = require('../../context/ReviewContext');

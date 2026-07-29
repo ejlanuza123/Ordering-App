@@ -1,3 +1,4 @@
+// src/__tests__/context/NotificationContext.test.js
 import React from 'react';
 import { render, waitFor, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
@@ -108,8 +109,8 @@ describe('NotificationContext', () => {
       expect(ctxRef.current.notifications).toHaveLength(2);
       expect(ctxRef.current.unreadCount).toBe(1);
       expect(typeof capturedRealtimeCallback).toBe('function');
-    }, { timeout: 12000 });
-  }, 15000);
+    }, { timeout: 5000 });
+  }, 10000);
 
   it('handles realtime insert and markAsRead', async () => {
     const { NotificationProvider, useNotifications } = require('../../context/NotificationContext');

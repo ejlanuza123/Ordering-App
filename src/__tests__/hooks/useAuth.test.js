@@ -1,3 +1,4 @@
+// src/__tests__/hooks/useAuth.test.js
 import React from 'react';
 import { render, waitFor, act } from '@testing-library/react-native';
 
@@ -77,9 +78,13 @@ describe('useAuth (mobile)', () => {
       expect(readCtx.current.loading).toBe(false);
     });
 
-    await expect(readCtx.current.signIn('admin@test.com', 'secret')).rejects.toThrow(
-      'This account is not allowed to access the app.'
-    );
+    // FIX: Use try-catch for better error handling in tests
+    try {
+      await readCtx.current.signIn('admin@test.com', 'secret');
+      fail('Should have thrown an error');
+    } catch (error) {
+      expect(error.message).toContain('This account is not allowed to access the app.');
+    }
     expect(mockSignInWithPassword).not.toHaveBeenCalled();
   });
 });
