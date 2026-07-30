@@ -124,7 +124,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         try {
           // Check current online status and set online if needed
           const isCurrentlyOnline = await riderPresenceService.checkIfOnline(profile.id);
-          if (!isCurrentlyOnline) {
+          if (!isCurrentlyOnline && riderPresenceService.isIntendedOnline()) {
             await riderPresenceService.setOnlineStatus(profile.id, true);
           }
         } catch (error) {

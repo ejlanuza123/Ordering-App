@@ -92,13 +92,13 @@ export default function RiderMapScreen({ navigation }) {
             setOnlineStatus(isOnline);
             
             // If the rider is supposed to be online but the DB says offline, fix it
-            if (!isOnline) {
+            if (!isOnline && riderPresenceService.isIntendedOnline()) {
               devLog('Map screen: Setting rider online');
               await riderPresenceService.setOnlineStatus(profile.id, true);
               setOnlineStatus(true);
             }
-          } else {
-            // On error, assume we should be online
+          } else if (riderPresenceService.isIntendedOnline()) {
+            // On error, assume we should be online (only if the rider intends to be)
             devLog('Map screen: Error fetching status, setting online');
             await riderPresenceService.setOnlineStatus(profile.id, true);
             setOnlineStatus(true);
@@ -125,9 +125,10 @@ export default function RiderMapScreen({ navigation }) {
         return;
       }
 
-      // CRITICAL FIX: Ensure rider is marked online before starting tracking
-      await riderPresenceService.setOnlineStatus(profile.id, true);
-      setOnlineStatus(true);
+      if (riderPresenceService.isIntendedOnline()) {
+        await riderPresenceService.setOnlineStatus(profile.id, true);
+        setOnlineStatus(true);
+      }
 
       if (trackingSubscriptionRef.current) {
         stopLocationTracking(trackingSubscriptionRef.current);

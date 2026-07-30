@@ -20,6 +20,7 @@ import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
+import { riderPresenceService } from '../../services/riderPresenceService';
 
 export default function RiderProfileScreen({ navigation }) {
   const { profile, signOut } = useAuth();
@@ -190,6 +191,8 @@ export default function RiderProfileScreen({ navigation }) {
         .eq('id', profile.id);
 
       if (error) throw error;
+
+      riderPresenceService.setIntendedOnline(newValue);
 
       setAlertConfig({
         type: 'success',

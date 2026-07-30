@@ -1,43 +1,35 @@
-// src/services/riderPresenceService.js
-//
-// Keeps the rider's `is_online` and `last_seen` columns fresh in the
-// `public.profiles` table.
-//
-// Three signals are combined to keep presence accurate even when the OS
-// silently force-closes the app:
-//   1. AppState changes (active / background / inactive)
-//   2. NetInfo network state changes
-//   3. A 30-second heartbeat that pings `last_seen`
-//
-// Even if all of the above fail, the server-side cron job
-// `mark-stale-riders-offline` (added in migration
-// 022_add_rider_offline_detection.sql) flips `is_online` to false after
-// the rider's `last_seen` is more than 1 minute old.
-
 import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '../lib/supabase';
 
 const HEARTBEAT_INTERVAL_MS = 30000; // 30 seconds
+const DISCONNECT_DEBOUNCE_MS = 6000; // ignore blips shorter than this
+const BACKGROUND_DEBOUNCE_MS = 4000; // ignore brief 'inactive' flickers (dialogs, control center, etc.)
 
 let heartbeatInterval = null;
 let appStateSubscription = null;
 let netInfoSubscription = null;
 let currentRiderId = null;
 let wasOnlineBeforeBackground = false;
+let disconnectTimer = null;
+let backgroundTimer = null;
+// Tracks whether the rider *wants* to be online, independent of transient
+// network/app-state blips. Only explicit init/cleanup/manual toggle changes this.
+let intendedOnline = false;
 
 export const riderPresenceService = {
   /**
-   * Initialize presence tracking.
-   * Call this when a rider logs in / app starts.
+   * Initialize presence tracking
+   * Call this when the rider logs in / app starts
    */
   async initialize(riderId) {
-    if (!riderId) {
-      console.warn('[Presence] No riderId provided, skipping initialization');
+    if (currentRiderId === riderId) {
+      // Already tracking this rider - don't clobber their manual online/offline choice.
       return;
     }
 
     currentRiderId = riderId;
+    intendedOnline = true;
 
     // Start heartbeat
     this.startHeartbeat(riderId);
@@ -53,12 +45,15 @@ export const riderPresenceService = {
   },
 
   /**
-   * Cleanup presence tracking.
-   * Call this when a rider logs out.
+   * Cleanup presence tracking
+   * Call this when rider logs out
    */
   async cleanup(riderId) {
     const targetRiderId = riderId || currentRiderId;
 
+    intendedOnline = false;
+    this._clearDisconnectTimer();
+    this._clearBackgroundTimer();
     this.stopHeartbeat();
     this.unsubscribeFromAppState();
     this.unsubscribeFromNetworkState();
@@ -70,8 +65,22 @@ export const riderPresenceService = {
     currentRiderId = null;
   },
 
+  _clearDisconnectTimer() {
+    if (disconnectTimer) {
+      clearTimeout(disconnectTimer);
+      disconnectTimer = null;
+    }
+  },
+
+  _clearBackgroundTimer() {
+    if (backgroundTimer) {
+      clearTimeout(backgroundTimer);
+      backgroundTimer = null;
+    }
+  },
+
   /**
-   * Set rider online status in database.
+   * Set rider online status in database
    */
   async setOnlineStatus(riderId, isOnline) {
     if (!riderId) return;
@@ -86,13 +95,14 @@ export const riderPresenceService = {
         .eq('id', riderId);
 
       if (error) throw error;
+      console.log(`[Presence] Rider ${isOnline ? 'online' : 'offline'} status set`);
     } catch (error) {
       console.error('[Presence] Failed to update online status:', error);
     }
   },
 
   /**
-   * Update last_seen timestamp only (without changing is_online).
+   * Update last_seen timestamp only (without changing is_online)
    */
   async updateLastSeen(riderId) {
     if (!riderId) return;
@@ -112,61 +122,71 @@ export const riderPresenceService = {
   },
 
   /**
-   * Start heartbeat to periodically update last_seen.
+   * Start heartbeat to periodically update last_seen
    */
   startHeartbeat(riderId) {
     this.stopHeartbeat(); // Clear any existing
 
     heartbeatInterval = setInterval(async () => {
-      try {
-        // Check if still connected
-        const netState = await NetInfo.fetch();
-        if (netState.isConnected) {
-          await this.updateLastSeen(riderId);
-        }
-      } catch (error) {
-        console.error('[Presence] Heartbeat error:', error);
+      // Check if still connected
+      const netState = await NetInfo.fetch();
+      if (netState.isConnected) {
+        await this.updateLastSeen(riderId);
+        console.log('[Presence] Heartbeat: last_seen updated');
       }
     }, HEARTBEAT_INTERVAL_MS);
+
+    console.log('[Presence] Heartbeat started');
   },
 
   /**
-   * Stop heartbeat.
+   * Stop heartbeat
    */
   stopHeartbeat() {
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
       heartbeatInterval = null;
+      console.log('[Presence] Heartbeat stopped');
     }
   },
 
   /**
-   * Subscribe to AppState changes (foreground/background).
+   * Subscribe to AppState changes (foreground/background)
    */
   subscribeToAppState(riderId) {
     this.unsubscribeFromAppState(); // Clear any existing
 
     appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
-      try {
-        if (nextAppState === 'active') {
-          // App came to foreground
-          const netState = await NetInfo.fetch();
-          if (netState.isConnected && wasOnlineBeforeBackground) {
-            await this.setOnlineStatus(riderId, true);
-          }
-        } else if (nextAppState === 'background' || nextAppState === 'inactive') {
-          // App went to background - mark as offline
-          wasOnlineBeforeBackground = await this.checkIfOnline(riderId);
-          await this.setOnlineStatus(riderId, false);
+      console.log(`[Presence] AppState changed to: ${nextAppState}`);
+
+      if (nextAppState === 'active') {
+        // App came back to the foreground - cancel any pending "mark offline" timer
+        this._clearBackgroundTimer();
+
+        const netState = await NetInfo.fetch();
+        if (netState.isConnected && intendedOnline) {
+          await this.setOnlineStatus(riderId, true);
         }
-      } catch (error) {
-        console.error('[Presence] AppState handler error:', error);
+      } else if (nextAppState === 'background') {
+        // Only 'background' means the app was actually backgrounded.
+        // 'inactive' also fires for brief system UI (permission prompts,
+        // control center, the app-switcher preview) and should NOT flip status.
+        wasOnlineBeforeBackground = intendedOnline;
+
+        this._clearBackgroundTimer();
+        backgroundTimer = setTimeout(async () => {
+          backgroundTimer = null;
+          await this.setOnlineStatus(riderId, false);
+        }, BACKGROUND_DEBOUNCE_MS);
       }
+      // 'inactive' is intentionally ignored - see comment above.
     });
+
+    console.log('[Presence] AppState subscription started');
   },
 
   /**
-   * Unsubscribe from AppState.
+   * Unsubscribe from AppState
    */
   unsubscribeFromAppState() {
     if (appStateSubscription) {
@@ -176,28 +196,46 @@ export const riderPresenceService = {
   },
 
   /**
-   * Subscribe to network state changes using NetInfo.
+   * Subscribe to network state changes using NetInfo directly
    */
   subscribeToNetworkState(riderId) {
     this.unsubscribeFromNetworkState(); // Clear any existing
 
     netInfoSubscription = NetInfo.addEventListener(async (state) => {
-      try {
-        if (!state.isConnected) {
-          // Network lost - mark offline
-          await this.setOnlineStatus(riderId, false);
-        } else {
-          // Network restored - mark online
+      // isInternetReachable can be `null` while it's still being determined -
+      // treat that as "unknown", not "disconnected".
+      const reachable = state.isConnected && state.isInternetReachable !== false;
+      console.log(`[Presence] Network state changed: isConnected=${state.isConnected}, isInternetReachable=${state.isInternetReachable}`);
+
+      if (!reachable) {
+        // Don't immediately mark offline - a heavy screen (e.g. the map's
+        // WebView loading tiles/routes) can cause a momentary false reading.
+        // Wait to see if it's still disconnected after the debounce window.
+        if (!disconnectTimer) {
+          disconnectTimer = setTimeout(async () => {
+            disconnectTimer = null;
+            const current = await NetInfo.fetch();
+            const stillDown = !current.isConnected || current.isInternetReachable === false;
+            if (stillDown && intendedOnline) {
+              await this.setOnlineStatus(riderId, false);
+            }
+          }, DISCONNECT_DEBOUNCE_MS);
+        }
+      } else {
+        // Network confirmed up - cancel any pending offline write and
+        // restore online status if the rider intends to be online.
+        this._clearDisconnectTimer();
+        if (intendedOnline) {
           await this.setOnlineStatus(riderId, true);
         }
-      } catch (error) {
-        console.error('[Presence] Network handler error:', error);
       }
     });
+
+    console.log('[Presence] Network state subscription started');
   },
 
   /**
-   * Unsubscribe from network state.
+   * Unsubscribe from network state
    */
   unsubscribeFromNetworkState() {
     if (netInfoSubscription) {
@@ -207,7 +245,22 @@ export const riderPresenceService = {
   },
 
   /**
-   * Check if rider is currently online in database.
+   * Get whether the rider currently intends to be online (manual toggle state).
+   */
+  isIntendedOnline() {
+    return intendedOnline;
+  },
+
+  /**
+   * Explicitly set intended online state (call this from the manual toggle
+   * in settings) so automatic blip-correction doesn't fight the user's choice.
+   */
+  setIntendedOnline(value) {
+    intendedOnline = value;
+  },
+
+  /**
+   * Check if rider is currently online in database
    */
   async checkIfOnline(riderId) {
     if (!riderId) return false;

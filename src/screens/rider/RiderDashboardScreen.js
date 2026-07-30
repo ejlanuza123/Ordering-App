@@ -26,6 +26,7 @@ import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
+import { riderPresenceService } from '../../services/riderPresenceService';
 
 const { width } = Dimensions.get('window');
 const devLog = (...args) => {
@@ -83,8 +84,19 @@ export default function RiderDashboardScreen({ navigation }) {
             setCurrentAvatarUrl(data.avatar_url);
           }
 
-          if (!error && typeof data?.is_online === 'boolean') {
-            setOnlineStatus(data.is_online);
+          if (!error) {
+            const isOnline = data?.is_online === true;
+            setOnlineStatus(isOnline);
+
+            // Self-heal: if a transient network/app-state blip (e.g. while
+            // the map screen was loading) flipped the DB to offline while
+            // the rider is still meant to be online, correct it here too -
+            // same fix already applied in RiderMapScreen.
+            if (!isOnline && riderPresenceService.isIntendedOnline()) {
+              devLog('Dashboard: correcting stale offline status');
+              await riderPresenceService.setOnlineStatus(profile.id, true);
+              setOnlineStatus(true);
+            }
           }
         } catch (error) {
           console.error('Error fetching latest profile state:', error);

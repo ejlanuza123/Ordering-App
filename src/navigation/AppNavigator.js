@@ -126,7 +126,7 @@ export default function AppNavigator() {
     return () => {
       riderPresenceService.cleanup(user?.id);
     };
-  }, [user, role, loading]);
+  }, [user?.id, role, loading]);
 
   const handleGetStarted = async () => {
     try {
