@@ -23,6 +23,38 @@ Notifications.setNotificationHandler({
 });
 
 export const mobileNotificationService = {
+  async registerNotificationCategories() {
+    try {
+      await Notifications.setNotificationCategoryAsync('rider_order_assignment', [
+        {
+          identifier: 'ACCEPT_DELIVERY',
+          buttonTitle: 'Accept Delivery',
+          options: { opensAppToForeground: true }
+        },
+        {
+          identifier: 'DECLINE_DELIVERY',
+          buttonTitle: 'Decline',
+          options: { isDestructive: true, opensAppToForeground: false }
+        }
+      ]);
+
+      await Notifications.setNotificationCategoryAsync('delivery_in_transit', [
+        {
+          identifier: 'MARK_DELIVERED',
+          buttonTitle: 'Mark Delivered',
+          options: { opensAppToForeground: true }
+        },
+        {
+          identifier: 'TRACK_MAP',
+          buttonTitle: 'Track Map',
+          options: { opensAppToForeground: true }
+        }
+      ]);
+    } catch (error) {
+      console.error('Error registering notification categories:', error);
+    }
+  },
+
   async ensureAndroidNotificationChannel() {
     if (Platform.OS !== 'android' || channelReady) {
       return;
@@ -37,6 +69,7 @@ export const mobileNotificationService = {
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
       channelReady = true;
+      await this.registerNotificationCategories();
     } catch (error) {
       console.error('Error creating Android notification channel:', error);
     }

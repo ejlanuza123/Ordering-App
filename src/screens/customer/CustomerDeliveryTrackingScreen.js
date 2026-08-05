@@ -12,6 +12,8 @@ import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { locationTrackingService } from '../../services/locationTrackingService';
+import { chatService } from '../../services/chatService';
+import { useAuth } from '../../context/AuthContext';
 
 const ROUTE_REFRESH_MIN_MS = 12000;
 
@@ -230,10 +232,28 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     };
   }, [riderId, sendRiderToMap, updateEtaAndRoute]);
 
+  const { user } = useAuth();
+  const [openingChat, setOpeningChat] = useState(false);
+
   const handleCallRider = () => {
     if (!riderPhone) return;
     const url = Platform.select({ ios: `telprompt:${riderPhone}`, android: `tel:${riderPhone}` });
     Linking.openURL(url);
+  };
+
+  const handleChatRider = async () => {
+    if (!orderId || !riderId || !user?.id) return;
+    setOpeningChat(true);
+    try {
+      const result = await chatService.getOrCreateOrderConversation(orderId, user.id, riderId);
+      if (result.success && result.conversation?.id) {
+        navigation.navigate('ChatThread', { conversationId: result.conversation.id });
+      }
+    } catch (err) {
+      console.error('Error opening chat:', err);
+    } finally {
+      setOpeningChat(false);
+    }
   };
 
   return (
@@ -268,12 +288,25 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
           </View>
         </View>
 
-        {!!riderPhone && (
-          <TouchableOpacity style={styles.callButton} onPress={handleCallRider}>
-            <Ionicons name="call" size={18} color="#fff" />
-            <Text style={styles.callButtonText}>Call Rider</Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          {!!riderPhone && (
+            <TouchableOpacity style={[styles.callButton, { flex: 1, marginTop: 0 }]} onPress={handleCallRider}>
+              <Ionicons name="call" size={18} color="#fff" />
+              <Text style={styles.callButtonText}>Call Rider</Text>
+            </TouchableOpacity>
+          )}
+
+          {!!riderId && (
+            <TouchableOpacity 
+              style={[styles.callButton, { flex: 1, marginTop: 0, backgroundColor: '#10B981' }]} 
+              onPress={handleChatRider}
+              disabled={openingChat}
+            >
+              <Ionicons name={openingChat ? "hourglass" : "chatbubbles"} size={18} color="#fff" />
+              <Text style={styles.callButtonText}>{openingChat ? 'Opening...' : 'Chat Rider'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {lastSeen && (
           <Text style={styles.lastSeenText}>Last update: {new Date(lastSeen).toLocaleTimeString()}</Text>
