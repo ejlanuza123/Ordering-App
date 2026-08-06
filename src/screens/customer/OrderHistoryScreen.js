@@ -25,6 +25,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import RiderInfoCard from '../../components/RiderInfoCard';
+import ReceiptModal from '../../components/ReceiptModal';
 import { CUSTOMER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
 
 const { width } = Dimensions.get('window');
@@ -43,6 +44,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderDetailsModal, setOrderDetailsModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [riderProfileChannel, setRiderProfileChannel] = useState(null);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -863,6 +865,15 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
+            {/* Digital E-Receipt Button */}
+            <TouchableOpacity
+              style={[styles.cancelButtonFull, { backgroundColor: '#0033A0', marginBottom: 10 }]}
+              onPress={() => setShowReceiptModal(true)}
+            >
+              <Ionicons name="receipt" size={20} color="#fff" />
+              <Text style={styles.cancelButtonFullText}>View Digital E-Receipt</Text>
+            </TouchableOpacity>
+
             {/* Archive / Restore Button - Show only if order is completed or delivered */}
             {canArchiveOrder(selectedOrder.status) && (
               <TouchableOpacity
@@ -889,6 +900,13 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 )}
               </TouchableOpacity>
             )}
+
+            <ReceiptModal
+              visible={showReceiptModal}
+              onClose={() => setShowReceiptModal(false)}
+              order={selectedOrder}
+              storeName="PETRON SAN PEDRO STATION"
+            />
 
             {/* Order Items */}
             <View style={styles.detailsSection}>
