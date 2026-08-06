@@ -7,26 +7,36 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Share,
-  Platform
+  Share
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ReceiptModal({ visible, onClose, order, storeName = 'PETRON SAN PEDRO STATION' }) {
   if (!order) return null;
 
-  const orderNum = String(order.id || '').slice(0, 8).toUpperCase();
+  const orderNum = String(order.order_number || order.id || '').slice(0, 10).toUpperCase();
   const orderDate = order.created_at ? new Date(order.created_at).toLocaleString() : new Date().toLocaleString();
   const items = order.order_items || [];
-  const subtotal = Number(order.subtotal || order.total_amount || 0);
+  
+  let itemsCalculatedSubtotal = 0;
+  items.forEach(item => {
+    const price = Number(item.price_at_order ?? item.price_per_unit ?? item.unit_price ?? item.products?.price ?? 0);
+    const qty = Number(item.quantity || 1);
+    itemsCalculatedSubtotal += (price * qty);
+  });
+
   const deliveryFee = Number(order.delivery_fee || 0);
-  const grandTotal = Number(order.total_amount || subtotal + deliveryFee);
+  const grandTotal = Number(order.total_amount || 0);
+  const subtotal = itemsCalculatedSubtotal > 0 ? itemsCalculatedSubtotal : Math.max(0, grandTotal - deliveryFee);
   const paymentMethod = (order.payment_method || 'Cash on Delivery').toUpperCase();
 
   const handleShareReceipt = async () => {
     try {
       const itemsList = items
-        .map(i => `• ${i.products?.name || i.product_name || 'Item'} x${i.quantity || 1} - ₱${Number(i.price_per_unit || i.unit_price || 0).toFixed(2)}`)
+        .map(i => {
+          const price = Number(i.price_at_order ?? i.price_per_unit ?? i.unit_price ?? i.products?.price ?? 0);
+          return `• ${i.products?.name || i.product_name || 'Item'} x${i.quantity || 1} - ₱${price.toFixed(2)}`;
+        })
         .join('\n');
 
       const message = `🧾 OFFICIAL E-RECEIPT\n${storeName}\nOrder #: ${orderNum}\nDate: ${orderDate}\n\nITEMS:\n${itemsList}\n\nSubtotal: ₱${subtotal.toFixed(2)}\nDelivery Fee: ₱${deliveryFee.toFixed(2)}\nTotal Amount: ₱${grandTotal.toFixed(2)}\nPayment: ${paymentMethod}\nStatus: ${order.status?.toUpperCase() || 'COMPLETED'}\n\nThank you for ordering!`;
@@ -88,17 +98,21 @@ export default function ReceiptModal({ visible, onClose, order, storeName = 'PET
 
             {/* Itemized Table */}
             <Text style={styles.sectionHeading}>ORDER ITEMS</Text>
-            {items.map((item, idx) => (
-              <View key={item.id || idx} style={styles.itemRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName}>{item.products?.name || item.product_name || 'Product'}</Text>
-                  <Text style={styles.itemMeta}>₱{Number(item.price_per_unit || item.unit_price || 0).toFixed(2)} x {item.quantity || 1}</Text>
+            {items.map((item, idx) => {
+              const price = Number(item.price_at_order ?? item.price_per_unit ?? item.unit_price ?? item.products?.price ?? 0);
+              const qty = Number(item.quantity || 1);
+              const total = price * qty;
+
+              return (
+                <View key={item.id || idx} style={styles.itemRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemName}>{item.products?.name || item.product_name || 'Product'}</Text>
+                    <Text style={styles.itemMeta}>₱{price.toFixed(2)} x {qty}</Text>
+                  </View>
+                  <Text style={styles.itemTotal}>₱{total.toFixed(2)}</Text>
                 </View>
-                <Text style={styles.itemTotal}>
-                  ₱{(Number(item.quantity || 1) * Number(item.price_per_unit || item.unit_price || 0)).toFixed(2)}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
 
             <View style={styles.dashedDivider} />
 
