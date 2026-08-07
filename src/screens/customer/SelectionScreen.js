@@ -23,6 +23,7 @@ import { useCart } from '../../context/CartContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { useProducts } from '../../context/ProductContext';
+import SkeletonLoader from '../../components/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -355,10 +356,7 @@ export default function SelectionScreen({ navigation, route }) {
 
         {/* Products Section */}
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#0033A0" />
-            <Text style={styles.loadingText}>Loading products...</Text>
-          </View>
+          <SkeletonLoader variant="product-card" count={6} />
         ) : (
           <View style={styles.productsContainer}>
             <View style={styles.productsHeader}>

@@ -27,6 +27,7 @@ import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 import { riderPresenceService } from '../../services/riderPresenceService';
+import SkeletonLoader from '../../components/SkeletonLoader';
 
 const { width } = Dimensions.get('window');
 const devLog = (...args) => {
@@ -473,9 +474,9 @@ export default function RiderDashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#0033A0" />
-        <Text style={styles.loadingText}>Loading dashboard...</Text>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <SkeletonLoader variant="dashboard-stats" />
       </View>
     );
   }

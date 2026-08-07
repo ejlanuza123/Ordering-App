@@ -27,6 +27,7 @@ import CustomAlertModal from '../../components/CustomAlertModal';
 import RiderInfoCard from '../../components/RiderInfoCard';
 import ReceiptModal from '../../components/ReceiptModal';
 import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
+import SkeletonLoader from '../../components/SkeletonLoader';
 import { CUSTOMER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
 
 const { width } = Dimensions.get('window');
@@ -1069,10 +1070,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0033A0" />
-          <Text style={styles.loadingText}>Loading orders...</Text>
-        </View>
+        <SkeletonLoader variant="order-card" count={4} />
       </View>
     );
   }
@@ -1144,54 +1142,58 @@ export default function OrderHistoryScreen({ navigation, route }) {
       )}
 
       {/* Orders List */}
-      <FlatList
-        data={filteredOrders}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderOrderItem}
-        contentContainerStyle={[
-          styles.listContent,
-          { paddingBottom: insets.bottom + 20 }
-        ]}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh}
-            colors={['#0033A0']}
-            tintColor="#0033A0"
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={80} color="#ccc" />
-            <Text style={styles.emptyTitle}>
-              {selectedFilter === 'all' ? 'No orders yet' : `No ${selectedFilter} orders`}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {selectedFilter === 'all' 
-                ? 'Place your first order to see it here!' 
-                : `You don't have any ${selectedFilter} orders`
-              }
-            </Text>
-            <TouchableOpacity 
-              style={styles.orderNowButton}
-              onPress={() => navigation.navigate('Selection')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.orderNowText}>Order Now</Text>
-            </TouchableOpacity>
-          </View>
-        }
-        ListHeaderComponent={
-          filteredOrders.length > 0 ? (
-            <View style={styles.listHeader}>
-              <Text style={styles.listHeaderText}>
-                {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'} found
+      {loading ? (
+        <SkeletonLoader variant="order-card" count={4} />
+      ) : (
+        <FlatList
+          data={filteredOrders}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderOrderItem}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 20 }
+          ]}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={onRefresh}
+              colors={['#0033A0']}
+              tintColor="#0033A0"
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="receipt-outline" size={80} color="#ccc" />
+              <Text style={styles.emptyTitle}>
+                {selectedFilter === 'all' ? 'No orders yet' : `No ${selectedFilter} orders`}
               </Text>
+              <Text style={styles.emptySubtitle}>
+                {selectedFilter === 'all' 
+                  ? 'Place your first order to see it here!' 
+                  : `You don't have any ${selectedFilter} orders`
+                }
+              </Text>
+              <TouchableOpacity 
+                style={styles.orderNowButton}
+                onPress={() => navigation.navigate('Selection')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.orderNowText}>Order Now</Text>
+              </TouchableOpacity>
             </View>
-          ) : null
-        }
-      />
+          }
+          ListHeaderComponent={
+            filteredOrders.length > 0 ? (
+              <View style={styles.listHeader}>
+                <Text style={styles.listHeaderText}>
+                  {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'} found
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* Order Details Modal */}
       {renderOrderDetails()}
