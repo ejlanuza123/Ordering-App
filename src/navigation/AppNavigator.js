@@ -7,6 +7,7 @@ import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingChatHead from '../components/FloatingChatHead';
 import { riderPresenceService } from '../services/riderPresenceService';
+import { mobileNotificationService } from '../services/mobileNotificationService';
 
 // --- IMPORT SCREENS ---
 // Auth Screens
@@ -127,6 +128,56 @@ export default function AppNavigator() {
       riderPresenceService.cleanup(user?.id);
     };
   }, [user?.id, role, loading]);
+
+  // Handle push notification tap navigation globally (e.g. chat messages -> ChatThread / ChatList)
+  useEffect(() => {
+    const handleNotificationResponse = (notification, actionType) => {
+      if (actionType !== 'tapped') return;
+
+      const data = notification?.request?.content?.data || {};
+      const type = data?.type || notification?.request?.content?.categoryIdentifier || '';
+      const conversationId = data?.conversation_id || data?.conversationId || null;
+      const title = notification?.request?.content?.title || '';
+      const body = notification?.request?.content?.body || '';
+
+      const isChat = 
+        ['chat', 'chat_message', 'message', 'order_chat'].includes(type) ||
+        Boolean(conversationId) ||
+        title.toLowerCase().includes('chat') ||
+        title.toLowerCase().includes('message') ||
+        body.toLowerCase().includes('chat') ||
+        body.toLowerCase().includes('message');
+
+      if (isChat && navigationRef.isReady()) {
+        if (role === 'rider') {
+          if (conversationId) {
+            navigationRef.navigate('RiderStack', {
+              screen: 'ChatThread',
+              params: { conversationId }
+            });
+          } else {
+            navigationRef.navigate('RiderStack', {
+              screen: 'ChatList'
+            });
+          }
+        } else {
+          if (conversationId) {
+            navigationRef.navigate('CustomerStack', {
+              screen: 'ChatThread',
+              params: { conversationId }
+            });
+          } else {
+            navigationRef.navigate('CustomerStack', {
+              screen: 'ChatList'
+            });
+          }
+        }
+      }
+    };
+
+    const cleanup = mobileNotificationService.setupNotificationListeners(handleNotificationResponse);
+    return () => cleanup();
+  }, [navigationRef, role]);
 
   const handleGetStarted = async () => {
     try {

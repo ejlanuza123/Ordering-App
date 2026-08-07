@@ -55,6 +55,23 @@ export default function NotificationsScreen({ navigation }) {
     const payload = notification?.data || {};
     const payloadOrderId = payload?.order_id ?? payload?.orderId ?? null;
     const payloadDeliveryId = payload?.delivery_id ?? payload?.deliveryId ?? null;
+    const payloadConversationId = payload?.conversation_id ?? payload?.conversationId ?? null;
+
+    const isChatNotification = [
+      'chat',
+      'chat_message',
+      'message',
+      'order_chat'
+    ].includes(notification?.type) || Boolean(payloadConversationId) || (notification?.title || '').toLowerCase().includes('chat') || (notification?.title || '').toLowerCase().includes('message');
+
+    if (isChatNotification) {
+      if (payloadConversationId) {
+        navigation.push('ChatThread', { conversationId: payloadConversationId });
+      } else {
+        navigation.push('ChatList');
+      }
+      return;
+    }
 
     // Use push() for deep-links so Back returns to Notifications.
     if (role === 'rider') {
@@ -124,6 +141,11 @@ export default function NotificationsScreen({ navigation }) {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'chat':
+      case 'chat_message':
+      case 'message':
+      case 'order_chat':
+        return { name: 'chatbubbles', color: '#0033A0' };
       case 'order_status':
         return { name: 'sync', color: '#0033A0' };
       case 'order_delivered':
