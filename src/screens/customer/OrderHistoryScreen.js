@@ -772,17 +772,23 @@ export default function OrderHistoryScreen({ navigation, route }) {
             {canArchiveOrder(item.status) && (
               <TouchableOpacity
                 style={[
-                  styles.archiveButton,
-                  item.archived ? styles.restoreButton : styles.archiveButton,
+                  styles.archivePillButton,
+                  item.archived ? styles.restorePillButton : styles.archivePillButton,
                 ]}
-                onPress={() => handleArchivePress(item)}
-                activeOpacity={0.7}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  handleArchivePress(item);
+                }}
+                activeOpacity={0.8}
               >
                 <Ionicons
-                  name={item.archived ? 'reload' : 'archive'}
-                  size={18}
-                  color="#fff"
+                  name={item.archived ? 'refresh-outline' : 'archive-outline'}
+                  size={14}
+                  color={item.archived ? '#065F46' : '#92400E'}
                 />
+                <Text style={[styles.archivePillText, { color: item.archived ? '#065F46' : '#92400E' }]}>
+                  {item.archived ? 'Restore' : 'Archive'}
+                </Text>
               </TouchableOpacity>
             )}
             <Ionicons name="chevron-forward" size={20} color="#999" />
@@ -882,23 +888,28 @@ export default function OrderHistoryScreen({ navigation, route }) {
             {canArchiveOrder(selectedOrder.status) && (
               <TouchableOpacity
                 style={[
-                  styles.cancelButtonFull,
-                  selectedOrder.archived ? styles.restoreButtonFull : styles.archiveButtonFull,
+                  styles.archiveActionOutline,
+                  selectedOrder.archived ? styles.restoreActionOutline : styles.archiveActionOutline,
                 ]}
                 onPress={() => handleArchivePress(selectedOrder)}
                 disabled={archiving}
               >
                 {archiving ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={selectedOrder.archived ? '#059669' : '#D97706'} />
                 ) : (
                   <>
                     <Ionicons
-                      name={selectedOrder.archived ? 'reload' : 'archive'}
-                      size={20}
-                      color="#fff"
+                      name={selectedOrder.archived ? 'refresh-outline' : 'archive-outline'}
+                      size={18}
+                      color={selectedOrder.archived ? '#059669' : '#D97706'}
                     />
-                    <Text style={styles.cancelButtonFullText}>
-                      {selectedOrder.archived ? 'Restore Order' : 'Hide Order'}
+                    <Text
+                      style={[
+                        styles.archiveActionOutlineText,
+                        { color: selectedOrder.archived ? '#059669' : '#D97706' }
+                      ]}
+                    >
+                      {selectedOrder.archived ? 'Restore Order to History' : 'Archive Order'}
                     </Text>
                   </>
                 )}
@@ -1627,23 +1638,46 @@ const styles = StyleSheet.create({
   orderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
-  archiveButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
+  archivePillButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F59E0B',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    gap: 4,
   },
-  restoreButton: {
-    backgroundColor: '#10B981',
+  restorePillButton: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#A7F3D0',
+  },
+  archivePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  archiveActionOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  restoreActionOutline: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
+  },
+  archiveActionOutlineText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   orderTotal: {
     flexDirection: 'row',
