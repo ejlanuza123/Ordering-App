@@ -380,20 +380,26 @@ export default function OpenStreetMapPicker({
         return;
       }
 
-      // Bumped accuracy to Highest so it actually relies on GPS hardware
+      // Fast-path: use last known physical GPS fix immediately
+      const lastKnown = await Location.getLastKnownPositionAsync({});
+      if (lastKnown?.coords) {
+        sendLocationToWebView(lastKnown.coords.latitude, lastKnown.coords.longitude);
+        setSelectedLocation({ latitude: lastKnown.coords.latitude, longitude: lastKnown.coords.longitude });
+      }
+
+      // Fresh high-accuracy GPS hardware fix
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Highest,
       });
       const { latitude, longitude } = location.coords;
       
       sendLocationToWebView(latitude, longitude);
-
       setSelectedLocation({ latitude, longitude });
       
     } catch (error) {
       console.error('Error getting location:', error);
       Alert.alert('Error', 'Could not get your current location. Using default location.');
-      // Send the default coordinates to the WebView so the map initializes
+      // Send default coordinates if GPS hardware is disabled
       sendLocationToWebView(SAN_PEDRO_COORDS.lat, SAN_PEDRO_COORDS.lng);
       setSelectedLocation(SAN_PEDRO_COORDS);
     } finally {
