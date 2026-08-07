@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { locationTrackingService } from '../../services/locationTrackingService';
 import { chatService } from '../../services/chatService';
 import { useAuth } from '../../context/AuthContext';
+import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
 
 const ROUTE_REFRESH_MIN_MS = 12000;
 
@@ -270,6 +271,14 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         <Text style={styles.orderText}>{orderNumber || `Order #${orderId || '-'}`}</Text>
         <Text style={styles.riderText}>{riderName || 'Assigned Rider'}</Text>
         <Text style={styles.metaText} numberOfLines={1}>{deliveryAddress || 'Delivery destination'}</Text>
+
+        {/* 5-Step Order Status Progress Timeline */}
+        <OrderDeliveryTimeline
+          status={route.params?.status || 'In Transit'}
+          isRiderOnline={isOnline}
+          etaMinutes={etaMinutes}
+          distanceKm={distanceKm}
+        />
 
         <View style={styles.metricsRow}>
           <View style={styles.metricItem}>
