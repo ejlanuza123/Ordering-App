@@ -1,101 +1,89 @@
-# Rider Mobile User Manual
+# Rider Mobile User Manual — Petron San Pedro Mobile App
+
+Welcome to the Rider Mobile User Manual for the **Petron San Pedro Mobile Application**. This guide will assist delivery riders in managing active assignments, updating delivery statuses, navigating routes, and managing presence.
+
+---
 
 ## 1. Before You Start
 
-- Use a rider account.
-- Turn on internet connection.
-- Enable location services.
-- Enable notifications.
+- Use an official Rider account created by your Admin team.
+- Enable device GPS Location Services (High Accuracy recommended).
+- Enable Push Notification permissions.
+- Turn on Internet connection (Wi-Fi or Mobile Data).
 
-## 2. Register a Rider Account
+---
 
-Riders cannot register directly in the mobile app.
+## 2. Account Access & Credentials
 
-1. Contact the admin team.
-2. Ask the admin to create your rider account in the admin web dashboard.
-3. Wait for account confirmation.
-4. Use the provided rider credentials to log in to the mobile app.
+Rider accounts cannot self-register directly in the mobile app.
 
-## 3. Log In
+1. Contact your Petron Admin dispatcher team.
+2. The Admin will create your account in the Admin Web Portal under **Rider Management**.
+3. Obtain your assigned Email and Password.
+4. Open the Rider Mobile App, enter credentials, and tap **Sign In**.
 
-1. Open the app.
-2. Enter rider email and password.
-3. Tap Sign In.
-4. Wait for Rider Dashboard.
+---
 
-## 4. Daily Delivery Workflow
+## 3. Rider Dashboard & Online Status Toggle
 
-1. Open Rider Dashboard.
-2. Check pending or active deliveries.
-3. Open Deliveries list.
-4. Select assigned delivery.
-5. Review address, customer, and notes.
-6. Update status in sequence.
+1. Upon login, the **Rider Dashboard** displays your daily delivery stats:
+   - Today's Completed Deliveries
+   - Active In-Progress Deliveries
+   - Customer Rating Average ⭐
+2. **Online / Offline Status Toggle**:
+   - Toggle **`Go Online`** (`🟢`) when starting your shift to appear on Admin dispatch lists and Live Fleet Maps.
+   - Toggle **`Go Offline`** (`⚪`) when ending your shift or taking a break.
 
-Common sequence: accepted -> picked up -> out for delivery -> delivered.
+---
 
-## 5. Complete Delivery with Proof
+## 4. Receiving & Managing Deliveries
 
-1. Open delivery details.
-2. Capture/upload proof photo.
-3. Save proof successfully.
-4. Mark delivery as delivered.
+1. **Instant New Order Assignment Alert**: When an admin assigns an order, a push notification and audio alert notify you immediately.
+2. Tap the notification to jump straight to **Rider Delivery Details**.
+3. Open **Deliveries List** to view all assigned orders (`Pending`, `Accepted`, `Picked Up`, `Out for Delivery`).
+4. **Update Status Sequence**:
+   - Tap **`Accept Delivery`** ➔ Confirm acceptance.
+   - Tap **`Picked Up Items`** ➔ Collect products from station hub.
+   - Tap **`Out for Delivery`** ➔ Drive to customer drop-off address.
+   - Tap **`Mark Delivered`** ➔ Complete delivery fulfillment.
 
-If proof is required and missing, delivered status will be blocked.
+---
 
-## 6. Report Delivery Issues
+## 5. Rider Interactive Delivery Map & Navigation
 
-1. Open the affected delivery.
-2. Add issue notes.
-3. Set appropriate status (for example failed if needed).
-4. Notify admin team when escalation is needed.
+1. Open **Rider Map** (`🗺️` tab).
+2. Default Hub Location: **Petron San Pedro Station** (`9.7533882, 118.745289`).
+3. View your live GPS position (`🛵`) moving on Leaflet map in real-time.
+4. View customer drop-off pins (`📍`) with customer address and contact details.
+5. View Route Distance (km) and estimated travel time.
 
-## 7. Rider Map and Navigation
+---
 
-1. Open Rider Map.
-2. Check delivery route/location details.
-3. Return to delivery details for status updates.
+## 6. In-App Customer Communication & Chat Navigation
 
-## 8. Notifications
+- **Call / SMS**: Tap **Call Customer** (`📞`) or **SMS** (`💬`) directly on delivery cards to reach the customer.
+- **In-App Live Chat**: Tap **Chat** to message customer or admin.
+- **Auto-Navigation**: Tapping a chat notification automatically opens the active chat thread for instant communication.
 
-1. Open notifications screen.
-2. Review new assignments and updates.
-3. Open related delivery from alert when needed.
+---
 
-## 9. Profile and Account
+## 7. Offline Storage & Auto-Sync Queue
 
-1. Open Rider Profile.
-2. Update details if needed.
-3. Save changes.
+- If network coverage drops while on a delivery route, the app automatically queues your status updates locally in `offlineStorageService`.
+- As soon as cellular connection is restored, your queued actions automatically sync to Supabase database without data loss.
 
-## 10. Log Out
+---
 
-1. Open profile/account menu.
-2. Tap Log Out.
-3. Confirm logout.
+## 8. Rider Profile & Security
 
-## 11. Quick Troubleshooting
+1. Open **Rider Profile** tab.
+2. View your Vehicle Type, Vehicle Plate Number, assigned Email, and Phone Number.
+3. Tap **Sign Out** when closing your shift.
 
-### Cannot log in
+---
 
-1. Recheck email and password.
-2. Confirm rider account is active.
-3. Retry with stable internet.
+## 9. Quick Troubleshooting
 
-### Cannot update delivery
-
-1. Confirm delivery is assigned to your account.
-2. Check internet connection.
-3. Refresh and retry.
-
-### Delivered status is blocked
-
-1. Upload proof of delivery.
-2. Save proof.
-3. Try delivered status again.
-
-### Deliveries not showing
-
-1. Refresh dashboard.
-2. Re-open Deliveries list.
-3. Ask admin to verify assignment.
+- **Deliveries not appearing**: Tap **Refresh** (`↻`) on Rider Dashboard or ensure your status is set to **Online**.
+- **Location not updating on map**: Verify GPS location permissions are granted in phone settings.
+- **Cannot update delivery status**: Reconnect internet connection or wait for offline queue sync.

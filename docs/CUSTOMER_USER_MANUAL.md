@@ -1,110 +1,109 @@
-# Customer Mobile User Manual
+# Customer Mobile User Manual — Petron San Pedro Mobile App
+
+Welcome to the Customer User Manual for the **Petron San Pedro Mobile Application**. This guide will help you order fuel, lubricants, engine oils, and auto accessories with real-time tracking, 1-tap re-ordering, and delivery timeline monitoring.
+
+---
 
 ## 1. Before You Start
 
-- Install/open the production app.
-- Turn on internet connection.
-- Allow notifications (recommended).
-- Allow location access (recommended for address and map).
+- Install or open the production mobile app.
+- Turn on your device's Internet connection (Wi-Fi or Mobile Data).
+- Allow Notification permissions (recommended for order status alerts and live chat messages).
+- Allow Location Access (recommended for automatic delivery address pin placement).
 
-## 2. Register a Customer Account
+---
 
-Only customers can register directly in the mobile app. Rider accounts are created by admin through the admin web dashboard.
+## 2. Account Registration & Login
 
-1. Open the app.
-2. Tap Register.
-3. Enter your details.
-4. Submit registration.
-5. Return to login after account creation.
+### A. Register a New Account
+1. Open the app and tap **Register**.
+2. Enter your Full Name, Email, Password, Phone Number, and Address.
+3. Tap **Sign Up**.
+4. Log in using your new email and password.
 
-## 3. Log In
+### B. Sign In
+1. Enter your registered email and password.
+2. Tap **Sign In**.
+3. Wait for the Store Home screen to load with shimmer skeleton loading.
 
-1. Open the app.
-2. Enter email and password.
-3. Tap Sign In.
-4. Wait for Home screen to load.
+---
 
-## 4. Place an Order (Step-by-Step)
+## 3. Browsing & Placing an Order
 
-1. On Home, tap Quick Order.
-2. Choose product category and item.
-3. Open product details.
-4. Add item to cart.
-5. Open Cart.
-6. Review quantity and total.
-7. Tap Checkout.
-8. Enter delivery address.
-9. Choose payment method.
-10. Add special instructions (optional).
-11. Tap Place Order.
+1. On the Home screen, browse products by category (`Fuel`, `Motor Oil`, `Engine Oil`, `Accessories`).
+2. Tap any product to view details, stock availability, and unit price.
+3. Select your desired quantity and tap **Add to Cart**.
+4. Open **Cart** (`🛒` icon in top bar).
+5. Review items, quantities, and subtotal.
+6. Tap **Checkout**.
+7. Choose your Delivery Address:
+   - **Manual Address Entry**: Type your complete delivery street address.
+   - **Current GPS Location**: Tap **Use Current Location** to auto-detect coordinates.
+   - **Pin Location on Map**: Drag map pin to set exact drop-off spot.
+8. Select Payment Method (`Cash on Delivery` or `GCash`).
+9. Add optional Delivery Notes (e.g. "Gate 2 near landmark").
+10. Tap **Place Order**.
 
-## 5. Set Delivery Address
+---
 
-You can set address in checkout using any option:
+## 4. ⚡ 1-Tap Re-Order (Fast Checkout)
 
-1. Type address manually.
-2. Use current location.
-3. Pick address on map.
+Repeat past orders in seconds without browsing individual products:
 
-Always verify address before placing order.
+1. Go to **Order History** tab.
+2. Locate any past completed or delivered order.
+3. Tap the **`⚡ Re-Order`** pill button directly on the order card (or tap **`⚡ Re-Order Items in 1-Tap`** inside Order Details).
+4. All products from that order are instantly added to your shopping cart with proper quantities.
+5. Tap **Cart** ➔ **Checkout** to complete your repeat order immediately!
 
-## 6. Track Your Order
+---
 
-1. Open Order History.
-2. Select your active order.
-3. Open delivery tracking.
-4. Check current status.
+## 5. 🚚 Live 5-Step Delivery Status Timeline & Tracking
 
-Possible statuses include pending, assigned, picked up, out for delivery, delivered, and cancelled.
+Track your delivery in real-time step-by-step:
 
-## 7. Use Other Features
+1. Open **Order History**.
+2. Tap your active order.
+3. View the **Live 5-Step Delivery Timeline**:
+   - Step 1: **Pending** ⏳ (Order submitted to store)
+   - Step 2: **Processing** ⚙️ (Store preparing order items)
+   - Step 3: **Rider Picked Up** 📦 (Assigned rider collected items)
+   - Step 4: **Out for Delivery** 🚚 (Rider traveling to address)
+   - Step 5: **Completed** ✅ (Order delivered)
+4. View Assigned Rider Info: Rider name, vehicle plate, phone number, and rating.
+5. Tap **Track Live Location 🗺️** to view rider's real-time position moving on the Leaflet map.
 
-### Notifications
+---
 
-1. Tap notification icon.
-2. Review order updates.
+## 6. Archiving & Managing Past Orders
 
-### Favorites
+Keep your order history screen organized:
 
-1. Open Favorites.
-2. Reorder frequently used products faster.
+- **Archive Order**: Tap **`Archive`** (`📦`) on any completed or cancelled order card to hide it from your active list.
+- **Filter Tabs**: Switch between **`Active`** and **`Archived`** orders at the top of the history feed.
+- **Restore Order**: Tap **`Restore`** (`↻`) on any archived order to move it back to your active list anytime.
 
-### Reviews
+---
 
-1. Open Reviews section.
-2. Submit product or rider review after eligible orders.
+## 7. Digital E-Receipt & In-App Customer Support
 
-### Profile
+- **Digital E-Receipt**: Inside Order Details, tap **View Digital E-Receipt** to open an official printable/shareable order summary modal with line items, tax breakdowns, and order timestamps.
+- **Live Chat**: Tap the **Chat** icon on active order cards to message your assigned rider or admin dispatcher directly.
+- **Interactive Notifications**: Tapping any message or delivery notification automatically navigates you straight into the active chat thread or order status screen!
 
-1. Open Profile.
-2. Update account details.
-3. Save changes.
+---
 
-## 8. Log Out
+## 8. Product Reviews & Customer Feedback
 
-1. Open Profile.
-2. Tap Log Out.
-3. Confirm logout.
+1. Open **Reviews** tab.
+2. Select an eligible completed order.
+3. Rate your product and rider experience (1 to 5 Stars ⭐).
+4. Write optional comments or feedback and tap **Submit Review**.
+
+---
 
 ## 9. Quick Troubleshooting
 
-### Cannot log in
-
-1. Recheck email and password.
-2. Confirm account was registered.
-3. Retry with stable internet.
-
-### Address is wrong
-
-1. Edit address in checkout.
-2. Use map/current location for accuracy.
-
-### Order did not sync
-
-1. Reconnect to internet.
-2. Keep app open for automatic sync.
-
-### Notifications are missing
-
-1. Enable device notification permission.
-2. Make sure app is still logged in.
+- **Order items not showing**: Pull down on Order History to refresh the feed, or check your internet connection.
+- **1-Tap Re-Order failed**: Ensure the products from your previous order are still active in stock.
+- **Notifications not opening chat**: Ensure app permissions for push notifications are granted in device settings.
