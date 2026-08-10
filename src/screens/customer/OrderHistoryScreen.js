@@ -19,6 +19,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
+import { useCart } from '../../context/CartContext';
 import { orderService } from '../../services/orderService';
 import { chatService } from '../../services/chatService';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,6 +38,7 @@ const PAGE_SIZE = 20;
 export default function OrderHistoryScreen({ navigation, route }) {
   const { user } = useAuth();
   const { rateRider, hasUserRated, getUserRating } = useRiderRatings();
+  const { reorderItems } = useCart();
   const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -770,6 +772,28 @@ export default function OrderHistoryScreen({ navigation, route }) {
             <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.orderActions}>
+            <TouchableOpacity
+              style={styles.reorderPillButton}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                if (!item.order_items || item.order_items.length === 0) {
+                  fetchOrderDetails(item.id);
+                  return;
+                }
+                const count = reorderItems(item.order_items);
+                setAlertConfig({
+                  type: 'success',
+                  title: 'Added to Cart! ⚡',
+                  message: `Re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
+                });
+                setShowAlert(true);
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="flash" size={13} color="#fff" />
+              <Text style={styles.reorderPillText}>Re-Order</Text>
+            </TouchableOpacity>
+
             {canArchiveOrder(item.status) && (
               <TouchableOpacity
                 style={[
@@ -875,6 +899,33 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 )}
               </TouchableOpacity>
             )}
+
+            {/* 1-Tap Re-Order Button */}
+            <TouchableOpacity
+              style={[styles.cancelButtonFull, { backgroundColor: '#10B981', marginBottom: 10 }]}
+              onPress={() => {
+                if (!selectedOrder?.order_items || selectedOrder.order_items.length === 0) {
+                  setAlertConfig({
+                    type: 'warning',
+                    title: 'Re-order Unavailable',
+                    message: 'No item details found for this order.'
+                  });
+                  setShowAlert(true);
+                  return;
+                }
+                const count = reorderItems(selectedOrder.order_items);
+                setOrderDetailsModal(false);
+                setAlertConfig({
+                  type: 'success',
+                  title: 'Added to Cart! ⚡',
+                  message: `Successfully re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
+                });
+                setShowAlert(true);
+              }}
+            >
+              <Ionicons name="flash" size={20} color="#fff" />
+              <Text style={styles.cancelButtonFullText}>⚡ Re-Order Items in 1-Tap</Text>
+            </TouchableOpacity>
 
             {/* Digital E-Receipt Button */}
             <TouchableOpacity
@@ -1659,7 +1710,22 @@ const styles = StyleSheet.create({
   },
   archivePillText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  reorderPillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginRight: 6,
+  },
+  reorderPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#fff',
   },
   archiveActionOutline: {
     flexDirection: 'row',

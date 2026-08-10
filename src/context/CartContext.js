@@ -138,6 +138,54 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
   }, []);
 
+  // Reorder items from a past order
+  const reorderItems = useCallback((orderItems) => {
+    if (!Array.isArray(orderItems) || orderItems.length === 0) return 0;
+
+    let addedCount = 0;
+    setCartItems((prevItems) => {
+      let updatedCart = [...prevItems];
+
+      orderItems.forEach((orderItem) => {
+        const product = orderItem.products || orderItem.product || orderItem;
+        const productId = product?.id || orderItem.product_id || orderItem.id;
+        const qty = Math.max(1, orderItem.quantity || 1);
+        const price = product?.current_price || orderItem.price_at_order || orderItem.price || 0;
+
+        if (!productId) return;
+
+        const existingIndex = updatedCart.findIndex(item => item.id === productId);
+        if (existingIndex !== -1) {
+          const existing = updatedCart[existingIndex];
+          const newQty = existing.quantity + qty;
+          updatedCart[existingIndex] = {
+            ...existing,
+            quantity: newQty,
+            totalItemPrice: parseFloat((price * newQty).toFixed(2)),
+          };
+        } else {
+          updatedCart.push({
+            id: productId,
+            name: product?.name || orderItem.name || 'Product',
+            category: product?.category || orderItem.category || 'General',
+            image_url: product?.image_url || orderItem.image_url || null,
+            current_price: price,
+            unitPrice: price,
+            unit: product?.unit || orderItem.unit || 'pc',
+            quantity: qty,
+            totalItemPrice: parseFloat((price * qty).toFixed(2)),
+            addedAt: new Date().toISOString()
+          });
+        }
+        addedCount += 1;
+      });
+
+      return updatedCart;
+    });
+
+    return addedCount;
+  }, []);
+
   // Get item count in cart
   const getItemCount = useCallback(() => {
     return cartItems.reduce((count, item) => count + item.quantity, 0);
@@ -176,6 +224,7 @@ export const CartProvider = ({ children }) => {
         updateQuantity,
         removeFromCart, 
         clearCart, 
+        reorderItems,
         getCartTotal,
         getItemCount,
         isInCart,
