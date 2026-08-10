@@ -58,8 +58,8 @@ export default function RiderMapScreen({ navigation }) {
 
   // Petron San Pedro Station coordinates (default)
   const SAN_PEDRO_COORDS = {
-    lat: 9.7534772,
-    lng: 118.7478688
+    lat: 9.7533882,
+    lng: 118.745289
   };
 
   // Generate map HTML with all delivery markers
