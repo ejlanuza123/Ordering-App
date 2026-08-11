@@ -710,8 +710,8 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     shadowColor: '#ED2939',
     shadowOpacity: 0.4,
-    shadowRadius: 4
-  }
+    shadowRadius: 4,
+  },
   deleteChatButton: {
     padding: 6,
     marginLeft: 6,
