@@ -519,17 +519,15 @@ const ChatListScreen = ({ navigation }) => {
           </View>
         )}
         <View style={styles.inlineCountRow}>
-              <View style={styles.headerPill}>
-                <Ionicons name="chatbubbles" size={14} color="#0033A0" />
-                <Text style={styles.headerPillText}>{unreadCount} unread</Text>
-              </View>
-              {isSyncing && (
-                <View style={styles.syncingPill}>
-                  <Text style={styles.syncingPillText}>Syncing...</Text>
-                </View>
-              )}
-            </View>
+          <View style={styles.headerPill}>
+            <Ionicons name="chatbubbles" size={14} color="#0033A0" />
+            <Text style={styles.headerPillText}>{unreadCount} unread</Text>
           </View>
+          {isSyncing && (
+            <View style={styles.syncingPill}>
+              <Text style={styles.syncingPillText}>Syncing...</Text>
+            </View>
+          )}
         </View>
 
         <FlatList
