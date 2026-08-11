@@ -313,6 +313,7 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
             </View>
           }
         />
+      )}
       {/* GPS Navigation Modal */}
       <GPSNavigationModal
         visible={!!navDestination}
