@@ -40,6 +40,9 @@ const RiderChatListScreen = ({ navigation }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const unsubscribeRef = useRef(null);
   const unreadUnsubscribeRef = useRef(null);
+  const [headerMenuVisible, setHeaderMenuVisible] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const appStateRef = useRef(AppState.currentState);
   const syncTimerRef = useRef(null);
   const bootstrapCompleteRef = useRef(false);
@@ -291,21 +294,77 @@ const RiderChatListScreen = ({ navigation }) => {
     return String(orderId).slice(0, 8);
   };
 
-  const handleDeleteConversationPress = (conversationId) => {
+  const toggleSelectAll = () => {
+    if (selectedIds.length === conversations.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(conversations.map((c) => String(c.conversationId || c.id)));
+    }
+  };
+
+  const toggleSelectItem = (id) => {
+    const targetId = String(id);
+    setSelectedIds((prev) =>
+      prev.includes(targetId) ? prev.filter((item) => item !== targetId) : [...prev, targetId]
+    );
+  };
+
+  const handleBulkFinish = () => {
+    if (selectedIds.length === 0) return;
     Alert.alert(
-      'Delete Conversation?',
-      'Are you sure you want to delete this chat thread from your inbox?',
+      'Finish Conversations?',
+      `Are you sure you want to mark ${selectedIds.length} ${selectedIds.length === 1 ? 'chat' : 'chats'} as finished?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Finish Chats',
+          onPress: async () => {
+            const targets = [...selectedIds];
+            setConversations((prev) =>
+              prev.map((c) =>
+                targets.includes(String(c.conversationId || c.id)) ? { ...c, is_closed: true } : c
+              )
+            );
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+            await Promise.all(targets.map((id) => chatService.closeConversation(id)));
+          }
+        }
+      ]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    Alert.alert(
+      'Delete Conversations?',
+      `Are you sure you want to permanently delete ${selectedIds.length} ${selectedIds.length === 1 ? 'chat' : 'chats'} from your inbox?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            setConversations((prev) => prev.filter((c) => (c.conversationId || c.id) !== conversationId));
-            await chatService.deleteConversation(conversationId);
+            const targets = [...selectedIds];
+            setConversations((prev) =>
+              prev.filter((c) => !targets.includes(String(c.conversationId || c.id)))
+            );
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+            await Promise.all(targets.map((id) => chatService.deleteConversation(id)));
           }
         }
       ]
+    );
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.id) return;
+    setConversations((prev) =>
+      prev.map((c) => ({ ...c, lastSeenAt: new Date().toISOString() }))
+    );
+    await Promise.all(
+      conversations.map((c) => chatService.markConversationAsSeen(c.conversationId || c.id, user.id))
     );
   };
 
@@ -318,15 +377,40 @@ const RiderChatListScreen = ({ navigation }) => {
     const isUnread = isConversationUnread(item);
     const preview = item.last_message || (item.type === 'customer_rider' ? `Order #${getOrderReference(item)} chat` : 'Admin support conversation');
 
+    const convId = String(item.conversationId || item.id);
+    const isSelected = selectedIds.includes(convId);
     const orderStatus = (item.orders?.status || '').toLowerCase();
     const isClosed = Boolean(item.is_closed || orderStatus === 'delivered' || orderStatus === 'completed');
 
     return (
       <TouchableOpacity
-        style={[styles.conversationItem, isUnread && styles.unreadConversation]}
-        onPress={() => navigation.navigate('ChatThread', { conversationId: item.conversationId })}
+        style={[
+          styles.conversationItem,
+          isUnread && styles.unreadConversation,
+          isSelected && styles.selectedConversationItem,
+        ]}
+        onPress={() => {
+          if (isSelectionMode) {
+            toggleSelectItem(convId);
+          } else {
+            navigation.navigate('ChatThread', { conversationId: item.conversationId || item.id });
+          }
+        }}
         activeOpacity={0.86}
       >
+        {isSelectionMode && (
+          <TouchableOpacity
+            style={styles.checkboxTouch}
+            onPress={() => toggleSelectItem(convId)}
+          >
+            <Ionicons
+              name={isSelected ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={isSelected ? '#0033A0' : '#94A3B8'}
+            />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.avatarWrap}>
           <View style={[styles.avatarRing, label === 'Admin' && styles.adminRing]}>
             {avatarSource ? (
@@ -368,18 +452,6 @@ const RiderChatListScreen = ({ navigation }) => {
             </Text>
           )}
         </View>
-
-        <TouchableOpacity
-          style={styles.deleteChatButton}
-          onPress={(e) => {
-            e.stopPropagation?.();
-            handleDeleteConversationPress(item.conversationId || item.id);
-          }}
-          activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="trash-outline" size={18} color="#94A3B8" />
-        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -402,23 +474,73 @@ const RiderChatListScreen = ({ navigation }) => {
         <View style={[styles.backgroundOrb, styles.backgroundOrbBottom]} />
       </View>
       <View style={styles.container}>
-        <View style={[styles.header, { paddingTop: 14 }]}>
-          <View style={styles.headerTextBlock}>
-            <Text style={styles.headerKicker}>Messages</Text>
-            <Text style={styles.headerTitle}>Rider Chat</Text>
-            <Text style={styles.headerSubtitle}>Customer and admin conversations in one place</Text>
-          </View>
+        {isSelectionMode ? (
+          <View style={[styles.bulkHeaderBar, { paddingTop: 14 }]}>
+            <TouchableOpacity style={styles.bulkSelectAllButton} onPress={toggleSelectAll}>
+              <Ionicons
+                name={selectedIds.length === conversations.length && conversations.length > 0 ? 'checkbox' : 'square-outline'}
+                size={22}
+                color="#0033A0"
+              />
+              <Text style={styles.bulkCountText}>
+                {selectedIds.length === 0 ? 'Select All' : `${selectedIds.length} Selected`}
+              </Text>
+            </TouchableOpacity>
 
-          <View style={styles.headerPill}>
-            <Ionicons name="chatbubbles" size={14} color="#0033A0" />
-            <Text style={styles.headerPillText}>{unreadCount} unread</Text>
-          </View>
-          {isSyncing && (
-            <View style={styles.syncingPill}>
-              <Text style={styles.syncingPillText}>Syncing...</Text>
+            <View style={styles.bulkHeaderActions}>
+              <TouchableOpacity
+                style={[styles.bulkActionButton, styles.bulkFinishButton, selectedIds.length === 0 && styles.bulkButtonDisabled]}
+                disabled={selectedIds.length === 0}
+                onPress={handleBulkFinish}
+              >
+                <Ionicons name="checkmark-done-circle" size={15} color="#fff" />
+                <Text style={styles.bulkActionText}>Finish</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.bulkActionButton, styles.bulkDeleteButton, selectedIds.length === 0 && styles.bulkButtonDisabled]}
+                disabled={selectedIds.length === 0}
+                onPress={handleBulkDelete}
+              >
+                <Ionicons name="trash" size={15} color="#fff" />
+                <Text style={styles.bulkActionText}>Delete</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bulkCancelButton}
+                onPress={() => {
+                  setIsSelectionMode(false);
+                  setSelectedIds([]);
+                }}
+              >
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
             </View>
-          )}
-        </View>
+          </View>
+        ) : (
+          <View style={[styles.header, { paddingTop: 14 }]}>
+            <View style={styles.headerTextBlock}>
+              <Text style={styles.headerKicker}>Messages</Text>
+              <Text style={styles.headerTitle}>Rider Chat</Text>
+              <Text style={styles.headerSubtitle}>Customer and admin conversations in one place</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={styles.headerPill}>
+                <Ionicons name="chatbubbles" size={14} color="#0033A0" />
+                <Text style={styles.headerPillText}>{unreadCount} unread</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.headerMenuButton}
+                onPress={() => setHeaderMenuVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="ellipsis-vertical" size={20} color="#1E293B" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <FlatList
           data={conversations}
@@ -443,6 +565,62 @@ const RiderChatListScreen = ({ navigation }) => {
             </View>
           }
         />
+
+        <Modal
+          visible={headerMenuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setHeaderMenuVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.menuModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setHeaderMenuVisible(false)}
+          >
+            <View style={[styles.menuDropdownCard, { top: Math.max(insets.top, 14) + 40 }]}>
+              <TouchableOpacity
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setHeaderMenuVisible(false);
+                  setIsSelectionMode(true);
+                }}
+              >
+                <Ionicons name="checkbox-outline" size={18} color="#0033A0" />
+                <Text style={styles.dropdownMenuItemText}>Select Conversations</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setHeaderMenuVisible(false);
+                  setIsSelectionMode(true);
+                }}
+              >
+                <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
+                <Text style={styles.dropdownMenuItemText}>Bulk Finish Chats</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setHeaderMenuVisible(false);
+                  setIsSelectionMode(true);
+                }}
+              >
+                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                <Text style={[styles.dropdownMenuItemText, { color: '#EF4444' }]}>Bulk Delete Chats</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dropdownMenuItem}
+                onPress={() => {
+                  setHeaderMenuVisible(false);
+                  handleMarkAllAsRead();
+                }}
+              >
+                <Ionicons name="mail-open-outline" size={18} color="#64748B" />
+                <Text style={styles.dropdownMenuItemText}>Mark All as Read</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -732,6 +910,101 @@ const styles = StyleSheet.create({
     shadowColor: '#ED2939',
     shadowOpacity: 0.4,
     shadowRadius: 4,
+  },
+  headerMenuButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bulkHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  bulkSelectAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bulkCountText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  bulkHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bulkActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  bulkFinishButton: {
+    backgroundColor: '#10B981',
+  },
+  bulkDeleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  bulkButtonDisabled: {
+    opacity: 0.4,
+  },
+  bulkActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  bulkCancelButton: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  checkboxTouch: {
+    marginRight: 10,
+  },
+  selectedConversationItem: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+  },
+  menuModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  menuDropdownCard: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 6,
+    width: 220,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  dropdownMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  dropdownMenuItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
   },
   deleteChatButton: {
     padding: 6,
