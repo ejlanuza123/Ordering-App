@@ -609,6 +609,12 @@ export default function OrderHistoryScreen({ navigation, route }) {
     return lowerStatus === 'completed' || lowerStatus === 'delivered';
   };
 
+  const canReorderOrder = (status, archived) => {
+    if (archived) return true;
+    const lowerStatus = (status || '').toLowerCase();
+    return lowerStatus === 'completed' || lowerStatus === 'delivered' || lowerStatus === 'cancelled' || lowerStatus === 'failed';
+  };
+
   const canTrackOrder = (status) => {
     const lowerStatus = status?.toLowerCase();
     return (
@@ -772,27 +778,29 @@ export default function OrderHistoryScreen({ navigation, route }) {
             <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.orderActions}>
-            <TouchableOpacity
-              style={styles.reorderPillButton}
-              onPress={(e) => {
-                e.stopPropagation?.();
-                if (!item.order_items || item.order_items.length === 0) {
-                  fetchOrderDetails(item.id);
-                  return;
-                }
-                const count = reorderItems(item.order_items);
-                setAlertConfig({
-                  type: 'success',
-                  title: 'Added to Cart! ⚡',
-                  message: `Re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
-                });
-                setShowAlert(true);
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="flash" size={13} color="#fff" />
-              <Text style={styles.reorderPillText}>Re-Order</Text>
-            </TouchableOpacity>
+            {canReorderOrder(item.status, item.archived) && (
+              <TouchableOpacity
+                style={styles.reorderPillButton}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  if (!item.order_items || item.order_items.length === 0) {
+                    fetchOrderDetails(item.id);
+                    return;
+                  }
+                  const count = reorderItems(item.order_items);
+                  setAlertConfig({
+                    type: 'success',
+                    title: 'Added to Cart! ⚡',
+                    message: `Re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
+                  });
+                  setShowAlert(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="refresh" size={12} color="#fff" />
+                <Text style={styles.reorderPillText}>Re-Order</Text>
+              </TouchableOpacity>
+            )}
 
             {canArchiveOrder(item.status) && (
               <TouchableOpacity
@@ -808,7 +816,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
               >
                 <Ionicons
                   name={item.archived ? 'refresh-outline' : 'archive-outline'}
-                  size={14}
+                  size={12}
                   color={item.archived ? '#065F46' : '#92400E'}
                 />
                 <Text style={[styles.archivePillText, { color: item.archived ? '#065F46' : '#92400E' }]}>
@@ -816,7 +824,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 </Text>
               </TouchableOpacity>
             )}
-            <Ionicons name="chevron-forward" size={20} color="#999" />
+            <Ionicons name="chevron-forward" size={18} color="#94A3B8" style={{ marginLeft: 2 }} />
           </View>
         </View>
       </TouchableOpacity>
@@ -900,32 +908,34 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
-            {/* 1-Tap Re-Order Button */}
-            <TouchableOpacity
-              style={[styles.cancelButtonFull, { backgroundColor: '#10B981', marginBottom: 10 }]}
-              onPress={() => {
-                if (!selectedOrder?.order_items || selectedOrder.order_items.length === 0) {
+            {/* 1-Tap Re-Order Button - Show only if order is completed, delivered, or cancelled */}
+            {canReorderOrder(selectedOrder.status, selectedOrder.archived) && (
+              <TouchableOpacity
+                style={[styles.cancelButtonFull, { backgroundColor: '#10B981', marginBottom: 10 }]}
+                onPress={() => {
+                  if (!selectedOrder?.order_items || selectedOrder.order_items.length === 0) {
+                    setAlertConfig({
+                      type: 'warning',
+                      title: 'Re-order Unavailable',
+                      message: 'No item details found for this order.'
+                    });
+                    setShowAlert(true);
+                    return;
+                  }
+                  const count = reorderItems(selectedOrder.order_items);
+                  setOrderDetailsModal(false);
                   setAlertConfig({
-                    type: 'warning',
-                    title: 'Re-order Unavailable',
-                    message: 'No item details found for this order.'
+                    type: 'success',
+                    title: 'Added to Cart! ⚡',
+                    message: `Successfully re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
                   });
                   setShowAlert(true);
-                  return;
-                }
-                const count = reorderItems(selectedOrder.order_items);
-                setOrderDetailsModal(false);
-                setAlertConfig({
-                  type: 'success',
-                  title: 'Added to Cart! ⚡',
-                  message: `Successfully re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
-                });
-                setShowAlert(true);
-              }}
-            >
-              <Ionicons name="flash" size={20} color="#fff" />
-              <Text style={styles.cancelButtonFullText}>⚡ Re-Order Items in 1-Tap</Text>
-            </TouchableOpacity>
+                }}
+              >
+                <Ionicons name="flash" size={20} color="#fff" />
+                <Text style={styles.cancelButtonFullText}>⚡ Re-Order Items in 1-Tap</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Digital E-Receipt Button */}
             <TouchableOpacity
@@ -1684,47 +1694,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f0f4ff',
+    gap: 8,
   },
   orderActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 1,
   },
   archivePillButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FCD34D',
-    gap: 4,
+    gap: 3,
   },
   restorePillButton: {
     backgroundColor: '#D1FAE5',
     borderColor: '#A7F3D0',
   },
   archivePillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   reorderPillButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#10B981',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginRight: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   reorderPillText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: '#fff',
   },
   archiveActionOutline: {
