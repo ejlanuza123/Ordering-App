@@ -291,6 +291,24 @@ const RiderChatListScreen = ({ navigation }) => {
     return String(orderId).slice(0, 8);
   };
 
+  const handleDeleteConversationPress = (conversationId) => {
+    Alert.alert(
+      'Delete Conversation?',
+      'Are you sure you want to delete this chat thread from your inbox?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setConversations((prev) => prev.filter((c) => (c.conversationId || c.id) !== conversationId));
+            await chatService.deleteConversation(conversationId);
+          }
+        }
+      ]
+    );
+  };
+
   const renderConversation = ({ item }) => {
     const otherName = getOtherParticipant(item);
     const label = getConversationLabel(item);
@@ -299,6 +317,9 @@ const RiderChatListScreen = ({ navigation }) => {
     const timeAgo = formatDistanceToNow(new Date(item.updated_at), { addSuffix: true });
     const isUnread = isConversationUnread(item);
     const preview = item.last_message || (item.type === 'customer_rider' ? `Order #${getOrderReference(item)} chat` : 'Admin support conversation');
+
+    const orderStatus = (item.orders?.status || '').toLowerCase();
+    const isClosed = Boolean(item.is_closed || orderStatus === 'delivered' || orderStatus === 'completed');
 
     return (
       <TouchableOpacity
@@ -328,6 +349,11 @@ const RiderChatListScreen = ({ navigation }) => {
               <View style={[styles.labelBadge, label === 'Admin' && styles.adminBadge]}>
                 <Text style={styles.labelText}>{label}</Text>
               </View>
+              {isClosed && (
+                <View style={styles.finishedBadge}>
+                  <Text style={styles.finishedBadgeText}>Finished</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.conversationTime}>{timeAgo}</Text>
           </View>
@@ -343,7 +369,17 @@ const RiderChatListScreen = ({ navigation }) => {
           )}
         </View>
 
-        {isUnread && <View style={styles.unreadBadge} />}
+        <TouchableOpacity
+          style={styles.deleteChatButton}
+          onPress={(e) => {
+            e.stopPropagation?.();
+            handleDeleteConversationPress(item.conversationId || item.id);
+          }}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="trash-outline" size={18} color="#94A3B8" />
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -696,6 +732,23 @@ const styles = StyleSheet.create({
     shadowColor: '#ED2939',
     shadowOpacity: 0.4,
     shadowRadius: 4,
+  },
+  deleteChatButton: {
+    padding: 6,
+    marginLeft: 6,
+    borderRadius: 8,
+  },
+  finishedBadge: {
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  finishedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
   },
 });
 

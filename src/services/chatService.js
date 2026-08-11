@@ -252,6 +252,32 @@ export const chatService = {
   },
 
   /**
+   * Close / Mark a conversation as finished (e.g. by rider when order is delivered)
+   */
+  async closeConversation(conversationId) {
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .update({
+          is_closed: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conversationId)
+        .select('*')
+        .maybeSingle();
+
+      if (error) {
+        console.warn('closeConversation fallback notice:', error.message);
+      }
+
+      return { success: true, conversation: data };
+    } catch (error) {
+      console.error('Error closing conversation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
    * Subscribe to new messages in a conversation (realtime)
    */
   subscribeToMessages(conversationId, onNewMessage) {

@@ -45,6 +45,9 @@ const ChatThreadScreen = ({ route, navigation }) => {
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [conversationActionBusy, setConversationActionBusy] = useState(false);
+  const orderStatus = (conversation?.orders?.status || '').toLowerCase();
+  const isFinishedStatus = orderStatus === 'delivered' || orderStatus === 'completed';
+  const isClosed = Boolean(conversation?.is_closed || isFinishedStatus);
   const flatListRef = useRef(null);
   const initialScrollPendingRef = useRef(false);
   const unsubscribeRef = useRef(null);
@@ -533,31 +536,47 @@ const ChatThreadScreen = ({ route, navigation }) => {
         </View>
       )}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}
-      >
-        <View style={styles.composerCard}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor="#9CA3AF"
-            value={newMessage}
-            onChangeText={handleMessageChange}
-            editable={!sending}
-            multiline
-            maxLength={1000}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
-            onPress={handleSendMessage}
-            disabled={!newMessage.trim() || sending}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.sendButtonText}>{sending ? '...' : (editingMessageId ? 'Save' : 'Send')}</Text>
-          </TouchableOpacity>
+      {isClosed ? (
+        <View style={[styles.closedChatBanner, { marginBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={styles.closedChatIconBadge}>
+            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+          </View>
+          <View style={styles.closedChatContent}>
+            <Text style={styles.closedChatTitle}>
+              {isFinishedStatus ? 'Order Delivered • Chat Closed' : 'Conversation Marked Finished'}
+            </Text>
+            <Text style={styles.closedChatSubtext}>
+              This delivery has been completed. Messaging is disabled for closed conversations.
+            </Text>
+          </View>
         </View>
-      </KeyboardAvoidingView>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}
+        >
+          <View style={styles.composerCard}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor="#9CA3AF"
+              value={newMessage}
+              onChangeText={handleMessageChange}
+              editable={!sending}
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
+              onPress={handleSendMessage}
+              disabled={!newMessage.trim() || sending}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.sendButtonText}>{sending ? '...' : (editingMessageId ? 'Save' : 'Send')}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      )}
 
       <Modal visible={conversationMenuVisible} transparent animationType="fade" onRequestClose={() => setConversationMenuVisible(false)}>
         <TouchableOpacity
@@ -1065,6 +1084,40 @@ const styles = StyleSheet.create({
   },
   deleteModalButton: {
     backgroundColor: '#B91C1C',
+  },
+  closedChatBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    gap: 12,
+  },
+  closedChatIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closedChatContent: {
+    flex: 1,
+  },
+  closedChatTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#065F46',
+    marginBottom: 2,
+  },
+  closedChatSubtext: {
+    fontSize: 12,
+    color: '#047857',
+    lineHeight: 16,
   },
 });
 
