@@ -19,6 +19,7 @@ import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import { useFocusEffect } from '@react-navigation/native';
 import { riderPresenceService } from '../../services/riderPresenceService';
 import SkeletonLoader from '../../components/SkeletonLoader';
+import GPSNavigationModal from '../../components/GPSNavigationModal';
 
 export default function RiderDeliveriesScreen({ navigation, route }) {
   const { profile } = useAuth();
@@ -27,6 +28,7 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all'); // all, assigned, accepted, on_delivery, delivered, failed
+  const [navDestination, setNavDestination] = useState(null);
   const handledNotificationNonceRef = useRef(null);
 
   const fetchDeliveries = useCallback(async () => {
@@ -227,6 +229,21 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
 
       <View style={styles.cardFooter}>
         <TouchableOpacity
+          style={styles.gpsNavButton}
+          onPress={() => setNavDestination({
+            lat: item.orders?.delivery_lat,
+            lng: item.orders?.delivery_lng,
+            address: item.orders?.delivery_address,
+            customerName: item.orders?.customer_name?.full_name,
+            orderNumber: formatOrderNumber(item.orders?.order_number, item.orders?.id)
+          })}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="navigate" size={16} color="#0033A0" />
+          <Text style={styles.gpsNavButtonText}>GPS</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.viewButton}
           onPress={() => navigation.navigate('RiderDeliveryDetails', { delivery: item })}
         >
@@ -296,7 +313,12 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
             </View>
           }
         />
-      )}
+      {/* GPS Navigation Modal */}
+      <GPSNavigationModal
+        visible={!!navDestination}
+        onClose={() => setNavDestination(null)}
+        destination={navDestination}
+      />
     </View>
   );
 }
@@ -434,14 +456,33 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'flex-end',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 12,
+  },
+  gpsNavButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0033A015',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+  },
+  gpsNavButtonText: {
+    color: '#0033A0',
+    fontSize: 13,
+    fontWeight: '700',
   },
   viewButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0033A0',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     borderRadius: 8,
     gap: 6,
   },

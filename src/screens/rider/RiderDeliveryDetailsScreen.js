@@ -22,6 +22,7 @@ import { supabase } from '../../lib/supabase';
 import { chatService } from '../../services/chatService';
 import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import GPSNavigationModal from '../../components/GPSNavigationModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
 import { useAuth } from '../../context/AuthContext';
@@ -61,6 +62,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const [cancelCustomReason, setCancelCustomReason] = useState('');
   const [selectedAction, setSelectedAction] = useState(null);
   const [openingChat, setOpeningChat] = useState(false);
+  const [showNavModal, setShowNavModal] = useState(false);
 
   // proof of delivery state
   const [proofModalVisible, setProofModalVisible] = useState(false);
@@ -529,22 +531,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const openMaps = () => {
-    if (orderData?.delivery_lat && orderData?.delivery_lng) {
-      const url = Platform.select({
-        ios: `maps:${orderData.delivery_lat},${orderData.delivery_lng}`,
-        android: `geo:${orderData.delivery_lat},${orderData.delivery_lng}`
-      });
-      
-      Linking.openURL(url);
-    } else {
-      // Fallback to address search
-      const address = encodeURIComponent(orderData?.delivery_address || '');
-      const url = Platform.select({
-        ios: `maps:?q=${address}`,
-        android: `geo:0,0?q=${address}`
-      });
-      Linking.openURL(url);
-    }
+    setShowNavModal(true);
   };
 
   const callCustomer = () => {
@@ -1367,6 +1354,18 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         title={alertConfig.title}
         message={alertConfig.message}
         confirmText="OK"
+      />
+      {/* GPS Navigation Modal */}
+      <GPSNavigationModal
+        visible={showNavModal}
+        onClose={() => setShowNavModal(false)}
+        destination={{
+          lat: orderData?.delivery_lat,
+          lng: orderData?.delivery_lng,
+          address: orderData?.delivery_address,
+          customerName: customerData?.full_name,
+          orderNumber: displayOrderNumber
+        }}
       />
     </View>
   );
