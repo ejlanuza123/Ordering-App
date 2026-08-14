@@ -24,6 +24,7 @@ import {
   detectNearestBarangay, 
   PUERTO_PRINCESA_BARANGAYS 
 } from '../utils/location';
+import { addressLearningService } from '../services/addressLearningService';
 
 export default function OpenStreetMapPicker({
   visible,
@@ -47,6 +48,8 @@ export default function OpenStreetMapPicker({
   const [searchQuery, setSearchQuery] = useState('');
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
+  const [isLearnedMemory, setIsLearnedMemory] = useState(false);
+  const [isManuallyCorrected, setIsManuallyCorrected] = useState(false);
 
   // Barangay Selector Modal state
   const [showBarangayModal, setShowBarangayModal] = useState(false);
@@ -293,18 +296,36 @@ export default function OpenStreetMapPicker({
           longitude: data.lng
         });
 
-        // 1. Precise spatial nearest-neighbor detection
+        // 1. Check if there is a learned/corrected address in memory for this coordinate
+        const learned = addressLearningService.getLearnedCorrection(data.lat, data.lng);
+
+        if (learned && learned.barangay) {
+          setIsLearnedMemory(true);
+          setDetectedBarangay(learned.barangay);
+          if (learned.street && !streetAddress) {
+            setStreetAddress(learned.street);
+          }
+          if (learned.landmark && !purokLandmark) {
+            setPurokLandmark(learned.landmark);
+          }
+          assembleAddress(learned.street || streetAddress, learned.barangay, learned.landmark || purokLandmark);
+          return;
+        }
+
+        setIsLearnedMemory(false);
+
+        // 2. Precise spatial nearest-neighbor detection
         const a = data.addressDetails;
         const streetHint = a ? (a.road || a.street || a.pedestrian || a.residential || a.building || a.amenity || '') : '';
         const rawBrgyHint = a ? (a.suburb || a.village || a.neighbourhood || a.city_district || '') : '';
         const brgy = detectNearestBarangay(data.lat, data.lng, rawBrgyHint);
         setDetectedBarangay(brgy);
 
-        // 2. Extract street name
+        // 3. Extract street name
         const detectedStreet = streetHint || (a?.house_number ? `#${a.house_number}` : 'Main Road');
         setStreetAddress(detectedStreet);
 
-        // 3. Assemble full formatted address
+        // 4. Assemble full formatted address
         assembleAddress(detectedStreet, brgy, purokLandmark);
       } else if (data.type === 'MAP_READY') {
         setLoading(false);
@@ -331,13 +352,12 @@ export default function OpenStreetMapPicker({
   };
 
   // User manually selects a Barangay from the list
+  // IMPORTANT: Keep exact pinpoint coordinates! Do NOT move/pan map position.
   const handleSelectBarangay = (barangayItem) => {
     setDetectedBarangay(barangayItem.name);
+    setIsManuallyCorrected(true);
     assembleAddress(streetAddress, barangayItem.name, purokLandmark);
     setShowBarangayModal(false);
-
-    // Pan map to chosen barangay centroid
-    sendLocationToWebView(barangayItem.lat, barangayItem.lng);
   };
 
   const handleConfirm = () => {
@@ -347,6 +367,18 @@ export default function OpenStreetMapPicker({
     }
 
     const finalAddress = assembleAddress(streetAddress, detectedBarangay, purokLandmark);
+
+    // Register address correction & learning into memory & database
+    if (isManuallyCorrected || isLearnedMemory || purokLandmark || streetAddress) {
+      addressLearningService.registerCorrection({
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+        barangay: detectedBarangay,
+        street: streetAddress,
+        landmark: purokLandmark,
+        fullAddress: finalAddress,
+      });
+    }
 
     onSelectAddress({
       latitude: selectedLocation.latitude,
@@ -474,13 +506,24 @@ export default function OpenStreetMapPicker({
             {/* Live Location Status & Interactive Barangay Switcher */}
             <View style={styles.sheetTopRow}>
               <TouchableOpacity
-                style={styles.barangayPillTouchable}
+                style={[styles.barangayPillTouchable, (isLearnedMemory || isManuallyCorrected) && styles.barangayPillLearned]}
                 onPress={() => setShowBarangayModal(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="shield-checkmark" size={14} color="#0033A0" />
-                <Text style={styles.barangayPillText}>Brgy. {detectedBarangay}</Text>
-                <Ionicons name="chevron-down" size={13} color="#0033A0" style={{ marginLeft: 2 }} />
+                <Ionicons 
+                  name={isLearnedMemory || isManuallyCorrected ? "bookmark" : "shield-checkmark"} 
+                  size={14} 
+                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : "#0033A0"} 
+                />
+                <Text style={[styles.barangayPillText, (isLearnedMemory || isManuallyCorrected) && styles.barangayPillTextLearned]}>
+                  Brgy. {detectedBarangay}
+                </Text>
+                <Ionicons 
+                  name="chevron-down" 
+                  size={13} 
+                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : "#0033A0"} 
+                  style={{ marginLeft: 2 }} 
+                />
               </TouchableOpacity>
 
               {isGeocoding ? (
@@ -488,6 +531,10 @@ export default function OpenStreetMapPicker({
                   <ActivityIndicator size="small" color="#ED2939" />
                   <Text style={styles.geocodingText}>Pinning...</Text>
                 </View>
+              ) : isLearnedMemory ? (
+                <Text style={styles.learnedLabel}>⭐ Remembered Location</Text>
+              ) : isManuallyCorrected ? (
+                <Text style={styles.learnedLabel}>✓ Custom Corrected</Text>
               ) : (
                 <Text style={styles.precisionLabel}>Tap to change Brgy</Text>
               )}
@@ -560,7 +607,10 @@ export default function OpenStreetMapPicker({
           <View style={styles.modalBackdrop}>
             <View style={styles.barangayModalContent}>
               <View style={styles.barangayModalHeader}>
-                <Text style={styles.barangayModalTitle}>Select Barangay</Text>
+                <View>
+                  <Text style={styles.barangayModalTitle}>Select Barangay</Text>
+                  <Text style={styles.barangayModalSubtitle}>Keep pin position & correct barangay</Text>
+                </View>
                 <TouchableOpacity
                   onPress={() => setShowBarangayModal(false)}
                   style={styles.barangayModalClose}
@@ -820,10 +870,17 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#93c5fd',
   },
+  barangayPillLearned: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
   barangayPillText: {
     fontSize: 12,
     fontWeight: '800',
     color: '#0033A0',
+  },
+  barangayPillTextLearned: {
+    color: '#16a34a',
   },
   geocodingStatus: {
     flexDirection: 'row',
@@ -839,6 +896,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
+  },
+  learnedLabel: {
+    fontSize: 11,
+    color: '#16a34a',
+    fontWeight: '700',
   },
   inputGroup: {
     marginBottom: 10,
@@ -933,6 +995,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  barangayModalSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+    marginTop: 2,
   },
   barangayModalClose: {
     padding: 6,
