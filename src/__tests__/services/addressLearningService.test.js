@@ -1,3 +1,19 @@
+jest.mock('../../lib/supabase', () => ({
+  supabase: {
+    from: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        order: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue({ data: [], error: null })
+        })
+      }),
+      insert: jest.fn().mockResolvedValue({ data: null, error: null })
+    }),
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } })
+    }
+  }
+}));
+
 import { addressLearningService } from '../../services/addressLearningService';
 
 describe('AddressLearningService (Self-Learning Geocoding Memory)', () => {
