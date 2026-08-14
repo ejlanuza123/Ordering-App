@@ -217,7 +217,24 @@ export const AuthProvider = ({ children }) => {
       AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY),
     ]);
 
-    const { data, error } = await withTimeout(
+    // Pre-check role if profile is queryable before sign in
+    try {
+      const preProfileRes = await supabase
+        .from('profiles')
+        .select('role')
+        .ilike('email', normalizedEmail)
+        .single();
+
+      if (preProfileRes?.data && !ALLOWED_ROLES.includes(preProfileRes.data.role)) {
+        throw new Error('This account is not allowed to access the app.');
+      }
+    } catch (preErr) {
+      if (preErr.message === 'This account is not allowed to access the app.') {
+        throw preErr;
+      }
+    }
+
+    const signInRes = await withTimeout(
       supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -225,9 +242,10 @@ export const AuthProvider = ({ children }) => {
       AUTH_BOOTSTRAP_TIMEOUT_MS,
       'Login timed out. Please try again.'
     );
+    const { data, error } = signInRes || {};
     if (error) throw error;
     
-    if (data.user) {
+    if (data?.user) {
       try {
         await withTimeout(
           fetchUserProfile(data.user),
