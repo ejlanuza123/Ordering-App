@@ -49,6 +49,107 @@ export const PUERTO_PRINCESA_BARANGAYS = [
   { name: 'Inagawan', aliases: ['inagawan', 'brgy inagawan'], lat: 9.5500, lng: 118.6200 }
 ];
 
+// Rich catalog of popular landmarks, malls, terminals, arenas, hospitals in Puerto Princesa City
+export const PUERTO_PRINCESA_LANDMARKS = [
+  // Commercial & Shopping Malls
+  { name: 'SM City Puerto Princesa', category: 'Mall', icon: 'business', barangay: 'San Miguel', lat: 9.7482, lng: 118.7495 },
+  { name: 'Robinsons Place Palawan', category: 'Mall', icon: 'business', barangay: 'San Manuel', lat: 9.7615, lng: 118.7595 },
+  { name: 'NCCC Mall Palawan', category: 'Mall', icon: 'business', barangay: 'San Pedro', lat: 9.7525, lng: 118.7490 },
+  { name: 'Unitop Mall Puerto Princesa', category: 'Mall', icon: 'cart', barangay: 'Mandaragat', lat: 9.7428, lng: 118.7365 },
+  { name: 'Go Hotels Puerto Princesa', category: 'Hotel', icon: 'bed', barangay: 'San Manuel', lat: 9.7620, lng: 118.7590 },
+  
+  // Public Markets, Terminals & Transport
+  { name: 'San Jose New Market & Bus Terminal', category: 'Market / Terminal', icon: 'bus', barangay: 'San Jose', lat: 9.7752, lng: 118.7485 },
+  { name: 'Old Public Market (Poblacion)', category: 'Market', icon: 'basket', barangay: 'Tagumpay', lat: 9.7435, lng: 118.7305 },
+  { name: 'Puerto Princesa Port / Pier', category: 'Port', icon: 'boat', barangay: 'Pagkakaisa', lat: 9.7405, lng: 118.7290 },
+  { name: 'Puerto Princesa International Airport (PPS)', category: 'Airport', icon: 'airplane', barangay: 'San Miguel', lat: 9.7420, lng: 118.7585 },
+
+  // Sports, Arenas & Parks
+  { name: 'Puerto Princesa City Coliseum', category: 'Coliseum / Arena', icon: 'trophy', barangay: 'Tiniguiban', lat: 9.7675, lng: 118.7430 },
+  { name: 'Palawan Sports Complex', category: 'Sports Complex', icon: 'fitness', barangay: 'Santa Monica', lat: 9.7850, lng: 118.7380 },
+  { name: 'Puerto Princesa City Baywalk', category: 'Park / Waterfront', icon: 'water', barangay: 'Pagkakaisa', lat: 9.7410, lng: 118.7320 },
+  { name: 'Mendoza Park', category: 'Park', icon: 'leaf', barangay: 'Model', lat: 9.7445, lng: 118.7385 },
+  { name: 'Balayong People’s Park', category: 'Park', icon: 'flower', barangay: 'Santa Monica', lat: 9.7870, lng: 118.7340 },
+  { name: 'Baker’s Hill', category: 'Attraction / Park', icon: 'cafe', barangay: 'Santa Monica', lat: 9.7960, lng: 118.7180 },
+  { name: 'Mitra’s Ranch', category: 'Attraction', icon: 'trail-sign', barangay: 'Santa Monica', lat: 9.8010, lng: 118.7150 },
+  { name: 'Plaza Cuartel', category: 'Historical Park', icon: 'shield', barangay: 'Liwanag', lat: 9.7430, lng: 118.7280 },
+  { name: 'Immaculate Conception Cathedral', category: 'Church', icon: 'heart', barangay: 'Princesa', lat: 9.7425, lng: 118.7288 },
+  { name: 'Pristine Beach', category: 'Beach', icon: 'sunny', barangay: 'Bancao-Bancao', lat: 9.7280, lng: 118.7460 },
+  { name: 'BM Beach', category: 'Beach', icon: 'sunny', barangay: 'San Manuel', lat: 9.7580, lng: 118.7750 },
+  { name: 'Honda Bay Wharf', category: 'Wharf / Tourism', icon: 'boat', barangay: 'Santa Lourdes', lat: 9.8465, lng: 118.7375 },
+  { name: 'Iwahig Firefly Watching / Penal Farm', category: 'Attraction', icon: 'sparkles', barangay: 'Iwahig', lat: 9.7420, lng: 118.6650 },
+  { name: 'Palawan Wildlife Rescue (Crocodile Farm)', category: 'Zoo / Wildlife', icon: 'paw', barangay: 'Irawan', lat: 9.8140, lng: 118.6820 },
+
+  // Government & Institutions
+  { name: 'Puerto Princesa City Hall', category: 'Government', icon: 'business', barangay: 'Santa Monica', lat: 9.7890, lng: 118.7355 },
+  { name: 'Palawan Provincial Capitol', category: 'Government', icon: 'business', barangay: 'Tiniguiban', lat: 9.7660, lng: 118.7445 },
+
+  // Hospitals & Medical Centers
+  { name: 'Ospital ng Palawan (ONP)', category: 'Hospital', icon: 'medkit', barangay: 'Maligaya', lat: 9.7440, lng: 118.7370 },
+  { name: 'Palawan Adventist Hospital', category: 'Hospital', icon: 'medkit', barangay: 'San Pedro', lat: 9.7540, lng: 118.7460 },
+  { name: 'MMG-PPAC Hospital (Coop)', category: 'Hospital', icon: 'medkit', barangay: 'San Pedro', lat: 9.7510, lng: 118.7480 },
+
+  // Schools & Universities
+  { name: 'Palawan State University (PSU Main)', category: 'University', icon: 'school', barangay: 'Tiniguiban', lat: 9.7710, lng: 118.7380 },
+  { name: 'Holy Trinity University (HTU)', category: 'University', icon: 'school', barangay: 'Tiniguiban', lat: 9.7640, lng: 118.7435 },
+  { name: 'Western Philippines University (WPU)', category: 'University', icon: 'school', barangay: 'Santa Monica', lat: 9.7820, lng: 118.7410 },
+  { name: 'Palawan National School (PNS)', category: 'School', icon: 'school', barangay: 'Model', lat: 9.7465, lng: 118.7400 },
+
+  // Petron Central Station
+  { name: 'Petron San Pedro Hub', category: 'Petron Hub', icon: 'flame', barangay: 'San Pedro', lat: 9.7535, lng: 118.7479 }
+];
+
+/**
+ * Instant local search engine for Puerto Princesa places, landmarks, and barangays
+ */
+export const searchPuertoPrincesaPlaces = (query) => {
+  if (!query || !query.trim()) return [];
+  const q = query.trim().toLowerCase();
+
+  const results = [];
+
+  // 1. Search Landmarks Catalog
+  for (const lm of PUERTO_PRINCESA_LANDMARKS) {
+    const matchName = lm.name.toLowerCase().includes(q);
+    const matchCategory = lm.category.toLowerCase().includes(q);
+    const matchBrgy = lm.barangay.toLowerCase().includes(q);
+
+    if (matchName || matchCategory || matchBrgy) {
+      results.push({
+        id: `landmark-${lm.name}`,
+        name: lm.name,
+        category: lm.category,
+        barangay: lm.barangay,
+        icon: lm.icon || 'location',
+        lat: lm.lat,
+        lng: lm.lng,
+        type: 'landmark',
+      });
+    }
+  }
+
+  // 2. Search Barangays
+  for (const brgy of PUERTO_PRINCESA_BARANGAYS) {
+    const matchName = brgy.name.toLowerCase().includes(q);
+    const matchAlias = brgy.aliases && brgy.aliases.some(a => a.toLowerCase().includes(q));
+
+    if (matchName || matchAlias) {
+      results.push({
+        id: `brgy-${brgy.name}`,
+        name: `Brgy. ${brgy.name}`,
+        category: 'Barangay',
+        barangay: brgy.name,
+        icon: 'navigate-circle',
+        lat: brgy.lat,
+        lng: brgy.lng,
+        type: 'barangay',
+      });
+    }
+  }
+
+  return results;
+};
+
 /**
  * Detect nearest official Puerto Princesa Barangay from coordinates or text
  */
@@ -60,190 +161,69 @@ export const detectNearestBarangay = (latitude, longitude, textHint = '') => {
     let nearest = PUERTO_PRINCESA_BARANGAYS[0];
     let minDistance = Infinity;
 
-    for (const b of PUERTO_PRINCESA_BARANGAYS) {
-      const d = Math.hypot(b.lat - latitude, b.lng - longitude);
-      if (d < minDistance) {
-        minDistance = d;
-        nearest = b;
+    for (const brgy of PUERTO_PRINCESA_BARANGAYS) {
+      const distance = Math.hypot(brgy.lat - latitude, brgy.lng - longitude);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = brgy;
       }
     }
-
-    // If within reasonable city distance, spatial calculation is authoritative
-    if (minDistance < 0.2) {
-      return nearest.name;
-    }
+    return nearest.name;
   }
 
-  // 2. Fallback text hint check against strict aliases
-  const cleanHint = (textHint || '').toLowerCase().trim();
-  if (cleanHint) {
-    for (const b of PUERTO_PRINCESA_BARANGAYS) {
-      if (b.aliases.some(alias => cleanHint.includes(alias))) {
-        return b.name;
+  // 2. Text alias fallback when coordinates are absent
+  if (textHint && typeof textHint === 'string') {
+    const cleanHint = textHint.toLowerCase();
+    for (const brgy of PUERTO_PRINCESA_BARANGAYS) {
+      if (brgy.aliases.some(alias => cleanHint.includes(alias))) {
+        return brgy.name;
       }
     }
   }
 
-  return 'San Pedro';
+  return 'San Pedro'; // Default Puerto Princesa commercial hub
 };
 
-// Request location permissions
+/**
+ * Formats a clean Philippine address structure
+ */
+export const formatAddress = (addressObj, lat = null, lng = null) => {
+  if (!addressObj) return 'Puerto Princesa City, Palawan';
+
+  const parts = [];
+
+  // Street number and name
+  if (addressObj.name && addressObj.name !== addressObj.street) {
+    parts.push(addressObj.name);
+  }
+  if (addressObj.street) {
+    parts.push(addressObj.street);
+  }
+
+  // Barangay detection
+  const detectedBrgy = detectNearestBarangay(
+    lat, 
+    lng, 
+    addressObj.district || addressObj.subregion || addressObj.name || ''
+  );
+  parts.push(`Brgy. ${detectedBrgy}`);
+
+  // City & Province
+  parts.push('Puerto Princesa City');
+  parts.push('Palawan');
+
+  return parts.filter(Boolean).join(', ');
+};
+
+/**
+ * High-accuracy GPS location requester
+ */
 export const requestLocationPermission = async () => {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     return status === 'granted';
-  } catch (err) {
-    console.error('Error requesting location permission:', err);
+  } catch (error) {
+    console.warn('Location permission request failed:', error);
     return false;
   }
-};
-
-// Get high-accuracy GPS location
-export const getCurrentLocation = async () => {
-  try {
-    const hasPermission = await requestLocationPermission();
-    if (!hasPermission) {
-      Alert.alert(
-        'Permission Required',
-        'Location permission is needed to detect your address accurately. Please enable it in your device settings.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => Linking.openSettings() }
-        ]
-      );
-      return null;
-    }
-
-    // Try last known position for instant responsiveness
-    const lastKnown = await Location.getLastKnownPositionAsync({});
-
-    // Request fresh high-precision GPS hardware lock
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.Highest,
-      timeInterval: 5000,
-    });
-    
-    return location || lastKnown;
-  } catch (error) {
-    console.error('Error getting location:', error);
-    // Fallback to last known if available
-    try {
-      const fallback = await Location.getLastKnownPositionAsync({});
-      if (fallback) return fallback;
-    } catch (_) {}
-    
-    Alert.alert('Location Notice', 'Could not get exact GPS lock. You can pin your location manually on the map.');
-    return null;
-  }
-};
-
-/**
- * Format intelligent Philippine address ensuring verified Barangay
- */
-export const formatAddress = (addressObj, lat = null, lng = null) => {
-  if (!addressObj) return '';
-
-  const parts = [];
-  const pushUnique = (val) => {
-    if (val && typeof val === 'string') {
-      const clean = val.trim();
-      if (clean && !parts.some(p => p.toLowerCase() === clean.toLowerCase())) {
-        parts.push(clean);
-      }
-    }
-  };
-
-  // 1. House / Building / Landmark
-  if (addressObj.name && addressObj.name !== addressObj.street) {
-    pushUnique(addressObj.name);
-  }
-  if (addressObj.streetNumber) {
-    pushUnique(addressObj.streetNumber);
-  }
-
-  // 2. Street / Road
-  if (addressObj.street) {
-    pushUnique(addressObj.street);
-  }
-
-  // 3. Barangay Resolution
-  const rawBarangay = addressObj.district || addressObj.subregion || addressObj.suburb;
-  const detectedBrgy = detectNearestBarangay(lat, lng, rawBarangay || addressObj.street);
-  
-  if (detectedBrgy) {
-    pushUnique(`Brgy. ${detectedBrgy}`);
-  }
-
-  // 4. City, Province, Postal Code
-  pushUnique('Puerto Princesa City');
-  pushUnique('Palawan');
-  if (addressObj.postalCode) {
-    pushUnique(addressObj.postalCode);
-  }
-
-  return parts.join(', ');
-};
-
-// Reverse geocode coordinates to structured address with localized fallback
-export const reverseGeocode = async (latitude, longitude) => {
-  try {
-    // 1. Try Expo native geocoder
-    const addresses = await Location.reverseGeocodeAsync({
-      latitude,
-      longitude,
-    });
-    
-    if (addresses && addresses.length > 0) {
-      return formatAddress(addresses[0], latitude, longitude);
-    }
-  } catch (nativeErr) {
-    console.log('Native reverse geocode failed, falling back to OSM Nominatim:', nativeErr.message);
-  }
-
-  // 2. Fallback to Nominatim OSM API
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&addressdetails=1&zoom=18&accept-language=en`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } });
-    const data = await res.json();
-
-    if (data && data.address) {
-      const a = data.address;
-      const street = a.road || a.street || a.pedestrian || a.residential || '';
-      const detectedBrgy = detectNearestBarangay(latitude, longitude, a.suburb || a.village || a.neighbourhood || a.city_district || street);
-
-      const parts = [];
-      if (a.house_number) parts.push(a.house_number);
-      if (street) parts.push(street);
-      if (detectedBrgy) parts.push(`Brgy. ${detectedBrgy}`);
-      parts.push('Puerto Princesa City');
-      parts.push('Palawan');
-
-      return parts.join(', ');
-    }
-  } catch (osmErr) {
-    console.log('OSM reverse geocode failed:', osmErr.message);
-  }
-
-  // 3. Ultimate deterministic fallback via localized barangay geometry
-  const fallbackBrgy = detectNearestBarangay(latitude, longitude);
-  return `Brgy. ${fallbackBrgy}, Puerto Princesa City, Palawan`;
-};
-
-// Get address from current high-accuracy location
-export const getAddressFromCurrentLocation = async () => {
-  const location = await getCurrentLocation();
-  if (!location?.coords) return null;
-  
-  const address = await reverseGeocode(
-    location.coords.latitude,
-    location.coords.longitude
-  );
-  
-  return {
-    ...location,
-    address,
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    accuracy: location.coords.accuracy || 10
-  };
 };

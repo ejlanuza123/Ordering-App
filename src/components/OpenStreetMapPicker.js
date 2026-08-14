@@ -22,7 +22,9 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { 
   requestLocationPermission, 
   detectNearestBarangay, 
-  PUERTO_PRINCESA_BARANGAYS 
+  searchPuertoPrincesaPlaces,
+  PUERTO_PRINCESA_BARANGAYS,
+  PUERTO_PRINCESA_LANDMARKS
 } from '../utils/location';
 import { addressLearningService } from '../services/addressLearningService';
 
@@ -36,6 +38,7 @@ export default function OpenStreetMapPicker({
   const webViewRef = useRef(null);
   const webViewReadyRef = useRef(false);
   const pendingLocationRef = useRef(null);
+  const searchDebounceRef = useRef(null);
 
   // States
   const [loading, setLoading] = useState(true);
@@ -45,11 +48,16 @@ export default function OpenStreetMapPicker({
   const [streetAddress, setStreetAddress] = useState('');
   const [purokLandmark, setPurokLandmark] = useState('');
   const [fullAddress, setFullAddress] = useState(initialAddress || '');
-  const [searchQuery, setSearchQuery] = useState('');
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
   const [isMoving, setIsMoving] = useState(false);
   const [isLearnedMemory, setIsLearnedMemory] = useState(false);
   const [isManuallyCorrected, setIsManuallyCorrected] = useState(false);
+
+  // Search and Landmark Suggestions States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
 
   // Barangay Selector Modal state
   const [showBarangayModal, setShowBarangayModal] = useState(false);
@@ -194,27 +202,6 @@ export default function OpenStreetMapPicker({
             }
           }
 
-          window.searchLocation = function(query) {
-            if (!query) return;
-            const fullQuery = query + ', Puerto Princesa City, Palawan';
-            const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&q=' + encodeURIComponent(fullQuery) + 
-              '&viewbox=118.60,10.25,118.95,9.50&bounded=0&limit=5&addressdetails=1&countrycodes=PH&accept-language=en';
-
-            fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } })
-              .then(r => r.json())
-              .then(results => {
-                if (results && results.length > 0) {
-                  const first = results[0];
-                  map.flyTo([first.lat, first.lon], 18, { duration: 1.2 });
-                } else {
-                  alert('No places found in Puerto Princesa City. Try adjusting your search.');
-                }
-              })
-              .catch(e => {
-                console.error('Search error:', e);
-              });
-          };
-
           function handleIncoming(raw) {
             try {
               const data = JSON.parse(raw);
@@ -224,8 +211,6 @@ export default function OpenStreetMapPicker({
                   return;
                 }
                 map.flyTo([data.lat, data.lon], 18, { duration: 1.0 });
-              } else if (data.type === 'SEARCH') {
-                searchLocation(data.query);
               }
             } catch (_) {}
           }
@@ -341,18 +326,87 @@ export default function OpenStreetMapPicker({
     }
   };
 
-  const handleSearch = () => {
-    if (!searchQuery.trim() || !webViewRef.current) return;
-    setLoading(true);
-    webViewRef.current.postMessage(JSON.stringify({
-      type: 'SEARCH',
-      query: searchQuery.trim()
-    }));
-    setLoading(false);
+  // Search handler: instantaneous local landmark lookup + debounced online lookup
+  const handleSearchQueryChange = (query) => {
+    setSearchQuery(query);
+
+    if (!query || !query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    // 1. Instant local landmark & barangay search (0ms latency)
+    const localMatches = searchPuertoPrincesaPlaces(query);
+    setSearchResults(localMatches);
+    setShowSearchResults(true);
+
+    // 2. Debounced online OSM search if query has more than 2 chars
+    if (query.trim().length >= 2) {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(async () => {
+        try {
+          setIsSearchingOnline(true);
+          const encoded = encodeURIComponent(query.trim() + ' Puerto Princesa Palawan');
+          const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encoded}&viewbox=118.60,10.25,118.95,9.50&bounded=0&limit=5&addressdetails=1&countrycodes=PH&accept-language=en`;
+          const res = await fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } });
+          const onlineData = await res.json();
+
+          if (onlineData && onlineData.length > 0) {
+            const mappedOnline = onlineData.map(item => {
+              const b = detectNearestBarangay(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+              return {
+                id: `online-${item.place_id || item.lat}`,
+                name: item.name || item.display_name.split(',')[0],
+                category: 'Location',
+                barangay: b,
+                icon: 'location-outline',
+                lat: parseFloat(item.lat),
+                lng: parseFloat(item.lon),
+                type: 'online',
+              };
+            });
+
+            // Merge local and online uniquely
+            setSearchResults(prev => {
+              const combined = [...localMatches];
+              mappedOnline.forEach(onItem => {
+                if (!combined.some(c => Math.hypot(c.lat - onItem.lat, c.lng - onItem.lng) < 0.001)) {
+                  combined.push(onItem);
+                }
+              });
+              return combined;
+            });
+          }
+        } catch (e) {
+          // Keep local matches if offline
+        } finally {
+          setIsSearchingOnline(false);
+        }
+      }, 400);
+    }
+  };
+
+  // User taps a search suggestion or landmark
+  const handleSelectSearchResult = (item) => {
+    setShowSearchResults(false);
+    setSearchQuery(item.name);
+
+    // Pan map to landmark
+    sendLocationToWebView(item.lat, item.lng);
+
+    // Set Barangay and Street details
+    setDetectedBarangay(item.barangay);
+    if (item.type === 'landmark' || item.type === 'online') {
+      setStreetAddress(item.name);
+    }
+    assembleAddress(item.name, item.barangay, purokLandmark);
   };
 
   // User manually selects a Barangay from the list
-  // IMPORTANT: Keep exact pinpoint coordinates! Do NOT move/pan map position.
   const handleSelectBarangay = (barangayItem) => {
     setDetectedBarangay(barangayItem.name);
     setIsManuallyCorrected(true);
@@ -368,7 +422,6 @@ export default function OpenStreetMapPicker({
 
     const finalAddress = assembleAddress(streetAddress, detectedBarangay, purokLandmark);
 
-    // Register address correction & learning into memory & database
     if (isManuallyCorrected || isLearnedMemory || purokLandmark || streetAddress) {
       addressLearningService.registerCorrection({
         latitude: selectedLocation.latitude,
@@ -419,23 +472,101 @@ export default function OpenStreetMapPicker({
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search landmark (e.g. City Coliseum, NCCC, Mitra)..."
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-            returnKeyType="search"
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearch}>
-              <Ionicons name="close-circle" size={18} color="#94a3b8" />
-            </TouchableOpacity>
-          ) : null}
+        {/* Search Bar Container */}
+        <View style={styles.searchSectionWrapper}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search landmark (e.g. Coliseum, SM, NCCC, Mitra)..."
+              placeholderTextColor="#94a3b8"
+              value={searchQuery}
+              onChangeText={handleSearchQueryChange}
+              onFocus={() => {
+                if (searchQuery.trim()) {
+                  setShowSearchResults(true);
+                }
+              }}
+              returnKeyType="search"
+            />
+            {isSearchingOnline && (
+              <ActivityIndicator size="small" color="#0033A0" style={{ marginRight: 6 }} />
+            )}
+            {searchQuery ? (
+              <TouchableOpacity 
+                onPress={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  setShowSearchResults(false);
+                }} 
+                style={styles.clearSearch}
+              >
+                <Ionicons name="close-circle" size={18} color="#94a3b8" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {/* Quick Popular Landmark Chips */}
+          {!showSearchResults && (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.quickChipsContainer}
+            >
+              <Text style={styles.quickChipsLabel}>Popular:</Text>
+              {PUERTO_PRINCESA_LANDMARKS.slice(0, 6).map((item) => (
+                <TouchableOpacity
+                  key={item.name}
+                  style={styles.quickChip}
+                  onPress={() => handleSelectSearchResult(item)}
+                >
+                  <Text style={styles.quickChipText}>{item.name.replace('Puerto Princesa ', '').replace('Palawan ', '')}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Live Search Suggestions Dropdown List */}
+          {showSearchResults && (
+            <View style={styles.searchResultsDropdown}>
+              {searchResults.length > 0 ? (
+                <FlatList
+                  data={searchResults}
+                  keyExtractor={(item) => item.id}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.searchResultItem}
+                      onPress={() => handleSelectSearchResult(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.resultIconWrapper}>
+                        <Ionicons name={item.icon || 'location'} size={18} color="#0033A0" />
+                      </View>
+                      <View style={styles.resultTextContainer}>
+                        <Text style={styles.resultItemTitle} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.resultItemSubtitle} numberOfLines={1}>
+                          {item.category} • Brgy. {item.barangay}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color="#94a3b8" />
+                    </TouchableOpacity>
+                  )}
+                  ItemSeparatorComponent={() => <View style={styles.searchSeparator} />}
+                  style={{ maxHeight: 220 }}
+                />
+              ) : (
+                <View style={styles.noResultsBox}>
+                  <Ionicons name="compass-outline" size={24} color="#94a3b8" />
+                  <Text style={styles.noResultsText}>
+                    No places found. Move the map pin to select this exact location.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Map Canvas with Center Fixed Crosshair */}
@@ -463,7 +594,7 @@ export default function OpenStreetMapPicker({
             style={styles.webview}
           />
 
-          {/* Grab/Foodpanda Style Center Crosshair Pin */}
+          {/* Center Crosshair Pin */}
           <View style={styles.centerPinWrapper} pointerEvents="none">
             <Animated.View style={[styles.centerPinContainer, { transform: [{ translateY: pinElevateAnim }] }]}>
               <View style={styles.customPin}>
@@ -706,11 +837,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  searchSectionWrapper: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    zIndex: 100,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 8,
     paddingHorizontal: 12,
     height: 42,
     backgroundColor: '#f8fafc',
@@ -728,6 +866,92 @@ const styles = StyleSheet.create({
   },
   clearSearch: {
     padding: 4,
+  },
+  quickChipsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 8,
+    paddingBottom: 2,
+  },
+  quickChipsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    marginRight: 2,
+  },
+  quickChip: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  quickChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  searchResultsDropdown: {
+    position: 'absolute',
+    top: 54,
+    left: 16,
+    right: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 200,
+    overflow: 'hidden',
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  resultIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  resultTextContainer: {
+    flex: 1,
+  },
+  resultItemTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  resultItemSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  searchSeparator: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+  },
+  noResultsBox: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  noResultsText: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
   },
   mapContainer: {
     flex: 1,
