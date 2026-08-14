@@ -9,6 +9,7 @@ const AuthContext = createContext();
 const LOCAL_CACHED_AUTH_KEY = '@app_cached_auth_v1';
 const ALLOWED_ROLES = ['customer', 'rider'];
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
+const BACKGROUND_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 mins
 const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
 const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
 
@@ -107,14 +108,18 @@ export const AuthProvider = ({ children }) => {
     let isMounted = true;
 
     const initializeAuth = async () => {
-      // Step A: Hydrate from fast local cache immediately
-      await hydrateFromCache();
+      try {
+        // Step A: Hydrate from fast local cache immediately
+        await hydrateFromCache();
 
-      // Step B: Verify / refresh session with backend
-      await checkUser();
-
-      if (isMounted) {
-        setLoading(false);
+        // Step B: Verify / refresh session with backend
+        await checkUser();
+      } catch (_) {
+        // Handled within checkUser
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -141,7 +146,7 @@ export const AuthProvider = ({ children }) => {
         } finally {
           if (isMounted) setLoading(false);
         }
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || !session) {
         await clearAuthState();
         if (isMounted) setLoading(false);
       }
@@ -163,8 +168,14 @@ export const AuthProvider = ({ children }) => {
       }
 
       if ((prevState === 'inactive' || prevState === 'background') && nextState === 'active') {
+        const backgroundedAt = backgroundedAtRef.current;
         backgroundedAtRef.current = null;
-        // Verify session silently in background on resume without resetting UI state
+
+        if (backgroundedAt && Date.now() - backgroundedAt > BACKGROUND_INACTIVITY_TIMEOUT_MS) {
+          await signOut();
+          return;
+        }
+
         checkUser({ silent: true });
       }
 
@@ -198,7 +209,6 @@ export const AuthProvider = ({ children }) => {
           'Auth profile lookup timed out.'
         );
       } else {
-        // Only clear state if there's definitively no session and not a background timeout
         if (!isHydratedRef.current) {
           await clearAuthState();
         }
@@ -220,7 +230,6 @@ export const AuthProvider = ({ children }) => {
           // ignore
         }
       }
-      // If it's a network timeout / offline error, keep cached user intact!
     } finally {
       if (!silent) {
         setLoading(false);
@@ -274,13 +283,11 @@ export const AuthProvider = ({ children }) => {
   const signIn = async (email, password) => {
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Normal login should not be blocked by stale password-recovery guard flags.
     await Promise.all([
       AsyncStorage.removeItem(RECOVERY_PENDING_KEY),
       AsyncStorage.removeItem(RECOVERY_CANCELLED_KEY),
     ]);
 
-    // Pre-check role if profile is queryable before sign in
     try {
       const preProfileRes = await supabase
         .from('profiles')
