@@ -22,8 +22,17 @@ describe('Puerto Princesa Location Utilities', () => {
     expect(detectNearestBarangay(9.7535, 118.7479)).toBe('San Pedro');
     // Near San Miguel Airport
     expect(detectNearestBarangay(9.7460, 118.7520)).toBe('San Miguel');
+    // Barangay Maningning in downtown Poblacion
+    expect(detectNearestBarangay(9.7450, 118.7410)).toBe('Maningning');
     // Near Santa Monica / City Hall
     expect(detectNearestBarangay(9.7890, 118.7360)).toBe('Santa Monica');
+  });
+
+  it('correctly identifies Barangay Maningning even when street is Rizal Ave', () => {
+    // Coordinates in Maningning (9.7450, 118.7410) with Rizal Ave street hint
+    expect(detectNearestBarangay(9.7450, 118.7410, 'Rizal Avenue')).toBe('Maningning');
+    // Coordinates in San Miguel (9.7460, 118.7520) with Rizal Ave street hint
+    expect(detectNearestBarangay(9.7460, 118.7520, 'Rizal Avenue')).toBe('San Miguel');
   });
 
   it('formats clean Philippine address with verified Barangay', () => {
