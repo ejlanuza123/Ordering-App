@@ -190,6 +190,9 @@ export default function CheckoutScreen({ navigation }) {
       setAddressLat(latVal);
       setAddressLng(lngVal);
     }
+    if (location.landmark && !specialInstructions) {
+      setSpecialInstructions(location.landmark);
+    }
     setMapModalVisible(false);
   };
 

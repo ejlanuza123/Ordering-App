@@ -1,5 +1,5 @@
 // src/components/OpenStreetMapPicker.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,21 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Animated,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { useSafeAreaInsets,SafeAreaView } from 'react-native-safe-area-context';
-import { requestLocationPermission } from '../utils/location';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { 
+  requestLocationPermission, 
+  detectNearestBarangay, 
+  reverseGeocode, 
+  formatAddress 
+} from '../utils/location';
 
 export default function OpenStreetMapPicker({
   visible,
@@ -26,81 +35,52 @@ export default function OpenStreetMapPicker({
   const webViewRef = useRef(null);
   const webViewReadyRef = useRef(false);
   const pendingLocationRef = useRef(null);
+
+  // States
   const [loading, setLoading] = useState(true);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [address, setAddress] = useState(initialAddress || '');
+  const [detectedBarangay, setDetectedBarangay] = useState('San Pedro');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [purokLandmark, setPurokLandmark] = useState('');
+  const [fullAddress, setFullAddress] = useState(initialAddress || '');
   const [searchQuery, setSearchQuery] = useState('');
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
+  const [isMoving, setIsMoving] = useState(false);
 
-  // MKC Foods coordinates
-  const SAN_PEDRO_COORDS = {
-    lat: 9.7394855,
-    lng: 118.7413605
+  // Pin animation
+  const pinElevateAnim = useRef(new Animated.Value(0)).current;
+
+  // Default Puerto Princesa City Hub coordinates (Petron San Pedro)
+  const PUERTO_PRINCESA_DEFAULT = {
+    lat: 9.7534772,
+    lng: 118.7478688
   };
 
-  // Smart formatter that improves barangay accuracy
-  const formatSmartAddress = (addressData, lat, lng) => {
-    if (!addressData) return '';
+  // Animate pin when map starts/stops moving
+  const handleMapMovementState = (moving) => {
+    setIsMoving(moving);
+    Animated.spring(pinElevateAnim, {
+      toValue: moving ? -16 : 0,
+      friction: 6,
+      tension: 60,
+      useNativeDriver: true,
+    }).start();
+  };
 
+  // Re-assemble full address when components change
+  const assembleAddress = useCallback((street, brgy, landmark) => {
     const parts = [];
-    const pushUnique = (value) => {
-      if (value && !parts.includes(value)) parts.push(String(value));
-    };
+    if (landmark && landmark.trim()) parts.push(landmark.trim());
+    if (street && street.trim()) parts.push(street.trim());
+    if (brgy) parts.push(`Brgy. ${brgy}`);
+    parts.push('Puerto Princesa City');
+    parts.push('Palawan');
 
-    // 1) Most specific info first
-    pushUnique(addressData.house_number);
-
-    const buildingLabel =
-      addressData.amenity ||
-      addressData.shop ||
-      addressData.building ||
-      addressData.office ||
-      addressData.tourism;
-    pushUnique(buildingLabel);
-
-    // 2) Road/street
-    const roadLabel =
-      addressData.road ||
-      addressData.street ||
-      addressData.pedestrian ||
-      addressData.residential ||
-      addressData.tertiary;
-    pushUnique(roadLabel);
-
-    // 3) Barangay (PH)
-    // Nominatim commonly uses different keys for barangay.
-    const barangayCandidate =
-      addressData.suburb ||
-      addressData.village ||
-      addressData.neighbourhood ||
-      addressData.hamlet ||
-      addressData.city_district;
-
-    // Heuristic cleanup: drop generic/empty-like strings
-    const normalizedBarangay = barangayCandidate
-      ? String(barangayCandidate).trim()
-      : '';
-
-    if (
-      normalizedBarangay &&
-      !/^(philippines|palawan|puerto\s+princesa\s+city)$/i.test(normalizedBarangay)
-    ) {
-      pushUnique(normalizedBarangay);
-    }
-
-    // 4) City + Province
-    pushUnique(
-      addressData.city ||
-        addressData.town ||
-        addressData.municipality ||
-        addressData.county ||
-        'Puerto Princesa City'
-    );
-
-    pushUnique(addressData.state || 'Palawan');
-    pushUnique(addressData.postcode);
-
-    return parts.join(', ');
-  };
+    const combined = parts.join(', ');
+    setFullAddress(combined);
+    return combined;
+  }, []);
 
   const sendLocationToWebView = (latitude, longitude) => {
     const payload = JSON.stringify({
@@ -127,235 +107,156 @@ export default function OpenStreetMapPicker({
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-          #map { height: 100vh; width: 100vw; }
-          .custom-marker {
-            background: #ED2939;
-            border: 3px solid white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-          }
-          .attribution {
+          html, body, #map { height: 100vh; width: 100vw; background: #f8fafc; overflow: hidden; }
+          .center-crosshair {
             position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: rgba(255,255,255,0.8);
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-size: 10px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100%);
             z-index: 1000;
+            pointer-events: none;
           }
-          /* In-page search removed: RN native search bar will be used */
+          .pin-icon {
+            width: 38px;
+            height: 38px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+          }
+          .pin-shadow {
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 6px;
+            background: rgba(0,0,0,0.25);
+            border-radius: 50%;
+            filter: blur(1px);
+          }
+          .accuracy-circle {
+            background: rgba(0, 51, 160, 0.15);
+            border: 2px solid #0033A0;
+            border-radius: 50%;
+          }
         </style>
       </head>
       <body>
-        <!-- In-page search removed; use the native search bar in the app -->
         <div id="map"></div>
-        <div class="attribution">© OpenStreetMap contributors</div>
-        
         <script>
           let map;
-          let marker;
-          let geocodeTimeout;
+          let moveTimeout;
           let mapInitialized = false;
-          // Forward console and errors to React Native for easier debugging
-          (function() {
-            const origLog = console.log;
-            const origWarn = console.warn;
-            const origError = console.error;
-            console.log = function() {
-              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'log', message: Array.from(arguments).join(' ') })); } catch(e) {}
-              origLog.apply(console, arguments);
-            };
-            console.warn = function() {
-              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'warn', message: Array.from(arguments).join(' ') })); } catch(e) {}
-              origWarn.apply(console, arguments);
-            };
-            console.error = function() {
-              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'CONSOLE', level: 'error', message: Array.from(arguments).join(' ') })); } catch(e) {}
-              origError.apply(console, arguments);
-            };
-            window.addEventListener('error', function(ev) {
-              try { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', message: ev.message + ' at ' + ev.filename + ':' + ev.lineno + ':' + ev.colno })); } catch(e) {}
-            });
-          })();
-          
+
           function initMap(lat, lon) {
-            map = L.map('map').setView([lat, lon], 17);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '© OpenStreetMap contributors'
+            if (mapInitialized) return;
+            mapInitialized = true;
+
+            map = L.map('map', {
+              zoomControl: false,
+              attributionControl: false
+            }).setView([lat, lon], 17);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+              maxZoom: 19,
+              subdomains: 'abcd'
             }).addTo(map);
-            
-            const markerIcon = L.divIcon({
-              className: 'custom-marker',
-              iconSize: [20, 20],
-              popupAnchor: [0, -10]
+
+            // Add Puerto Princesa Store Hub Marker
+            const hubIcon = L.divIcon({
+              html: '<div style="background:#0033A0;color:white;padding:4px 8px;border-radius:12px;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap">⛽ Petron Hub</div>',
+              className: '',
+              iconAnchor: [35, 12]
             });
-            
-            marker = L.marker([lat, lon], {
-              draggable: true,
-              icon: markerIcon
-            }).addTo(map);
-            
-            function isBarangayLike(value) {
-              if (!value) return false;
-              const s = String(value).trim();
-              if (!s) return false;
-              if (/^(philippines|palawan|puerto\s+princesa\s+city)$/i.test(s)) return false;
-              return true;
-            }
+            L.marker([9.7535, 118.7479], { icon: hubIcon }).addTo(map);
 
-            let geocodeRequestId = 0;
-
-            async function reverseGeocode(lat, lng, zoom) {
-              const url = \`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${lat}&lon=\${lng}&addressdetails=1&zoom=\${zoom}&namedetails=1&accept-language=en\`;
-              const res = await fetch(url, { headers: { 'User-Agent': 'MKCFoodsApp/2.0' } });
-              return res.json();
-            }
-
-            async function getAddressFromCoords(lat, lng) {
-              try {
-                let data = await reverseGeocode(lat, lng, 18);
-
-                const addr = data ? data.address : null;
-                const barangayCandidate = addr && (
-                  addr.suburb || addr.village || addr.neighbourhood || addr.hamlet || addr.city_district
-                );
-
-                // If barangay is missing/generic, retry with different zoom
-                if (!isBarangayLike(barangayCandidate)) {
-                  const data16 = await reverseGeocode(lat, lng, 16);
-                  const addr16 = data16 ? data16.address : null;
-                  const barangay16 = addr16 && (
-                    addr16.suburb || addr16.village || addr16.neighbourhood || addr16.hamlet || addr16.city_district
-                  );
-
-                  if (isBarangayLike(barangay16)) {
-                    data = data16;
-                  }
-                }
-
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'LOCATION_SELECTED',
-                  lat: lat,
-                  lng: lng,
-                  display_name: data ? data.display_name : '',
-                  address: data ? data.address : null
-                }));
-              } catch (e) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'LOCATION_SELECTED',
-                  lat: lat,
-                  lng: lng,
-                  display_name: lat.toFixed(6) + ', ' + lng.toFixed(6)
-                }));
-              }
-            }
-            
-            marker.on('dragend', function(e) {
-              const pos = e.target.getLatLng();
-              clearTimeout(geocodeTimeout);
-              geocodeTimeout = setTimeout(() => {
-                getAddressFromCoords(pos.lat, pos.lng);
-              }, 600);
-            });
-            
-            map.on('click', function(e) {
-              marker.setLatLng(e.latlng);
-              clearTimeout(geocodeTimeout);
-              geocodeTimeout = setTimeout(() => {
-                getAddressFromCoords(e.latlng.lat, e.latlng.lng);
-              }, 600);
+            // Center movement listeners
+            map.on('movestart', function() {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'MAP_MOVE_START'
+              }));
             });
 
-            // Notify RN that the map is ready
+            map.on('moveend', function() {
+              const center = map.getCenter();
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'MAP_MOVE_END'
+              }));
+
+              clearTimeout(moveTimeout);
+              moveTimeout = setTimeout(() => {
+                resolveAddress(center.lat, center.lng);
+              }, 300);
+            });
+
+            // Trigger initial location resolution
+            resolveAddress(lat, lon);
+
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'MAP_READY'
             }));
           }
 
-          // Cross-platform listener for messages from React Native
-          function handleIncomingMessage(raw) {
+          async function resolveAddress(lat, lng) {
             try {
-              const data = JSON.parse(raw);
+              const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lng + '&addressdetails=1&zoom=18&accept-language=en';
+              const res = await fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } });
+              const data = await res.json();
 
-              if (data.type === 'SET_LOCATION') {
-                if (!mapInitialized) {
-                  initMap(data.lat, data.lon);
-                  mapInitialized = true;
-                  return;
-                }
-                map.setView([data.lat, data.lon], 18);
-                marker.setLatLng([data.lat, data.lon]);
-                clearTimeout(geocodeTimeout);
-                getAddressFromCoords(data.lat, data.lon);
-              } else if (data.type === 'SEARCH') {
-                // Perform bounded search if viewbox provided for better accuracy
-                searchLocation(data.query, data.viewbox);
-              }
-            } catch (e) {
-              // ignore malformed messages
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LOCATION_RESOLVED',
+                lat: lat,
+                lng: lng,
+                addressDetails: data ? data.address : null,
+                displayName: data ? data.display_name : ''
+              }));
+            } catch (err) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'LOCATION_RESOLVED',
+                lat: lat,
+                lng: lng,
+                addressDetails: null,
+                displayName: lat.toFixed(6) + ', ' + lng.toFixed(6)
+              }));
             }
           }
 
-          // webview bridge: Android sometimes uses document, others use window
-          window.addEventListener('message', (e) => handleIncomingMessage(e.data));
-          document.addEventListener('message', (e) => handleIncomingMessage(e.data));
-
-          // WAIT: Map will NOT initialize until GPS location arrives
-          
-          // searchLocation accepts optional viewbox string (minLon,maxLat,maxLon,minLat)
-          window.searchLocation = function(query, viewbox) {
+          window.searchLocation = function(query) {
             if (!query) return;
-
             const fullQuery = query + ', Puerto Princesa City, Palawan';
-            let url = \`https://nominatim.openstreetmap.org/search?format=jsonv2&q=\${encodeURIComponent(fullQuery)}&limit=5&countrycodes=PH&addressdetails=1&namedetails=1&accept-language=en\`;
-            if (viewbox) {
-              url += \`&viewbox=\${encodeURIComponent(viewbox)}&bounded=1\`;
-            }
+            const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&q=' + encodeURIComponent(fullQuery) + 
+              '&viewbox=118.60,10.25,118.95,9.50&bounded=0&limit=5&addressdetails=1&countrycodes=PH&accept-language=en';
 
-            fetch(url, { headers: { 'User-Agent': 'MKCFoodsApp/2.0' } })
-              .then(response => response.json())
+            fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } })
+              .then(r => r.json())
               .then(results => {
-                if ((!results || results.length === 0) && viewbox) {
-                  return fetch(\`https://nominatim.openstreetmap.org/search?format=jsonv2&q=\${encodeURIComponent(fullQuery)}&limit=5&countrycodes=PH&addressdetails=1&namedetails=1&accept-language=en\`, {
-                    headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
-                  }).then(response => response.json());
-                }
-
                 if (results && results.length > 0) {
                   const first = results[0];
-                  map.setView([first.lat, first.lon], 18);
-                  marker.setLatLng([first.lat, first.lon]);
-
-                  const requestId = ++geocodeRequestId;
-
-                  fetch(\`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=\${first.lat}&lon=\${first.lon}&addressdetails=1&zoom=18&namedetails=1&accept-language=en\`, {
-                    headers: { 'User-Agent': 'MKCFoodsApp/2.0' }
-                  })
-                    .then(res => res.json())
-                    .then(detail => {
-                      if (requestId !== geocodeRequestId) return;
-
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'LOCATION_SELECTED',
-                        lat: parseFloat(first.lat),
-                        lng: parseFloat(first.lon),
-                        display_name: detail.display_name || first.display_name,
-                        address: detail.address
-                      }));
-                    });
+                  map.flyTo([first.lat, first.lon], 18, { duration: 1.2 });
                 } else {
-                  alert('No results found');
+                  alert('No places found in Puerto Princesa City. Try adjusting your search.');
                 }
+              })
+              .catch(e => {
+                console.error('Search error:', e);
               });
           };
-          
-          // Map initialization waits for SET_LOCATION from React Native
-          // No onload init - map starts at provided GPS location
+
+          function handleIncoming(raw) {
+            try {
+              const data = JSON.parse(raw);
+              if (data.type === 'SET_LOCATION') {
+                if (!mapInitialized) {
+                  initMap(data.lat, data.lon);
+                  return;
+                }
+                map.flyTo([data.lat, data.lon], 18, { duration: 1.0 });
+              } else if (data.type === 'SEARCH') {
+                searchLocation(data.query);
+              }
+            } catch (_) {}
+          }
+
+          window.addEventListener('message', (e) => handleIncoming(e.data));
+          document.addEventListener('message', (e) => handleIncoming(e.data));
         </script>
       </body>
       </html>
@@ -364,72 +265,79 @@ export default function OpenStreetMapPicker({
 
   useEffect(() => {
     if (visible) {
-      getCurrentLocation();
+      getCurrentGPSLocation();
     }
   }, [visible]);
 
-  const getCurrentLocation = async () => {
+  // High-accuracy GPS Acquisition
+  const getCurrentGPSLocation = async () => {
     try {
       setLoading(true);
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) {
-        // If the user denies permission, send a sensible default so the map can initialize
-        sendLocationToWebView(SAN_PEDRO_COORDS.lat, SAN_PEDRO_COORDS.lng);
-        setSelectedLocation(SAN_PEDRO_COORDS);
+        sendLocationToWebView(PUERTO_PRINCESA_DEFAULT.lat, PUERTO_PRINCESA_DEFAULT.lng);
+        setSelectedLocation(PUERTO_PRINCESA_DEFAULT);
         setLoading(false);
         return;
       }
 
-      // Fast-path: use last known physical GPS fix immediately
+      // Fast-path: last known position
       const lastKnown = await Location.getLastKnownPositionAsync({});
       if (lastKnown?.coords) {
         sendLocationToWebView(lastKnown.coords.latitude, lastKnown.coords.longitude);
         setSelectedLocation({ latitude: lastKnown.coords.latitude, longitude: lastKnown.coords.longitude });
+        setGpsAccuracy(lastKnown.coords.accuracy ? Math.round(lastKnown.coords.accuracy) : null);
       }
 
-      // Fresh high-accuracy GPS hardware fix
+      // Fresh high-accuracy hardware fix
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 4000,
       });
-      const { latitude, longitude } = location.coords;
-      
+
+      const { latitude, longitude, accuracy } = location.coords;
       sendLocationToWebView(latitude, longitude);
       setSelectedLocation({ latitude, longitude });
-      
+      setGpsAccuracy(accuracy ? Math.round(accuracy) : null);
     } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location. Using default location.');
-      // Send default coordinates if GPS hardware is disabled
-      sendLocationToWebView(SAN_PEDRO_COORDS.lat, SAN_PEDRO_COORDS.lng);
-      setSelectedLocation(SAN_PEDRO_COORDS);
+      console.warn('GPS lock error, falling back to default:', error.message);
+      sendLocationToWebView(PUERTO_PRINCESA_DEFAULT.lat, PUERTO_PRINCESA_DEFAULT.lng);
+      setSelectedLocation(PUERTO_PRINCESA_DEFAULT);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleWebViewMessage = async (event) => {
+  const handleWebViewMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      
-      if (data.type === 'LOCATION_SELECTED') {
-        setLoading(false);
+
+      if (data.type === 'MAP_MOVE_START') {
+        handleMapMovementState(true);
+        setIsGeocoding(true);
+      } else if (data.type === 'MAP_MOVE_END') {
+        handleMapMovementState(false);
+      } else if (data.type === 'LOCATION_RESOLVED') {
+        setIsGeocoding(false);
         setSelectedLocation({
           latitude: data.lat,
           longitude: data.lng
         });
-        
-        if (data.address) {
-          const cleanAddress = formatSmartAddress(data.address, data.lat, data.lng);
-          setAddress(cleanAddress);
-        } else {
-          setAddress(data.display_name || `${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`);
-        }
-        
-      } else if (data.type === 'ERROR') {
-        Alert.alert('Error', data.message);
-        setLoading(false);
+
+        // 1. Detect official Puerto Princesa Barangay
+        const a = data.addressDetails;
+        const streetHint = a ? (a.road || a.street || a.pedestrian || a.residential || a.building || a.amenity || '') : '';
+        const rawBrgyHint = a ? (a.suburb || a.village || a.neighbourhood || a.city_district || streetHint) : '';
+        const brgy = detectNearestBarangay(data.lat, data.lng, rawBrgyHint);
+        setDetectedBarangay(brgy);
+
+        // 2. Extract clean street / building
+        const detectedStreet = streetHint || (a?.house_number ? `#${a.house_number}` : 'Rizal Avenue / National Highway');
+        setStreetAddress(detectedStreet);
+
+        // 3. Assemble full formatted address
+        assembleAddress(detectedStreet, brgy, purokLandmark);
       } else if (data.type === 'MAP_READY') {
-        // Map inside WebView initialized and ready
         setLoading(false);
         webViewReadyRef.current = true;
         if (pendingLocationRef.current && webViewRef.current) {
@@ -437,38 +345,39 @@ export default function OpenStreetMapPicker({
           pendingLocationRef.current = null;
         }
       }
-    } catch (error) {
-      console.error('Error parsing WebView message:', error);
-      setLoading(false);
+    } catch (err) {
+      console.error('Error handling WebView message:', err);
+      setIsGeocoding(false);
     }
   };
 
   const handleSearch = () => {
     if (!searchQuery.trim() || !webViewRef.current) return;
     setLoading(true);
-    const delta = 0.01; // ~1km bounding box for local accuracy
-    const lat = selectedLocation?.latitude ?? SAN_PEDRO_COORDS.lat;
-    const lon = selectedLocation?.longitude ?? SAN_PEDRO_COORDS.lng;
-    const minLat = lat - delta;
-    const maxLat = lat + delta;
-    const minLon = lon - delta;
-    const maxLon = lon + delta;
-    const viewbox = `${minLon},${maxLat},${maxLon},${minLat}`; // left,top,right,bottom
-
     webViewRef.current.postMessage(JSON.stringify({
       type: 'SEARCH',
-      query: searchQuery,
-      viewbox,
+      query: searchQuery.trim()
     }));
+    setLoading(false);
   };
 
   const handleConfirm = () => {
-    if (selectedLocation && address) {
-      onSelectAddress({
-        ...selectedLocation,
-        address, // Sends the fully edited/formatted address
-      });
+    if (!selectedLocation) {
+      Alert.alert('Please drop a pin', 'Please wait for the map to finish locating your delivery address.');
+      return;
     }
+
+    const finalAddress = assembleAddress(streetAddress, detectedBarangay, purokLandmark);
+
+    onSelectAddress({
+      latitude: selectedLocation.latitude,
+      longitude: selectedLocation.longitude,
+      address: finalAddress,
+      barangay: detectedBarangay,
+      street: streetAddress,
+      landmark: purokLandmark
+    });
+
     onClose();
   };
 
@@ -483,88 +392,177 @@ export default function OpenStreetMapPicker({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#333" />
+            <Ionicons name="close" size={24} color="#1e293b" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Select Delivery Address</Text>
-          <TouchableOpacity onPress={handleConfirm} style={styles.confirmButton}>
-            <Text style={styles.confirmButtonText}>Confirm</Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Pin Delivery Location</Text>
+            <Text style={styles.headerSubtitle}>Puerto Princesa City, Palawan</Text>
+          </View>
+          <TouchableOpacity onPress={handleConfirm} style={styles.confirmHeaderButton}>
+            <Text style={styles.confirmHeaderButtonText}>Done</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.noticeBanner}>
-          <Ionicons name="information-circle-outline" size={18} color="#8a5b00" />
-          <Text style={styles.noticeText}>
-            The delivery address name shown here may not be accurate. Please edit it so the rider can read a correct delivery address.
-          </Text>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search landmark (e.g. City Coliseum, NCCC, Mitra)..."
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearch}>
+              <Ionicons name="close-circle" size={18} color="#94a3b8" />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
-
-
-        {/* Map View */}
+        {/* Map Canvas with Center Fixed Crosshair */}
         <View style={styles.mapContainer}>
           {loading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#0033A0" />
-              <Text style={styles.loadingText}>Loading map...</Text>
+              <Text style={styles.loadingText}>Locating map position...</Text>
             </View>
           )}
-          
+
           <WebView
             ref={webViewRef}
             source={{ html: mapHtml }}
             onMessage={handleWebViewMessage}
             onLoadEnd={() => {
               webViewReadyRef.current = true;
-
               if (pendingLocationRef.current && webViewRef.current) {
                 webViewRef.current.postMessage(pendingLocationRef.current);
                 pendingLocationRef.current = null;
               }
-
-              // Keep loading until the page signals MAP_READY
             }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
             style={styles.webview}
           />
+
+          {/* Grab/Foodpanda Style Center Crosshair Pin */}
+          <View style={styles.centerPinWrapper} pointerEvents="none">
+            <Animated.View style={[styles.centerPinContainer, { transform: [{ translateY: pinElevateAnim }] }]}>
+              {/* Pin Icon */}
+              <View style={styles.customPin}>
+                <Ionicons name="location" size={42} color="#ED2939" />
+                <View style={styles.pinDot} />
+              </View>
+            </Animated.View>
+            {/* Shadow beneath pin */}
+            <View style={[styles.pinShadow, isMoving && styles.pinShadowElevated]} />
+          </View>
+
+          {/* Floating Map Controls */}
+          <View style={styles.floatingControls}>
+            {/* GPS Accuracy Badge */}
+            {gpsAccuracy !== null && (
+              <View style={styles.accuracyBadge}>
+                <View style={[styles.accuracyDot, { backgroundColor: gpsAccuracy <= 15 ? '#10B981' : '#F59E0B' }]} />
+                <Text style={styles.accuracyText}>GPS ±{gpsAccuracy}m</Text>
+              </View>
+            )}
+
+            {/* Recenter GPS Button */}
+            <TouchableOpacity
+              style={styles.recenterButton}
+              onPress={getCurrentGPSLocation}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="locate" size={22} color="#0033A0" />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Bottom Address Panel - NOW EDITABLE */}
-        <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 8 }]}>
-          <Text style={styles.inputLabel}>Complete Address (Edit if needed):</Text>
-          <View style={styles.addressContainer}>
-            <Ionicons name="location-outline" size={20} color="#0033A0" style={{ marginTop: 2 }}/>
-            <TextInput
-              style={styles.addressInput}
-              multiline
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Tap map or type complete address here..."
-              placeholderTextColor="#999"
-            />
-          </View>
-          
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={styles.currentLocationButton}
-              onPress={getCurrentLocation}
-              disabled={loading}
+        {/* Structured Bottom Address Sheet */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.bottomSheetContainer}
+        >
+          <ScrollView
+            style={styles.bottomSheet}
+            contentContainerStyle={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 12 }]}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Live Location Status Pill */}
+            <View style={styles.sheetTopRow}>
+              <View style={styles.barangayPill}>
+                <Ionicons name="shield-checkmark" size={14} color="#0033A0" />
+                <Text style={styles.barangayPillText}>Brgy. {detectedBarangay}</Text>
+              </View>
+              {isGeocoding ? (
+                <View style={styles.geocodingStatus}>
+                  <ActivityIndicator size="small" color="#ED2939" />
+                  <Text style={styles.geocodingText}>Pinning address...</Text>
+                </View>
+              ) : (
+                <Text style={styles.precisionLabel}>Verified Puerto Princesa</Text>
+              )}
+            </View>
+
+            {/* Street / Location Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Street / Road / Building</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="navigate-outline" size={18} color="#64748b" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  value={streetAddress}
+                  onChangeText={(val) => {
+                    setStreetAddress(val);
+                    assembleAddress(val, detectedBarangay, purokLandmark);
+                  }}
+                  placeholder="Street name or nearby building"
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+            </View>
+
+            {/* Purok / Sitio / Landmark / House # */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Purok / Sitio / House # / Landmark (Optional)</Text>
+              <View style={styles.inputWrapper}>
+                <Ionicons name="home-outline" size={18} color="#64748b" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  value={purokLandmark}
+                  onChangeText={(val) => {
+                    setPurokLandmark(val);
+                    assembleAddress(streetAddress, detectedBarangay, val);
+                  }}
+                  placeholder="e.g. Purok Masipag, Red gate beside Chapel"
+                  placeholderTextColor="#94a3b8"
+                />
+              </View>
+            </View>
+
+            {/* Address Summary Preview */}
+            <View style={styles.addressPreviewBox}>
+              <Ionicons name="pin" size={16} color="#0033A0" style={{ marginTop: 2 }} />
+              <Text style={styles.addressPreviewText} numberOfLines={2}>
+                {fullAddress || 'Move the map to set exact delivery pin'}
+              </Text>
+            </View>
+
+            {/* Confirm Button */}
+            <TouchableOpacity
+              style={[styles.confirmButtonBig, isGeocoding && styles.confirmButtonDisabled]}
+              onPress={handleConfirm}
+              disabled={isGeocoding}
+              activeOpacity={0.85}
             >
-              <Ionicons name="locate" size={20} color="#0033A0" />
-              <Text style={styles.currentLocationText}>Use My GPS</Text>
+              <Text style={styles.confirmButtonBigText}>Confirm Delivery Address</Text>
+              <Ionicons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
             </TouchableOpacity>
-            
-            {selectedLocation && (
-              <TouchableOpacity 
-                style={styles.confirmButtonLarge}
-                onPress={handleConfirm}
-              >
-                <Text style={styles.confirmButtonLargeText}>Confirm Location</Text>
-                <Ionicons name="arrow-forward" size={20} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -573,92 +571,70 @@ export default function OpenStreetMapPicker({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#fff',
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#f1f5f9',
+    backgroundColor: '#ffffff',
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f4ff',
-    justifyContent: 'center',
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+  },
+  headerTitleContainer: {
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0033A0',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
   },
-  confirmButton: {
-    paddingHorizontal: 12,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f0f4ff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    color: '#0033A0',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  noticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#fff4d6',
-    borderWidth: 1,
-    borderColor: '#f0d28a',
-  },
-  noticeText: {
-    flex: 1,
-    color: '#6b4a00',
-    fontSize: 12,
-    lineHeight: 17,
+  headerSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
     fontWeight: '500',
+    marginTop: 1,
+  },
+  confirmHeaderButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#0033A0',
+  },
+  confirmHeaderButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
     marginHorizontal: 16,
-    marginTop: 10,
+    marginVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    height: 42,
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e9ecef',
-    gap: 8,
+    borderColor: '#e2e8f0',
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#333',
+    fontSize: 13,
+    color: '#0f172a',
   },
-  searchButton: {
-    backgroundColor: '#0033A0',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+  clearSearch: {
+    padding: 4,
   },
   mapContainer: {
     flex: 1,
@@ -668,90 +644,222 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 100,
   },
   loadingText: {
-    marginTop: 10,
-    color: '#0033A0',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  bottomPanel: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    padding: 16,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-  inputLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 6,
-    fontWeight: '500',
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  addressInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 14,
-    color: '#333',
-    minHeight: 40,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  currentLocationButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f4ff',
-    padding: 12,
-    borderRadius: 10,
-    gap: 6,
-  },
-  currentLocationText: {
-    color: '#0033A0',
+    marginTop: 8,
     fontSize: 13,
+    color: '#475569',
     fontWeight: '600',
   },
-  confirmButtonLarge: {
-    flex: 1.5,
+  centerPinWrapper: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -21,
+    marginTop: -42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 50,
+  },
+  centerPinContainer: {
+    alignItems: 'center',
+  },
+  customPin: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinDot: {
+    position: 'absolute',
+    top: 13,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ffffff',
+  },
+  pinShadow: {
+    width: 16,
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 8,
+    marginTop: -4,
+  },
+  pinShadowElevated: {
+    transform: [{ scale: 0.6 }],
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
+  floatingControls: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    alignItems: 'flex-end',
+    gap: 8,
+    zIndex: 60,
+  },
+  accuracyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  accuracyDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  accuracyText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  recenterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  bottomSheetContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bottomSheet: {
+    maxHeight: 280,
+  },
+  bottomSheetContent: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  sheetTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  barangayPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#eff6ff',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  barangayPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0033A0',
+  },
+  geocodingStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  geocodingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#ED2939',
+  },
+  precisionLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  inputGroup: {
+    marginBottom: 10,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#f8fafc',
+    height: 38,
+  },
+  inputIcon: {
+    marginRight: 6,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 12,
+    color: '#0f172a',
+    paddingVertical: 0,
+  },
+  addressPreviewBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    padding: 10,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  addressPreviewText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e293b',
+    lineHeight: 16,
+  },
+  confirmButtonBig: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0033A0',
-    padding: 12,
+    paddingVertical: 12,
     borderRadius: 10,
-    gap: 6,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  confirmButtonLargeText: {
-    color: '#fff',
+  confirmButtonDisabled: {
+    opacity: 0.6,
+  },
+  confirmButtonBigText: {
+    color: '#ffffff',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
 });
