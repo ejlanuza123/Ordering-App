@@ -86,23 +86,28 @@ export const AuthProvider = ({ children }) => {
     return pendingRecovery === '1' || cancelledRecovery === '1';
   };
 
+  // 1. Optimistic Local Hydration to prevent login screen flash
+  const hydrateFromCache = async (isMounted) => {
+    try {
+      const getItemPromise = AsyncStorage.getItem(LOCAL_CACHED_AUTH_KEY);
+      const raw = getItemPromise && typeof getItemPromise.then === 'function' ? await getItemPromise : await Promise.resolve(getItemPromise);
+      if (raw && isMounted) {
+        const cached = JSON.parse(raw);
+        if (cached?.user && cached?.profile && ALLOWED_ROLES.includes(cached?.role)) {
+          setUser(cached.user);
+          setProfile(cached.profile);
+          setRole(cached.role);
+          isHydratedRef.current = true;
+        }
+      }
+    } catch (_) {}
+  };
+
   useEffect(() => {
     let isMounted = true;
 
     // Step A: Hydrate from fast local cache immediately
-    AsyncStorage.getItem(LOCAL_CACHED_AUTH_KEY).then((raw) => {
-      if (raw && isMounted) {
-        try {
-          const cached = JSON.parse(raw);
-          if (cached?.user && cached?.profile && ALLOWED_ROLES.includes(cached?.role)) {
-            setUser(cached.user);
-            setProfile(cached.profile);
-            setRole(cached.role);
-            isHydratedRef.current = true;
-          }
-        } catch (_) {}
-      }
-    }).catch(() => {});
+    hydrateFromCache(isMounted);
 
     // Step B: Verify session with backend
     checkUser().finally(() => {
