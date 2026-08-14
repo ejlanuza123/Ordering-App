@@ -6,6 +6,12 @@ import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
 
+const LOCAL_CACHED_AUTH_KEY = '@app_cached_auth_v1';
+const ALLOWED_ROLES = ['customer', 'rider'];
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
+const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
+const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -13,11 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const appStateRef = useRef(AppState.currentState);
   const backgroundedAtRef = useRef(null);
-
-  const ALLOWED_ROLES = ['customer', 'rider'];
-  const AUTH_BOOTSTRAP_TIMEOUT_MS = 10000;
-  const RECOVERY_PENDING_KEY = 'auth_recovery_pending_password_reset';
-  const RECOVERY_CANCELLED_KEY = 'auth_recovery_cancelled_password_reset';
+  const isHydratedRef = useRef(false);
 
   const withTimeout = (operation, timeoutMs, timeoutMessage) => {
     if (!operation || typeof operation.then !== 'function') {
@@ -35,17 +37,20 @@ export const AuthProvider = ({ children }) => {
     ]);
   };
 
-  const clearAuthState = () => {
+  const clearAuthState = async () => {
     setUser(null);
     setProfile(null);
     setRole(null);
+    try {
+      await AsyncStorage.removeItem(LOCAL_CACHED_AUTH_KEY);
+    } catch (_) {}
   };
 
   const clearPersistedAuthStorage = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const authKeys = (keys || []).filter((key) =>
-        key.includes('supabase') || key.includes('sb-') || key.includes('auth_recovery_')
+        key.includes('supabase') || key.includes('sb-') || key.includes('auth_recovery_') || key === LOCAL_CACHED_AUTH_KEY
       );
 
       if (authKeys.length > 0) {
@@ -68,6 +73,7 @@ export const AuthProvider = ({ children }) => {
       } catch (__) {}
     }
     await clearPersistedAuthStorage();
+    await clearAuthState();
   };
 
   const shouldSuppressRecoverySession = async () => {
@@ -79,15 +85,49 @@ export const AuthProvider = ({ children }) => {
     return pendingRecovery === '1' || cancelledRecovery === '1';
   };
 
+  // 1. Optimistic Local Hydration to prevent login screen flash
+  const hydrateFromCache = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(LOCAL_CACHED_AUTH_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached?.user && cached?.profile && ALLOWED_ROLES.includes(cached?.role)) {
+          setUser(cached.user);
+          setProfile(cached.profile);
+          setRole(cached.role);
+          isHydratedRef.current = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Cache hydration notice:', err?.message);
+    }
+  };
+
   useEffect(() => {
-    checkUser();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      // Step A: Hydrate from fast local cache immediately
+      await hydrateFromCache();
+
+      // Step B: Verify / refresh session with backend
+      await checkUser();
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth state changes (token refresh, user signs in/out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
       if (session?.user) {
         try {
           if (await shouldSuppressRecoverySession()) {
             await signOutLocalFirst();
-            clearAuthState();
             return;
           }
 
@@ -96,20 +136,24 @@ export const AuthProvider = ({ children }) => {
             AUTH_BOOTSTRAP_TIMEOUT_MS,
             'Auth profile lookup timed out.'
           );
-        } catch {
-          // If role is invalid we already signed out in fetchUserProfile
+        } catch (err) {
+          console.warn('onAuthStateChange profile sync notice:', err?.message);
         } finally {
-          setLoading(false);
+          if (isMounted) setLoading(false);
         }
-      } else {
-        clearAuthState();
-        setLoading(false);
+      } else if (event === 'SIGNED_OUT') {
+        await clearAuthState();
+        if (isMounted) setLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // Background to foreground resume handler
   useEffect(() => {
     const handleAppStateChange = async (nextState) => {
       const prevState = appStateRef.current;
@@ -119,10 +163,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       if ((prevState === 'inactive' || prevState === 'background') && nextState === 'active') {
-        const backgroundedAt = backgroundedAtRef.current;
         backgroundedAtRef.current = null;
-
-        checkUser();
+        // Verify session silently in background on resume without resetting UI state
+        checkUser({ silent: true });
       }
 
       appStateRef.current = nextState;
@@ -135,52 +178,61 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const checkUser = async () => {
+  const checkUser = async ({ silent = false } = {}) => {
     try {
       const { data: { session } } = await withTimeout(
         supabase.auth.getSession(),
         AUTH_BOOTSTRAP_TIMEOUT_MS,
         'Auth session check timed out.'
       );
-      if (session) {
+
+      if (session?.user) {
         if (await shouldSuppressRecoverySession()) {
           await signOutLocalFirst();
-          clearAuthState();
-          setLoading(false);
           return;
         }
 
-        // Only set user after we confirm role is allowed.
         await withTimeout(
           fetchUserProfile(session.user),
           AUTH_BOOTSTRAP_TIMEOUT_MS,
           'Auth profile lookup timed out.'
         );
       } else {
-        clearAuthState();
+        // Only clear state if there's definitively no session and not a background timeout
+        if (!isHydratedRef.current) {
+          await clearAuthState();
+        }
       }
     } catch (error) {
       console.log('Auth check error:', error);
       const message = error?.message || '';
-      if (message.toLowerCase().includes('invalid refresh token') || message.toLowerCase().includes('refresh token not found')) {
+      const isExplicitInvalidToken = 
+        message.toLowerCase().includes('invalid refresh token') || 
+        message.toLowerCase().includes('refresh token not found') ||
+        message.toLowerCase().includes('user_not_found');
+
+      if (isExplicitInvalidToken) {
         await clearPersistedAuthStorage();
+        await clearAuthState();
         try {
           await supabase.auth.signOut({ scope: 'local' });
         } catch {
           // ignore
         }
       }
-      clearAuthState();
+      // If it's a network timeout / offline error, keep cached user intact!
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
-  const fetchUserProfile = async (user, attempt = 0) => {
+  const fetchUserProfile = async (currentUser, attempt = 0) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', currentUser.id)
       .maybeSingle();
 
     if (error) {
@@ -190,7 +242,7 @@ export const AuthProvider = ({ children }) => {
     if (!data) {
       if (attempt < 2) {
         await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
-        return fetchUserProfile(user, attempt + 1);
+        return fetchUserProfile(currentUser, attempt + 1);
       }
 
       throw new Error('Account profile not found. Please contact support.');
@@ -199,13 +251,24 @@ export const AuthProvider = ({ children }) => {
     // Only allow customer/rider roles in this app.
     if (!ALLOWED_ROLES.includes(data.role)) {
       await signOutLocalFirst();
-      clearAuthState();
       throw new Error('This account is not allowed to access the app.');
     }
 
-    setUser(user);
+    setUser(currentUser);
     setProfile(data);
     setRole(data.role);
+
+    // Save to local cache for instant zero-latency startup on next app launch
+    try {
+      await AsyncStorage.setItem(LOCAL_CACHED_AUTH_KEY, JSON.stringify({
+        user: currentUser,
+        profile: data,
+        role: data.role,
+        cachedAt: Date.now(),
+      }));
+    } catch (cacheErr) {
+      console.warn('Failed to update local auth cache:', cacheErr?.message);
+    }
   };
 
   const signIn = async (email, password) => {
@@ -263,7 +326,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    // Set rider offline before signing out (if applicable)
     if (role === 'rider' && user?.id) {
       try {
         const { riderPresenceService } = await import('../services/riderPresenceService');
@@ -273,7 +335,6 @@ export const AuthProvider = ({ children }) => {
       }
     }
     await signOutLocalFirst();
-    clearAuthState();
   };
 
   return (

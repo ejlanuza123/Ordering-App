@@ -189,15 +189,15 @@ export default function AppNavigator() {
     }
   };
 
-  if (loading || introLoading) {
+  if ((loading && !user) || introLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#ED2939" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
+        <ActivityIndicator size="large" color="#0033A0" />
       </View>
     );
   }
 
-  if (!introSeen) {
+  if (!introSeen && !user) {
     return <IntroScreen onGetStarted={handleGetStarted} />;
   }
 
