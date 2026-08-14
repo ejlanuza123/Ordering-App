@@ -86,44 +86,30 @@ export const AuthProvider = ({ children }) => {
     return pendingRecovery === '1' || cancelledRecovery === '1';
   };
 
-  // 1. Optimistic Local Hydration to prevent login screen flash
-  const hydrateFromCache = async () => {
-    try {
-      const raw = await AsyncStorage.getItem(LOCAL_CACHED_AUTH_KEY);
-      if (raw) {
-        const cached = JSON.parse(raw);
-        if (cached?.user && cached?.profile && ALLOWED_ROLES.includes(cached?.role)) {
-          setUser(cached.user);
-          setProfile(cached.profile);
-          setRole(cached.role);
-          isHydratedRef.current = true;
-        }
-      }
-    } catch (err) {
-      console.warn('Cache hydration notice:', err?.message);
-    }
-  };
-
   useEffect(() => {
     let isMounted = true;
 
-    const initializeAuth = async () => {
-      try {
-        // Step A: Hydrate from fast local cache immediately
-        await hydrateFromCache();
-
-        // Step B: Verify / refresh session with backend
-        await checkUser();
-      } catch (_) {
-        // Handled within checkUser
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+    // Step A: Hydrate from fast local cache immediately
+    AsyncStorage.getItem(LOCAL_CACHED_AUTH_KEY).then((raw) => {
+      if (raw && isMounted) {
+        try {
+          const cached = JSON.parse(raw);
+          if (cached?.user && cached?.profile && ALLOWED_ROLES.includes(cached?.role)) {
+            setUser(cached.user);
+            setProfile(cached.profile);
+            setRole(cached.role);
+            isHydratedRef.current = true;
+          }
+        } catch (_) {}
       }
-    };
+    }).catch(() => {});
 
-    initializeAuth();
+    // Step B: Verify session with backend
+    checkUser().finally(() => {
+      if (isMounted) {
+        setLoading(false);
+      }
+    });
 
     // Listen for auth state changes (token refresh, user signs in/out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
