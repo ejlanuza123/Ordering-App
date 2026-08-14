@@ -49,54 +49,324 @@ export const PUERTO_PRINCESA_BARANGAYS = [
   { name: 'Inagawan', aliases: ['inagawan', 'brgy inagawan'], lat: 9.5500, lng: 118.6200 }
 ];
 
-// Rich catalog of popular landmarks, malls, terminals, arenas, hospitals in Puerto Princesa City
+// Rich verified catalog of landmarks, parks, historical sites, and government centers in Puerto Princesa City
 export const PUERTO_PRINCESA_LANDMARKS = [
+  // Arenas & Sports Venues
+  { 
+    name: 'Puerto Princesa City Coliseum (Edward S. Hagedorn Coliseum)', 
+    aliases: ['edward s. hagedorn coliseum', 'edward hagedorn coliseum', 'puerto princesa city coliseum', 'city coliseum', 'coliseum', 'edward s hagedorn'], 
+    category: 'Coliseum / Arena', 
+    icon: 'trophy', 
+    barangay: 'San Pedro', 
+    lat: 9.75482, 
+    lng: 118.74889 
+  },
+  { 
+    name: 'City Coliseum Park', 
+    aliases: ['coliseum park', 'city coliseum park'], 
+    category: 'Park', 
+    icon: 'leaf', 
+    barangay: 'San Pedro', 
+    lat: 9.75479, 
+    lng: 118.74795 
+  },
+  { 
+    name: 'Palawan Sports Complex', 
+    aliases: ['sports complex', 'palawan sports complex'], 
+    category: 'Sports Complex', 
+    icon: 'fitness', 
+    barangay: 'Santa Monica', 
+    lat: 9.78500, 
+    lng: 118.73800 
+  },
+
+  // Parks, Waterfronts & Attractions
+  { 
+    name: 'Mendoza Park', 
+    aliases: ['mendoza park', 'higinio mendoza marker', 'mendoza'], 
+    category: 'Park', 
+    icon: 'leaf', 
+    barangay: 'Model', 
+    lat: 9.74004, 
+    lng: 118.73727 
+  },
+  { 
+    name: 'Higinio Mendoza Marker', 
+    aliases: ['higinio mendoza', 'mendoza marker', 'higinio mendoza marker'], 
+    category: 'Historical Marker', 
+    icon: 'ribbon', 
+    barangay: 'Model', 
+    lat: 9.74005, 
+    lng: 118.73722 
+  },
+  { 
+    name: 'Puerto Princesa City Baywalk Park', 
+    aliases: ['baywalk', 'city baywalk', 'baywalk park', 'puerto princesa baywalk', 'puerto princesa city baywalk'], 
+    category: 'Park / Waterfront', 
+    icon: 'water', 
+    barangay: 'Pagkakaisa', 
+    lat: 9.74391, 
+    lng: 118.73165 
+  },
+  { 
+    name: 'Balayong People\'s Park', 
+    aliases: ['balayong', 'balayong park', "balayong people's park", 'balayong stadium'], 
+    category: 'Park', 
+    icon: 'flower', 
+    barangay: 'San Pedro', 
+    lat: 9.75800, 
+    lng: 118.74200 
+  },
+  { 
+    name: 'Baker\'s Hill', 
+    aliases: ['bakers hill', "baker's hill"], 
+    category: 'Attraction / Park', 
+    icon: 'cafe', 
+    barangay: 'Santa Monica', 
+    lat: 9.79600, 
+    lng: 118.71800 
+  },
+  { 
+    name: 'Mitra\'s Ranch', 
+    aliases: ['mitras ranch', "mitra's ranch", 'rancho ni mitra'], 
+    category: 'Attraction', 
+    icon: 'trail-sign', 
+    barangay: 'Santa Monica', 
+    lat: 9.80100, 
+    lng: 118.71500 
+  },
+
+  // Historical Landmarks & Religious Sites
+  { 
+    name: 'Plaza Cuartel', 
+    aliases: ['plaza cuartel', 'cuartel'], 
+    category: 'Historical Park', 
+    icon: 'shield', 
+    barangay: 'Liwanag', 
+    lat: 9.73980, 
+    lng: 118.72955 
+  },
+  { 
+    name: 'Plaza Cuartel Historical Marker', 
+    aliases: ['plaza cuartel marker', 'cuartel marker', 'plaza cuartel historical marker'], 
+    category: 'Historical Marker', 
+    icon: 'ribbon', 
+    barangay: 'Liwanag', 
+    lat: 9.74014, 
+    lng: 118.72963 
+  },
+  { 
+    name: 'Immaculate Conception Cathedral', 
+    aliases: ['cathedral', 'immaculate conception', 'puerto princesa cathedral', 'katedral'], 
+    category: 'Church', 
+    icon: 'heart', 
+    barangay: 'Princesa', 
+    lat: 9.74040, 
+    lng: 118.72990 
+  },
+
+  // Government & Institutional Buildings
+  { 
+    name: 'Palawan Provincial Capitol', 
+    aliases: ['capitol', 'provincial capitol', 'palawan capitol', 'kapitolyo'], 
+    category: 'Government', 
+    icon: 'business', 
+    barangay: 'Model', 
+    lat: 9.73925, 
+    lng: 118.74404 
+  },
+  { 
+    name: 'Puerto Princesa City Hall', 
+    aliases: ['city hall', 'puerto princesa city hall', 'munisipyo', 'bagong city hall'], 
+    category: 'Government', 
+    icon: 'business', 
+    barangay: 'San Pedro', 
+    lat: 9.75000, 
+    lng: 118.74000 
+  },
+  { 
+    name: 'Palawan Provincial Legislative Building', 
+    aliases: ['legislative building', 'provincial legislative building', 'legislative'], 
+    category: 'Government', 
+    icon: 'business', 
+    barangay: 'Model', 
+    lat: 9.74000, 
+    lng: 118.74000 
+  },
+  { 
+    name: 'Palawan Museum', 
+    aliases: ['palawan museum', 'museum', 'museo'], 
+    category: 'Museum', 
+    icon: 'library', 
+    barangay: 'Model', 
+    lat: 9.73967, 
+    lng: 118.73697 
+  },
+
+  // Ecotourism, Bays & Nature Reserves
+  { 
+    name: 'Palawan Wildlife Rescue Center (Crocodile Farm)', 
+    aliases: ['crocodile farm', 'palawan wildlife rescue', 'wildlife rescue', 'croc farm', 'palawan wildlife rescue and conservation center'], 
+    category: 'Zoo / Wildlife', 
+    icon: 'paw', 
+    barangay: 'Irawan', 
+    lat: 9.79923, 
+    lng: 118.69372 
+  },
+  { 
+    name: 'Honda Bay', 
+    aliases: ['honda bay', 'honda bay wharf', 'honda bay port'], 
+    category: 'Wharf / Tourism', 
+    icon: 'boat', 
+    barangay: 'Santa Lourdes', 
+    lat: 9.89038, 
+    lng: 118.80880 
+  },
+  { 
+    name: 'Puerto Princesa Subterranean River (Underground River)', 
+    aliases: ['underground river', 'subterranean river', 'pp underground river', 'sabang', 'underground river national park', 'puerto princesa subterranean river national park'], 
+    category: 'National Park / UNESCO', 
+    icon: 'sparkles', 
+    barangay: 'Cabayugan', 
+    lat: 10.18000, 
+    lng: 118.93000 
+  },
+  { 
+    name: 'Ugong Rock Adventures', 
+    aliases: ['ugong rock', 'ugong rock adventures', 'ugong zipline'], 
+    category: 'Attraction / Adventure', 
+    icon: 'trail-sign', 
+    barangay: 'Cabayugan', 
+    lat: 10.00000, 
+    lng: 118.90000 
+  },
+
   // Commercial & Shopping Malls
-  { name: 'SM City Puerto Princesa', category: 'Mall', icon: 'business', barangay: 'San Miguel', lat: 9.7482, lng: 118.7495 },
-  { name: 'Robinsons Place Palawan', category: 'Mall', icon: 'business', barangay: 'San Manuel', lat: 9.7615, lng: 118.7595 },
-  { name: 'NCCC Mall Palawan', category: 'Mall', icon: 'business', barangay: 'San Pedro', lat: 9.7525, lng: 118.7490 },
-  { name: 'Unitop Mall Puerto Princesa', category: 'Mall', icon: 'cart', barangay: 'Mandaragat', lat: 9.7428, lng: 118.7365 },
-  { name: 'Go Hotels Puerto Princesa', category: 'Hotel', icon: 'bed', barangay: 'San Manuel', lat: 9.7620, lng: 118.7590 },
-  
-  // Public Markets, Terminals & Transport
-  { name: 'San Jose New Market & Bus Terminal', category: 'Market / Terminal', icon: 'bus', barangay: 'San Jose', lat: 9.7752, lng: 118.7485 },
-  { name: 'Old Public Market (Poblacion)', category: 'Market', icon: 'basket', barangay: 'Tagumpay', lat: 9.7435, lng: 118.7305 },
-  { name: 'Puerto Princesa Port / Pier', category: 'Port', icon: 'boat', barangay: 'Pagkakaisa', lat: 9.7405, lng: 118.7290 },
-  { name: 'Puerto Princesa International Airport (PPS)', category: 'Airport', icon: 'airplane', barangay: 'San Miguel', lat: 9.7420, lng: 118.7585 },
+  { 
+    name: 'SM City Puerto Princesa', 
+    aliases: ['sm', 'sm city', 'sm mall', 'sm puerto princesa'], 
+    category: 'Mall', 
+    icon: 'business', 
+    barangay: 'San Miguel', 
+    lat: 9.74820, 
+    lng: 118.74950 
+  },
+  { 
+    name: 'Robinsons Place Palawan', 
+    aliases: ['robinsons', 'robinsons place', 'robinsons palawan'], 
+    category: 'Mall', 
+    icon: 'business', 
+    barangay: 'San Manuel', 
+    lat: 9.76150, 
+    lng: 118.75950 
+  },
+  { 
+    name: 'NCCC Mall Palawan', 
+    aliases: ['nccc', 'nccc mall', 'nccc palawan'], 
+    category: 'Mall', 
+    icon: 'business', 
+    barangay: 'San Pedro', 
+    lat: 9.75250, 
+    lng: 118.74900 
+  },
+  { 
+    name: 'Unitop Mall Puerto Princesa', 
+    aliases: ['unitop', 'unitop mall'], 
+    category: 'Mall', 
+    icon: 'cart', 
+    barangay: 'Mandaragat', 
+    lat: 9.74280, 
+    lng: 118.73650 
+  },
 
-  // Sports, Arenas & Parks
-  { name: 'Puerto Princesa City Coliseum', category: 'Coliseum / Arena', icon: 'trophy', barangay: 'Tiniguiban', lat: 9.7675, lng: 118.7430 },
-  { name: 'Palawan Sports Complex', category: 'Sports Complex', icon: 'fitness', barangay: 'Santa Monica', lat: 9.7850, lng: 118.7380 },
-  { name: 'Puerto Princesa City Baywalk', category: 'Park / Waterfront', icon: 'water', barangay: 'Pagkakaisa', lat: 9.7410, lng: 118.7320 },
-  { name: 'Mendoza Park', category: 'Park', icon: 'leaf', barangay: 'Model', lat: 9.7445, lng: 118.7385 },
-  { name: 'Balayong People’s Park', category: 'Park', icon: 'flower', barangay: 'Santa Monica', lat: 9.7870, lng: 118.7340 },
-  { name: 'Baker’s Hill', category: 'Attraction / Park', icon: 'cafe', barangay: 'Santa Monica', lat: 9.7960, lng: 118.7180 },
-  { name: 'Mitra’s Ranch', category: 'Attraction', icon: 'trail-sign', barangay: 'Santa Monica', lat: 9.8010, lng: 118.7150 },
-  { name: 'Plaza Cuartel', category: 'Historical Park', icon: 'shield', barangay: 'Liwanag', lat: 9.7430, lng: 118.7280 },
-  { name: 'Immaculate Conception Cathedral', category: 'Church', icon: 'heart', barangay: 'Princesa', lat: 9.7425, lng: 118.7288 },
-  { name: 'Pristine Beach', category: 'Beach', icon: 'sunny', barangay: 'Bancao-Bancao', lat: 9.7280, lng: 118.7460 },
-  { name: 'BM Beach', category: 'Beach', icon: 'sunny', barangay: 'San Manuel', lat: 9.7580, lng: 118.7750 },
-  { name: 'Honda Bay Wharf', category: 'Wharf / Tourism', icon: 'boat', barangay: 'Santa Lourdes', lat: 9.8465, lng: 118.7375 },
-  { name: 'Iwahig Firefly Watching / Penal Farm', category: 'Attraction', icon: 'sparkles', barangay: 'Iwahig', lat: 9.7420, lng: 118.6650 },
-  { name: 'Palawan Wildlife Rescue (Crocodile Farm)', category: 'Zoo / Wildlife', icon: 'paw', barangay: 'Irawan', lat: 9.8140, lng: 118.6820 },
-
-  // Government & Institutions
-  { name: 'Puerto Princesa City Hall', category: 'Government', icon: 'business', barangay: 'Santa Monica', lat: 9.7890, lng: 118.7355 },
-  { name: 'Palawan Provincial Capitol', category: 'Government', icon: 'business', barangay: 'Tiniguiban', lat: 9.7660, lng: 118.7445 },
+  // Terminals & Transport
+  { 
+    name: 'San Jose New Market & Bus Terminal', 
+    aliases: ['san jose terminal', 'san jose market', 'bus terminal'], 
+    category: 'Market / Terminal', 
+    icon: 'bus', 
+    barangay: 'San Jose', 
+    lat: 9.77520, 
+    lng: 118.74850 
+  },
+  { 
+    name: 'Puerto Princesa Port / Pier', 
+    aliases: ['puerto princesa port', 'port', 'pier', 'pantalan'], 
+    category: 'Port', 
+    icon: 'boat', 
+    barangay: 'Pagkakaisa', 
+    lat: 9.74050, 
+    lng: 118.72900 
+  },
+  { 
+    name: 'Puerto Princesa International Airport (PPS)', 
+    aliases: ['airport', 'paliparan', 'pps airport', 'international airport'], 
+    category: 'Airport', 
+    icon: 'airplane', 
+    barangay: 'San Miguel', 
+    lat: 9.74200, 
+    lng: 118.75850 
+  },
 
   // Hospitals & Medical Centers
-  { name: 'Ospital ng Palawan (ONP)', category: 'Hospital', icon: 'medkit', barangay: 'Maligaya', lat: 9.7440, lng: 118.7370 },
-  { name: 'Palawan Adventist Hospital', category: 'Hospital', icon: 'medkit', barangay: 'San Pedro', lat: 9.7540, lng: 118.7460 },
-  { name: 'MMG-PPAC Hospital (Coop)', category: 'Hospital', icon: 'medkit', barangay: 'San Pedro', lat: 9.7510, lng: 118.7480 },
+  { 
+    name: 'Ospital ng Palawan (ONP)', 
+    aliases: ['onp', 'ospital ng palawan', 'onp hospital'], 
+    category: 'Hospital', 
+    icon: 'medkit', 
+    barangay: 'Maligaya', 
+    lat: 9.74400, 
+    lng: 118.73700 
+  },
+  { 
+    name: 'Palawan Adventist Hospital', 
+    aliases: ['adventist', 'adventist hospital', 'palawan adventist'], 
+    category: 'Hospital', 
+    icon: 'medkit', 
+    barangay: 'San Pedro', 
+    lat: 9.75400, 
+    lng: 118.74600 
+  },
+  { 
+    name: 'MMG-PPAC Hospital (Coop)', 
+    aliases: ['mmg', 'coop hospital', 'mmg hospital'], 
+    category: 'Hospital', 
+    icon: 'medkit', 
+    barangay: 'San Pedro', 
+    lat: 9.75100, 
+    lng: 118.74800 
+  },
 
   // Schools & Universities
-  { name: 'Palawan State University (PSU Main)', category: 'University', icon: 'school', barangay: 'Tiniguiban', lat: 9.7710, lng: 118.7380 },
-  { name: 'Holy Trinity University (HTU)', category: 'University', icon: 'school', barangay: 'Tiniguiban', lat: 9.7640, lng: 118.7435 },
-  { name: 'Western Philippines University (WPU)', category: 'University', icon: 'school', barangay: 'Santa Monica', lat: 9.7820, lng: 118.7410 },
-  { name: 'Palawan National School (PNS)', category: 'School', icon: 'school', barangay: 'Model', lat: 9.7465, lng: 118.7400 },
+  { 
+    name: 'Palawan State University (PSU Main)', 
+    aliases: ['psu', 'psu main', 'palawan state university'], 
+    category: 'University', 
+    icon: 'school', 
+    barangay: 'Tiniguiban', 
+    lat: 9.77100, 
+    lng: 118.73800 
+  },
+  { 
+    name: 'Holy Trinity University (HTU)', 
+    aliases: ['htu', 'holy trinity', 'holy trinity university'], 
+    category: 'University', 
+    icon: 'school', 
+    barangay: 'Tiniguiban', 
+    lat: 9.76400, 
+    lng: 118.74350 
+  },
 
-  // Petron Central Station
-  { name: 'Petron San Pedro Hub', category: 'Petron Hub', icon: 'flame', barangay: 'San Pedro', lat: 9.7535, lng: 118.7479 }
+  // Central Hub
+  { 
+    name: 'Petron San Pedro Hub', 
+    aliases: ['petron', 'petron hub', 'petron san pedro'], 
+    category: 'Petron Hub', 
+    icon: 'flame', 
+    barangay: 'San Pedro', 
+    lat: 9.75350, 
+    lng: 118.74790 
+  }
 ];
 
 /**
@@ -108,13 +378,14 @@ export const searchPuertoPrincesaPlaces = (query) => {
 
   const results = [];
 
-  // 1. Search Landmarks Catalog
+  // 1. Search Landmarks Catalog with Name and Aliases matching
   for (const lm of PUERTO_PRINCESA_LANDMARKS) {
     const matchName = lm.name.toLowerCase().includes(q);
     const matchCategory = lm.category.toLowerCase().includes(q);
     const matchBrgy = lm.barangay.toLowerCase().includes(q);
+    const matchAlias = lm.aliases && lm.aliases.some(a => a.toLowerCase().includes(q));
 
-    if (matchName || matchCategory || matchBrgy) {
+    if (matchName || matchCategory || matchBrgy || matchAlias) {
       results.push({
         id: `landmark-${lm.name}`,
         name: lm.name,
