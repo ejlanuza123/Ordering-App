@@ -246,13 +246,13 @@ export const PUERTO_PRINCESA_LANDMARKS = [
   // Additional Noteworthy Sites
   { 
     name: 'Puerto Princesa City New Public Market', 
-    address: 'Market Site, San Jose',
-    aliases: ['new public market', 'puerto princesa city new public market', 'new market', 'san jose new market', 'bagong palengke', 'new market terminal'], 
+    address: 'PPWQ+F82, Puerto Princesa City, Palawan',
+    aliases: ['new public market', 'puerto princesa city new public market', 'new market', 'bagong palengke', 'new public market palawan', 'market site'], 
     category: 'Market', 
     icon: 'basket', 
-    barangay: 'San Jose', 
-    lat: 9.7462458, 
-    lng: 118.7370428 
+    barangay: 'Maunlad', 
+    lat: 9.7461309, 
+    lng: 118.7356991 
   },
   { 
     name: 'City Coliseum Park', 
@@ -315,14 +315,14 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     lng: 118.900000 
   },
   { 
-    name: 'San Jose New Market & Bus Terminal', 
-    address: 'San Jose',
-    aliases: ['san jose terminal', 'san jose market', 'bus terminal'], 
+    name: 'Puerto Princesa Public Market San Jose', 
+    address: 'San Jose, Puerto Princesa City, Palawan',
+    aliases: ['san jose public market', 'puerto princesa public market san jose', 'san jose terminal', 'san jose market', 'bus terminal', 'public market san jose'], 
     category: 'Market / Terminal', 
     icon: 'bus', 
     barangay: 'San Jose', 
-    lat: 9.775200, 
-    lng: 118.748500 
+    lat: 9.783329, 
+    lng: 118.7425823 
   },
   { 
     name: 'Ospital ng Palawan (ONP)', 
