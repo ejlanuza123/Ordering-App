@@ -642,23 +642,18 @@ export default function OrderHistoryScreen({ navigation, route }) {
   };
 
   const canTrackOrder = (orderOrStatus) => {
-    if (typeof orderOrStatus === 'object' && orderOrStatus !== null) {
+    if (!orderOrStatus) return false;
+    if (typeof orderOrStatus === 'object') {
       const order = orderOrStatus;
       const effective = getEffectiveOrderStatus(order).toLowerCase();
-      if (effective === 'completed' || effective === 'cancelled') return false;
-      return !!order.deliveries?.[0]?.rider_id;
+      return effective !== 'completed' && effective !== 'delivered' && effective !== 'cancelled' && !order.archived;
     }
-    const lowerStatus = (orderOrStatus || '').toLowerCase();
+    const lowerStatus = String(orderOrStatus).toLowerCase();
     return (
-      lowerStatus === 'processing' ||
-      lowerStatus === 'rider picked up the order' ||
-      lowerStatus === 'rider picked up' ||
-      lowerStatus === 'out for delivery' ||
-      lowerStatus === 'out_for_delivery' ||
-      lowerStatus === 'outfordelivery' ||
-      lowerStatus === 'accepted' ||
-      lowerStatus === 'picked_up' ||
-      lowerStatus === 'in transit'
+      lowerStatus !== 'completed' &&
+      lowerStatus !== 'delivered' &&
+      lowerStatus !== 'cancelled' &&
+      lowerStatus !== 'archived'
     );
   };
 
@@ -1103,34 +1098,34 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </View>
             </View>
             
-            {/* Rider Information - Show when there's a delivery record */}
-            {selectedOrder.deliveries && selectedOrder.deliveries.length > 0 && (
-              <>
-                <RiderInfoCard delivery={selectedOrder.deliveries[0]} onChatPress={() => handleChatRider(selectedOrder)} />
+            {/* Rider Information */}
+            <RiderInfoCard 
+              delivery={selectedOrder.deliveries?.[0] || null} 
+              onChatPress={selectedOrder.deliveries?.[0]?.rider?.id ? () => handleChatRider(selectedOrder) : null} 
+            />
 
-                {canTrackOrder(selectedOrder) && (
-                  <TouchableOpacity
-                    style={styles.trackDeliveryButton}
-                    onPress={() => handleTrackDelivery(selectedOrder)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="navigate" size={20} color="#fff" />
-                    <Text style={styles.trackDeliveryButtonText}>Track Delivery Live</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {/* Rate Rider Button - Show only for completed/delivered orders */}
-                {canArchiveOrder(selectedOrder.status) && (
-                  <TouchableOpacity
-                    style={styles.rateRiderButton}
-                    onPress={() => handleRatePress(selectedOrder)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="star" size={20} color="#fff" />
-                    <Text style={styles.rateRiderButtonText}>Rate This Rider</Text>
-                  </TouchableOpacity>
-                )}
-              </>
+            {/* Track Delivery Live Button - Show for all active (non-completed/non-cancelled) orders */}
+            {canTrackOrder(selectedOrder) && (
+              <TouchableOpacity
+                style={styles.trackDeliveryButton}
+                onPress={() => handleTrackDelivery(selectedOrder)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="navigate" size={20} color="#fff" />
+                <Text style={styles.trackDeliveryButtonText}>Track Delivery Live</Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* Rate Rider Button - Show only for completed/delivered orders with an assigned rider */}
+            {canArchiveOrder(selectedOrder.status) && !!selectedOrder.deliveries?.[0]?.rider && (
+              <TouchableOpacity
+                style={styles.rateRiderButton}
+                onPress={() => handleRatePress(selectedOrder)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="star" size={20} color="#fff" />
+                <Text style={styles.rateRiderButtonText}>Rate This Rider</Text>
+              </TouchableOpacity>
             )}
 
             {/* Order Timeline */}

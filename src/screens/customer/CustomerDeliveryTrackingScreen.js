@@ -45,7 +45,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     return { lat, lng };
   }, [deliveryLat, deliveryLng]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!riderId);
   const [riderLocation, setRiderLocation] = useState(null);
   const [etaMinutes, setEtaMinutes] = useState(null);
   const [distanceKm, setDistanceKm] = useState(null);
@@ -470,15 +470,15 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
       <View style={styles.infoCard}>
         <View style={styles.infoHeadRow}>
           <Text style={styles.orderText}>{orderNumber || `Order #${orderId || '-'}`}</Text>
-          <View style={[styles.onlineBadge, { backgroundColor: isOnline ? '#10B98120' : '#F59E0B20' }]}>
-            <View style={[styles.onlineDot, { backgroundColor: isOnline ? '#10B981' : '#F59E0B' }]} />
-            <Text style={[styles.onlineBadgeText, { color: isOnline ? '#065F46' : '#92400E' }]}>
-              {isOnline ? 'Rider Online' : 'Rider Offline'}
+          <View style={[styles.onlineBadge, { backgroundColor: riderId ? (isOnline ? '#10B98120' : '#F59E0B20') : '#0033A015' }]}>
+            <View style={[styles.onlineDot, { backgroundColor: riderId ? (isOnline ? '#10B981' : '#F59E0B') : '#0033A0' }]} />
+            <Text style={[styles.onlineBadgeText, { color: riderId ? (isOnline ? '#065F46' : '#92400E') : '#0033A0' }]}>
+              {riderId ? (isOnline ? 'Rider Online' : 'Rider Offline') : 'Order Active'}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.riderText}>🏍️ {riderName || 'Assigned Delivery Rider'}</Text>
+        <Text style={styles.riderText}>🏍️ {riderName || 'Awaiting Rider Assignment'}</Text>
         <Text style={styles.metaText} numberOfLines={1}>📍 {deliveryAddress || 'Delivery destination'}</Text>
 
         {/* 5-Step Order Status Progress Timeline */}
