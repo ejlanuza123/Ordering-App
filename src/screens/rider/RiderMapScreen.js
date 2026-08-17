@@ -1446,6 +1446,7 @@ export default function RiderMapScreen({ navigation }) {
         lng: parseFloat(delivery.orders.delivery_lng)
       }));
     }
+  };
 
   const handleLayerChange = (layer) => {
     setMapLayer(layer);
