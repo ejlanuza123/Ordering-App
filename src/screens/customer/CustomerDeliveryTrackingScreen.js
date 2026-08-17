@@ -11,6 +11,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '../../services/supabase';
 import { locationTrackingService } from '../../services/locationTrackingService';
 import { chatService } from '../../services/chatService';
 import { useAuth } from '../../context/AuthContext';
@@ -45,6 +46,10 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     return { lat, lng };
   }, [deliveryLat, deliveryLng]);
 
+  const [currentStatus, setCurrentStatus] = useState(route.params?.status || 'In Transit');
+  const [activeRiderId, setActiveRiderId] = useState(riderId || null);
+  const [activeRiderName, setActiveRiderName] = useState(riderName || null);
+  const [activeRiderPhone, setActiveRiderPhone] = useState(riderPhone || null);
   const [loading, setLoading] = useState(!!riderId);
   const [riderLocation, setRiderLocation] = useState(null);
   const [etaMinutes, setEtaMinutes] = useState(null);
@@ -409,10 +414,94 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     }
   }, [destination, sendRouteToMap]);
 
-  useEffect(() => {
-    if (!riderId) return;
+  const fetchLiveOrderData = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          status,
+          deliveries (
+            id,
+            status,
+            rider_id,
+            rider:profiles!deliveries_rider_id_fkey (
+              id,
+              full_name,
+              phone_number,
+              avatar_url
+            )
+          )
+        `)
+        .eq('id', orderId)
+        .single();
 
-    const unsubscribe = locationTrackingService.subscribeToRiderLocation(riderId, async (loc) => {
+      if (!error && data) {
+        const orderStatus = (data.status || '').toLowerCase();
+        const deliveryStatus = (data.deliveries?.[0]?.status || '').toLowerCase();
+
+        let effective = 'In Transit';
+        if (orderStatus === 'cancelled' || deliveryStatus === 'cancelled' || deliveryStatus === 'failed') {
+          effective = 'Cancelled';
+        } else if (orderStatus === 'completed' || orderStatus === 'delivered' || deliveryStatus === 'delivered') {
+          effective = 'Delivered';
+        } else if (deliveryStatus === 'out_for_delivery' || orderStatus === 'out for delivery' || orderStatus === 'delivering') {
+          effective = 'In Transit';
+        } else if (deliveryStatus === 'picked_up' || orderStatus === 'processing' || orderStatus === 'preparing' || orderStatus === 'rider picked up the order') {
+          effective = 'Preparing';
+        } else if (deliveryStatus === 'assigned' || deliveryStatus === 'accepted' || orderStatus === 'confirmed') {
+          effective = 'Confirmed';
+        } else {
+          effective = 'Placed';
+        }
+
+        setCurrentStatus(effective);
+        const d = data.deliveries?.[0];
+        if (d?.rider) {
+          setActiveRiderId(d.rider.id);
+          setActiveRiderName(d.rider.full_name);
+          setActiveRiderPhone(d.rider.phone_number);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching live order data in tracking:', err);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!orderId) return;
+
+    fetchLiveOrderData();
+
+    const channelName = `customer-live-tracking-${orderId}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
+        () => {
+          fetchLiveOrderData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deliveries', filter: `order_id=eq.${orderId}` },
+        () => {
+          fetchLiveOrderData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId, fetchLiveOrderData]);
+
+  useEffect(() => {
+    if (!activeRiderId) return;
+
+    const unsubscribe = locationTrackingService.subscribeToRiderLocation(activeRiderId, async (loc) => {
       if (!loc?.latitude || !loc?.longitude) return;
 
       setRiderLocation({ lat: loc.latitude, lng: loc.longitude });
@@ -427,22 +516,22 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     return () => {
       unsubscribe?.();
     };
-  }, [riderId, sendRiderToMap, updateEtaAndRoute]);
+  }, [activeRiderId, sendRiderToMap, updateEtaAndRoute]);
 
   const { user } = useAuth();
   const [openingChat, setOpeningChat] = useState(false);
 
   const handleCallRider = () => {
-    if (!riderPhone) return;
-    const url = Platform.select({ ios: `telprompt:${riderPhone}`, android: `tel:${riderPhone}` });
+    if (!activeRiderPhone) return;
+    const url = Platform.select({ ios: `telprompt:${activeRiderPhone}`, android: `tel:${activeRiderPhone}` });
     Linking.openURL(url);
   };
 
   const handleChatRider = async () => {
-    if (!orderId || !riderId || !user?.id) return;
+    if (!orderId || !activeRiderId || !user?.id) return;
     setOpeningChat(true);
     try {
-      const result = await chatService.getOrCreateOrderConversation(orderId, user.id, riderId);
+      const result = await chatService.getOrCreateOrderConversation(orderId, user.id, activeRiderId);
       if (result.success && result.conversation?.id) {
         navigation.navigate('ChatThread', { conversationId: result.conversation.id });
       }
@@ -470,20 +559,20 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
       <View style={styles.infoCard}>
         <View style={styles.infoHeadRow}>
           <Text style={styles.orderText}>{orderNumber || `Order #${orderId || '-'}`}</Text>
-          <View style={[styles.onlineBadge, { backgroundColor: riderId ? (isOnline ? '#10B98120' : '#F59E0B20') : '#0033A015' }]}>
-            <View style={[styles.onlineDot, { backgroundColor: riderId ? (isOnline ? '#10B981' : '#F59E0B') : '#0033A0' }]} />
-            <Text style={[styles.onlineBadgeText, { color: riderId ? (isOnline ? '#065F46' : '#92400E') : '#0033A0' }]}>
-              {riderId ? (isOnline ? 'Rider Online' : 'Rider Offline') : 'Order Active'}
+          <View style={[styles.onlineBadge, { backgroundColor: activeRiderId ? (isOnline ? '#10B98120' : '#F59E0B20') : '#0033A015' }]}>
+            <View style={[styles.onlineDot, { backgroundColor: activeRiderId ? (isOnline ? '#10B981' : '#F59E0B') : '#0033A0' }]} />
+            <Text style={[styles.onlineBadgeText, { color: activeRiderId ? (isOnline ? '#065F46' : '#92400E') : '#0033A0' }]}>
+              {activeRiderId ? (isOnline ? 'Rider Online' : 'Rider Offline') : 'Order Active'}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.riderText}>🏍️ {riderName || 'Awaiting Rider Assignment'}</Text>
+        <Text style={styles.riderText}>🏍️ {activeRiderName || 'Awaiting Rider Assignment'}</Text>
         <Text style={styles.metaText} numberOfLines={1}>📍 {deliveryAddress || 'Delivery destination'}</Text>
 
         {/* 5-Step Order Status Progress Timeline */}
         <OrderDeliveryTimeline
-          status={route.params?.status || 'In Transit'}
+          status={currentStatus}
           isRiderOnline={isOnline}
           etaMinutes={etaMinutes}
           distanceKm={distanceKm}
@@ -507,14 +596,14 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         </View>
 
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          {!!riderPhone && (
+          {!!activeRiderPhone && (
             <TouchableOpacity style={[styles.actionBtn, styles.callBtn]} onPress={handleCallRider}>
               <Ionicons name="call" size={18} color="#fff" />
               <Text style={styles.actionBtnText}>Call Rider</Text>
             </TouchableOpacity>
           )}
 
-          {!!riderId && (
+          {!!activeRiderId && (
             <TouchableOpacity 
               style={[styles.actionBtn, styles.chatBtn]} 
               onPress={handleChatRider}

@@ -77,6 +77,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
     message: ''
   });
   const handledNotificationNonceRef = useRef(null);
+  const selectedOrderRef = useRef(selectedOrder);
 
   const filters = [
     { id: 'all', label: 'All Orders' },
@@ -492,8 +493,43 @@ export default function OrderHistoryScreen({ navigation, route }) {
   };
 
   useEffect(() => {
+    selectedOrderRef.current = selectedOrder;
+  }, [selectedOrder]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
     fetchOrders();
-  }, []);
+
+    const channelName = `customer-orders-${user.id}-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchOrders();
+          if (selectedOrderRef.current?.id) {
+            fetchOrderDetails(selectedOrderRef.current.id);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deliveries' },
+        () => {
+          fetchOrders();
+          if (selectedOrderRef.current?.id) {
+            fetchOrderDetails(selectedOrderRef.current.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const focusOrderId = Number(route?.params?.focusOrderId);
