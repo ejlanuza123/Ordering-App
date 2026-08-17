@@ -530,6 +530,16 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  const navigateToRiderMap = () => {
+    navigation.navigate('RiderMap', {
+      focusedDeliveryId: deliveryData.id,
+      delivery: {
+        ...deliveryData,
+        orders: orderData
+      }
+    });
+  };
+
   const openMaps = () => {
     setShowNavModal(true);
   };
@@ -841,13 +851,36 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             <Text style={styles.quickActionText}>WhatsApp</Text>
           </TouchableOpacity>
           
+          <TouchableOpacity style={styles.quickAction} onPress={navigateToRiderMap}>
+            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A020' }]}>
+              <Ionicons name="map" size={24} color="#0033A0" />
+            </View>
+            <Text style={styles.quickActionText}>Live Map</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.quickAction} onPress={openMaps}>
             <View style={[styles.quickActionIcon, { backgroundColor: '#F59E0B20' }]}>
               <Ionicons name="navigate" size={24} color="#F59E0B" />
             </View>
-            <Text style={styles.quickActionText}>Navigate</Text>
+            <Text style={styles.quickActionText}>GPS App</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Live Map Route Action Banner */}
+        <TouchableOpacity
+          style={styles.openMapBanner}
+          onPress={navigateToRiderMap}
+          activeOpacity={0.85}
+        >
+          <View style={styles.openMapBannerIcon}>
+            <Ionicons name="navigate" size={20} color="#fff" />
+          </View>
+          <View style={styles.openMapBannerTextWrap}>
+            <Text style={styles.openMapBannerTitle}>View on Live GPS Map</Text>
+            <Text style={styles.openMapBannerSubtitle}>Live route, turn-by-turn navigation & landmarks</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#0033A0" />
+        </TouchableOpacity>
 
         {/* Additional Actions Row */}
         <View style={styles.additionalActions}>
@@ -1549,6 +1582,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
+  },
+  openMapBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF4FF',
+    borderWidth: 1.5,
+    borderColor: '#C7D9FE',
+    borderRadius: 14,
+    padding: 12,
+    marginVertical: 10,
+    gap: 12,
+    shadowColor: '#0033A0',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  openMapBannerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#0033A0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  openMapBannerTextWrap: {
+    flex: 1,
+  },
+  openMapBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0033A0',
+  },
+  openMapBannerSubtitle: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 2,
   },
   chatCard: {
     backgroundColor: '#fff',

@@ -30,7 +30,7 @@ const devLog = (...args) => {
   }
 };
 
-export default function RiderMapScreen({ navigation }) {
+export default function RiderMapScreen({ navigation, route }) {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
@@ -63,6 +63,38 @@ export default function RiderMapScreen({ navigation }) {
     lat: 9.7534772,
     lng: 118.7478688
   };
+
+  // Auto-focus delivery if routed with parameters
+  useEffect(() => {
+    const targetId = route?.params?.focusedDeliveryId;
+    const targetDelivery = route?.params?.delivery;
+    if (targetId || targetDelivery) {
+      const deliveryToFocus = targetDelivery || deliveries.find(d => d.id === targetId);
+      if (deliveryToFocus) {
+        setSelectedDelivery(deliveryToFocus);
+        setFocusedDeliveryId(deliveryToFocus.id);
+        setMapViewMode('focused');
+        setShowDeliveryModal(true);
+
+        if (webViewRef.current) {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'FOCUS_DELIVERY',
+            deliveryId: deliveryToFocus.id,
+          }));
+
+          const destLat = deliveryToFocus.orders?.delivery_lat ?? deliveryToFocus.delivery_lat;
+          const destLng = deliveryToFocus.orders?.delivery_lng ?? deliveryToFocus.delivery_lng;
+          if (destLat && destLng) {
+            webViewRef.current.postMessage(JSON.stringify({
+              type: 'CENTER_ON_DELIVERY',
+              lat: parseFloat(destLat),
+              lng: parseFloat(destLng)
+            }));
+          }
+        }
+      }
+    }
+  }, [route?.params?.focusedDeliveryId, route?.params?.delivery, deliveries]);
 
   // Generate map HTML with all delivery markers
   useEffect(() => {

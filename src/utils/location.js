@@ -421,6 +421,28 @@ export const searchPuertoPrincesaPlaces = (query) => {
 };
 
 /**
+ * Detect nearest Puerto Princesa landmark to a GPS coordinate (for live waypoint reporting)
+ */
+export const detectNearestLandmark = (latitude, longitude, maxDistanceDeg = 0.018) => {
+  if (latitude == null || longitude == null || isNaN(latitude) || isNaN(longitude)) return null;
+  let closest = null;
+  let minDist = Infinity;
+  for (const lm of PUERTO_PRINCESA_LANDMARKS) {
+    if (lm.lat && lm.lng) {
+      const dist = Math.hypot(lm.lat - latitude, lm.lng - longitude);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = lm;
+      }
+    }
+  }
+  if (closest && minDist <= maxDistanceDeg) {
+    return closest;
+  }
+  return null;
+};
+
+/**
  * Detect nearest official Puerto Princesa Barangay from coordinates or text
  * Uses high-precision landmark proximity (~300m) + spatial centroid nearest neighbor
  */
