@@ -599,9 +599,35 @@ export default function OrderHistoryScreen({ navigation, route }) {
     return parseFloat(quantity) * parseFloat(price);
   };
 
+  const getEffectiveOrderStatus = (order) => {
+    if (!order) return 'Pending';
+    const orderStatus = (order.status || '').toLowerCase();
+    const deliveryStatus = (order.deliveries?.[0]?.status || '').toLowerCase();
+
+    if (orderStatus === 'cancelled' || deliveryStatus === 'cancelled' || deliveryStatus === 'failed') {
+      return 'Cancelled';
+    }
+    if (orderStatus === 'completed' || orderStatus === 'delivered' || deliveryStatus === 'delivered') {
+      return 'Completed';
+    }
+    if (deliveryStatus === 'out_for_delivery' || orderStatus === 'out for delivery' || orderStatus === 'delivering' || orderStatus === 'in transit') {
+      return 'Out for Delivery';
+    }
+    if (deliveryStatus === 'picked_up' || orderStatus === 'rider picked up the order') {
+      return 'Rider Picked Up';
+    }
+    if (deliveryStatus === 'accepted' || orderStatus === 'processing' || orderStatus === 'preparing') {
+      return 'Processing';
+    }
+    if (deliveryStatus === 'assigned' || orderStatus === 'confirmed' || orderStatus === 'accepted') {
+      return 'Confirmed';
+    }
+    return order.status || 'Pending';
+  };
+
   const canCancelOrder = (status) => {
     const lowerStatus = status?.toLowerCase();
-    return lowerStatus === 'pending' || lowerStatus === 'processing';
+    return lowerStatus === 'pending' || lowerStatus === 'processing' || lowerStatus === 'confirmed';
   };
 
   const canArchiveOrder = (status) => {
@@ -615,22 +641,30 @@ export default function OrderHistoryScreen({ navigation, route }) {
     return lowerStatus === 'completed' || lowerStatus === 'delivered' || lowerStatus === 'cancelled' || lowerStatus === 'failed';
   };
 
-  const canTrackOrder = (status) => {
-    const lowerStatus = status?.toLowerCase();
+  const canTrackOrder = (orderOrStatus) => {
+    if (typeof orderOrStatus === 'object' && orderOrStatus !== null) {
+      const order = orderOrStatus;
+      const effective = getEffectiveOrderStatus(order).toLowerCase();
+      if (effective === 'completed' || effective === 'cancelled') return false;
+      return !!order.deliveries?.[0]?.rider_id;
+    }
+    const lowerStatus = (orderOrStatus || '').toLowerCase();
     return (
       lowerStatus === 'processing' ||
       lowerStatus === 'rider picked up the order' ||
+      lowerStatus === 'rider picked up' ||
       lowerStatus === 'out for delivery' ||
       lowerStatus === 'out_for_delivery' ||
       lowerStatus === 'outfordelivery' ||
       lowerStatus === 'accepted' ||
-      lowerStatus === 'picked_up'
+      lowerStatus === 'picked_up' ||
+      lowerStatus === 'in transit'
     );
   };
 
   const getStatusLabel = (status) => {
     const normalized = (status || '').toLowerCase();
-    if (normalized === 'rider picked up the order') return 'Rider Picked Up';
+    if (normalized === 'rider picked up the order' || normalized === 'picked_up') return 'Rider Picked Up';
     if (normalized === 'out_for_delivery' || normalized === 'outfordelivery') return 'Out for Delivery';
     return status;
   };
@@ -665,6 +699,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
       deliveryAddress: order.delivery_address,
       deliveryLat: order.delivery_lat,
       deliveryLng: order.delivery_lng,
+      status: getEffectiveOrderStatus(order),
     });
   };
 
@@ -713,8 +748,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
-    const statusKey = isArchived ? 'archived' : (item.status || '').toLowerCase();
-    const displayStatus = isArchived ? 'Archived' : getStatusLabel(item.status);
+    const effectiveStatus = getEffectiveOrderStatus(item);
+    const statusKey = isArchived ? 'archived' : effectiveStatus.toLowerCase();
+    const displayStatus = isArchived ? 'Archived' : getStatusLabel(effectiveStatus);
     const statusColor = getStatusColor(statusKey);
     const statusIcon = getStatusIcon(statusKey);
     const { isAssigned, isAccepted } = getDeliveryFlags(item);
@@ -835,8 +871,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
     if (!selectedOrder) return null;
 
     const isArchived = !!selectedOrder.archived;
-    const statusKey = isArchived ? 'archived' : selectedOrder.status;
-    const displayStatus = isArchived ? 'Archived' : getStatusLabel(selectedOrder.status);
+    const effectiveStatus = getEffectiveOrderStatus(selectedOrder);
+    const statusKey = isArchived ? 'archived' : effectiveStatus.toLowerCase();
+    const displayStatus = isArchived ? 'Archived' : getStatusLabel(effectiveStatus);
     const { isAssigned, isAccepted } = getDeliveryFlags(selectedOrder);
 
     return (
@@ -888,10 +925,13 @@ export default function OrderHistoryScreen({ navigation, route }) {
             </View>
 
             {/* 5-Step Order Delivery Progress Timeline */}
-            <OrderDeliveryTimeline status={selectedOrder.status} />
+            <OrderDeliveryTimeline 
+              status={effectiveStatus} 
+              isRiderOnline={selectedOrder.deliveries?.[0]?.rider?.is_online}
+            />
 
             {/* Cancel Button - Show if order can be cancelled */}
-            {canCancelOrder(selectedOrder.status) && (
+            {canCancelOrder(effectiveStatus) && (
               <TouchableOpacity 
                 style={styles.cancelButtonFull}
                 onPress={() => handleCancelPress(selectedOrder)}
@@ -1068,7 +1108,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
               <>
                 <RiderInfoCard delivery={selectedOrder.deliveries[0]} onChatPress={() => handleChatRider(selectedOrder)} />
 
-                {canTrackOrder(selectedOrder.status) && (
+                {canTrackOrder(selectedOrder) && (
                   <TouchableOpacity
                     style={styles.trackDeliveryButton}
                     onPress={() => handleTrackDelivery(selectedOrder)}

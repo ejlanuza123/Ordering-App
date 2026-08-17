@@ -147,19 +147,6 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
             <Text style={styles.callButtonText}>Call Rider</Text>
           </TouchableOpacity>
         )}
-
-        {rider.address_lat && rider.address_lng && (
-          <TouchableOpacity
-            style={[styles.callButton, styles.actionButtonFullWidth, { backgroundColor: '#F59E0B' }]}
-            onPress={() => {
-              const url = `https://www.google.com/maps/dir/?api=1&destination=${rider.address_lat},${rider.address_lng}`;
-              Linking.openURL(url);
-            }}
-          >
-            <Ionicons name="navigate" size={18} color="#fff" />
-            <Text style={styles.callButtonText}>Track Rider</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );

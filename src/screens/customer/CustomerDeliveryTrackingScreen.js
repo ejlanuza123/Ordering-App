@@ -283,15 +283,19 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
           }
 
           function setMapLayer(layerName) {
-            if (!window.tileLayers[layerName]) return;
-            if (window.activeLayer) {
+            if (!window.tileLayers || !window.tileLayers[layerName]) return;
+            if (window.activeLayer && window.map.hasLayer(window.activeLayer)) {
               window.map.removeLayer(window.activeLayer);
             }
             window.activeLayer = window.tileLayers[layerName];
             window.activeLayer.addTo(window.map);
+            if (window.routeLine) {
+              window.routeLine.bringToFront();
+            }
           }
 
           function toggleLandmarks(show) {
+            if (!window.landmarkMarkers) return;
             window.landmarkMarkers.forEach(function(m) {
               if (show) {
                 if (!window.map.hasLayer(m)) window.map.addLayer(m);
@@ -301,9 +305,18 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             });
           }
 
-          window.addEventListener('message', function(event) {
+          function handleIncomingMapMessage(event) {
             try {
-              const data = JSON.parse(event.data);
+              var data = event.data;
+              if (typeof data === 'string') {
+                try {
+                  data = JSON.parse(data);
+                } catch (e) {
+                  return;
+                }
+              }
+              if (!data || typeof data !== 'object') return;
+
               if (data.type === 'UPDATE_RIDER') {
                 updateRider(data.lat, data.lng, !!data.shouldCenter);
               } else if (data.type === 'UPDATE_ROUTE') {
@@ -318,7 +331,10 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             } catch (error) {
               console.error('Map message parsing error', error);
             }
-          });
+          }
+
+          window.addEventListener('message', handleIncomingMapMessage);
+          document.addEventListener('message', handleIncomingMapMessage);
         </script>
       </body>
       </html>
@@ -539,22 +555,32 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         {/* Top-Right HUD Layer Controls */}
         <View style={styles.hudOverlay}>
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'satellite' && styles.hudButtonActive]}
-            onPress={() => handleLayerChange(mapLayer === 'satellite' ? 'street' : 'satellite')}
+            style={[styles.hudButton, mapLayer === 'street' && styles.hudButtonActive]}
+            onPress={() => handleLayerChange('street')}
           >
-            <Ionicons name={mapLayer === 'satellite' ? 'earth' : 'map-outline'} size={15} color={mapLayer === 'satellite' ? '#fff' : '#0033A0'} />
+            <Ionicons name="map" size={14} color={mapLayer === 'street' ? '#fff' : '#0033A0'} />
+            <Text style={[styles.hudButtonText, mapLayer === 'street' && styles.hudButtonTextActive]}>
+              Street
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.hudButton, mapLayer === 'satellite' && styles.hudButtonActive]}
+            onPress={() => handleLayerChange('satellite')}
+          >
+            <Ionicons name="earth" size={14} color={mapLayer === 'satellite' ? '#fff' : '#0033A0'} />
             <Text style={[styles.hudButtonText, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
-              {mapLayer === 'satellite' ? 'Satellite' : 'Street'}
+              Satellite
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.hudButton, mapLayer === 'dark' && styles.hudButtonActive]}
-            onPress={() => handleLayerChange(mapLayer === 'dark' ? 'street' : 'dark')}
+            onPress={() => handleLayerChange('dark')}
           >
-            <Ionicons name={mapLayer === 'dark' ? 'moon' : 'sunny-outline'} size={15} color={mapLayer === 'dark' ? '#fff' : '#0033A0'} />
+            <Ionicons name="moon" size={14} color={mapLayer === 'dark' ? '#fff' : '#0033A0'} />
             <Text style={[styles.hudButtonText, mapLayer === 'dark' && styles.hudButtonTextActive]}>
-              {mapLayer === 'dark' ? 'Night' : 'Day'}
+              Night
             </Text>
           </TouchableOpacity>
 
@@ -562,7 +588,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             style={[styles.hudButton, showLandmarks && styles.hudButtonActive]}
             onPress={handleToggleLandmarks}
           >
-            <Ionicons name="flag" size={15} color={showLandmarks ? '#fff' : '#0033A0'} />
+            <Ionicons name="flag" size={14} color={showLandmarks ? '#fff' : '#0033A0'} />
             <Text style={[styles.hudButtonText, showLandmarks && styles.hudButtonTextActive]}>
               Landmarks
             </Text>
