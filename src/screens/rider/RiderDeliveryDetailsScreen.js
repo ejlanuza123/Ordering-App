@@ -530,7 +530,20 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
     }
   };
 
+  const isDelivered = deliveryData?.status === 'delivered' || orderData?.order_status === 'delivered';
+  const isCancelled = deliveryData?.status === 'cancelled' || orderData?.order_status === 'cancelled';
+  const isRouteInactive = isDelivered || isCancelled;
+
   const navigateToRiderMap = () => {
+    if (isRouteInactive) {
+      Alert.alert(
+        'Live Map Unavailable',
+        isDelivered
+          ? 'This order is already delivered. Live GPS navigation has ended.'
+          : 'This order is cancelled.'
+      );
+      return;
+    }
     navigation.navigate('RiderMap', {
       focusedDeliveryId: deliveryData.id,
       delivery: {
@@ -541,6 +554,15 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   };
 
   const openMaps = () => {
+    if (isRouteInactive) {
+      Alert.alert(
+        'Navigation Closed',
+        isDelivered
+          ? 'This order is already delivered. External GPS navigation is closed.'
+          : 'This order is cancelled.'
+      );
+      return;
+    }
     setShowNavModal(true);
   };
 
@@ -851,36 +873,70 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             <Text style={styles.quickActionText}>WhatsApp</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.quickAction} onPress={navigateToRiderMap}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A020' }]}>
-              <Ionicons name="map" size={24} color="#0033A0" />
+          <TouchableOpacity 
+            style={[styles.quickAction, isRouteInactive && styles.quickActionDisabled]} 
+            onPress={isRouteInactive ? undefined : navigateToRiderMap}
+            disabled={isRouteInactive}
+            activeOpacity={isRouteInactive ? 1 : 0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? '#F1F5F9' : '#0033A020' }]}>
+              <Ionicons name="map" size={24} color={isRouteInactive ? '#94A3B8' : '#0033A0'} />
             </View>
-            <Text style={styles.quickActionText}>Live Map</Text>
+            <Text style={[styles.quickActionText, isRouteInactive && styles.quickActionTextDisabled]}>Live Map</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.quickAction} onPress={openMaps}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#F59E0B20' }]}>
-              <Ionicons name="navigate" size={24} color="#F59E0B" />
+          <TouchableOpacity 
+            style={[styles.quickAction, isRouteInactive && styles.quickActionDisabled]} 
+            onPress={isRouteInactive ? undefined : openMaps}
+            disabled={isRouteInactive}
+            activeOpacity={isRouteInactive ? 1 : 0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? '#F1F5F9' : '#F59E0B20' }]}>
+              <Ionicons name="navigate" size={24} color={isRouteInactive ? '#94A3B8' : '#F59E0B'} />
             </View>
-            <Text style={styles.quickActionText}>GPS App</Text>
+            <Text style={[styles.quickActionText, isRouteInactive && styles.quickActionTextDisabled]}>GPS App</Text>
           </TouchableOpacity>
         </View>
 
         {/* Live Map Route Action Banner */}
-        <TouchableOpacity
-          style={styles.openMapBanner}
-          onPress={navigateToRiderMap}
-          activeOpacity={0.85}
-        >
-          <View style={styles.openMapBannerIcon}>
-            <Ionicons name="navigate" size={20} color="#fff" />
+        {isDelivered ? (
+          <View style={[styles.openMapBanner, styles.openMapBannerDelivered]}>
+            <View style={[styles.openMapBannerIcon, styles.openMapBannerIconDelivered]}>
+              <Ionicons name="checkmark-done" size={20} color="#fff" />
+            </View>
+            <View style={styles.openMapBannerTextWrap}>
+              <Text style={[styles.openMapBannerTitle, styles.openMapBannerTitleDelivered]}>Delivery Completed</Text>
+              <Text style={styles.openMapBannerSubtitle}>Live map navigation is disabled for completed orders</Text>
+            </View>
+            <Ionicons name="lock-closed" size={18} color="#10B981" />
           </View>
-          <View style={styles.openMapBannerTextWrap}>
-            <Text style={styles.openMapBannerTitle}>View on Live GPS Map</Text>
-            <Text style={styles.openMapBannerSubtitle}>Live route, turn-by-turn navigation & landmarks</Text>
+        ) : isCancelled ? (
+          <View style={[styles.openMapBanner, styles.openMapBannerCancelled]}>
+            <View style={[styles.openMapBannerIcon, styles.openMapBannerIconCancelled]}>
+              <Ionicons name="close" size={20} color="#fff" />
+            </View>
+            <View style={styles.openMapBannerTextWrap}>
+              <Text style={[styles.openMapBannerTitle, styles.openMapBannerTitleCancelled]}>Delivery Cancelled</Text>
+              <Text style={styles.openMapBannerSubtitle}>Live map navigation is disabled for cancelled orders</Text>
+            </View>
+            <Ionicons name="lock-closed" size={18} color="#EF4444" />
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#0033A0" />
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.openMapBanner}
+            onPress={navigateToRiderMap}
+            activeOpacity={0.85}
+          >
+            <View style={styles.openMapBannerIcon}>
+              <Ionicons name="navigate" size={20} color="#fff" />
+            </View>
+            <View style={styles.openMapBannerTextWrap}>
+              <Text style={styles.openMapBannerTitle}>View on Live GPS Map</Text>
+              <Text style={styles.openMapBannerSubtitle}>Live route, turn-by-turn navigation & landmarks</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#0033A0" />
+          </TouchableOpacity>
+        )}
 
         {/* Additional Actions Row */}
         <View style={styles.additionalActions}>
@@ -1599,6 +1655,28 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  openMapBannerDelivered: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    shadowColor: '#10B981',
+  },
+  openMapBannerIconDelivered: {
+    backgroundColor: '#10B981',
+  },
+  openMapBannerTitleDelivered: {
+    color: '#047857',
+  },
+  openMapBannerCancelled: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    shadowColor: '#EF4444',
+  },
+  openMapBannerIconCancelled: {
+    backgroundColor: '#EF4444',
+  },
+  openMapBannerTitleCancelled: {
+    color: '#B91C1C',
+  },
   openMapBannerIcon: {
     width: 38,
     height: 38,
@@ -1619,6 +1697,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#475569',
     marginTop: 2,
+  },
+  quickActionDisabled: {
+    opacity: 0.45,
+  },
+  quickActionTextDisabled: {
+    color: '#94A3B8',
   },
   chatCard: {
     backgroundColor: '#fff',
