@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import * as Location from 'expo-location';
-import { requestLocationPermission } from '../../utils/location';
+import { requestLocationPermission, PUERTO_PRINCESA_LANDMARKS } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import { startLocationTracking, stopLocationTracking } from '../../utils/riderLocation';
 import { riderPresenceService } from '../../services/riderPresenceService';
@@ -43,6 +43,8 @@ export default function RiderMapScreen({ navigation }) {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [focusedDeliveryId, setFocusedDeliveryId] = useState(null);
   const [mapViewMode, setMapViewMode] = useState('all');
+  const [mapLayer, setMapLayer] = useState('street'); // 'street' | 'satellite' | 'dark'
+  const [showLandmarks, setShowLandmarks] = useState(true);
   const [routeEtaMinutes, setRouteEtaMinutes] = useState(null);
   const [routeDistanceKm, setRouteDistanceKm] = useState(null);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
@@ -67,7 +69,7 @@ export default function RiderMapScreen({ navigation }) {
     if (!loading) {
       generateMapHtml();
     }
-  }, [deliveries, loading, mapViewMode, focusedDeliveryId]);
+  }, [deliveries, loading, mapViewMode, focusedDeliveryId, mapLayer, showLandmarks]);
 
   // UseFocusEffect to ensure rider stays online when viewing map
   useFocusEffect(
@@ -505,6 +507,25 @@ export default function RiderMapScreen({ navigation }) {
           .leaflet-popup-tip {
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
           }
+          /* Landmark badges */
+          .landmark-badge {
+            background: rgba(255, 255, 255, 0.94);
+            color: #1e293b;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }
+          .landmark-marker-wrap {
+            background: transparent;
+            border: none;
+          }
         </style>
       </head>
       <body>
@@ -525,12 +546,16 @@ export default function RiderMapScreen({ navigation }) {
           window.map = null;
           window.riderMarker = null;
           window.deliveryMarkers = [];
+          window.landmarkMarkers = [];
           window.routeLine = null;
           window.routeArrows = [];
           window.routeMode = '${mapViewMode === 'focused' ? 'focused' : 'none'}';
           window.lastRouteOrigin = null;
           window.lastRerouteAt = 0;
           window.currentLocation = { lat: ${currentLoc.lat}, lng: ${currentLoc.lng} };
+          window.currentLayerName = '${mapLayer}';
+          window.showLandmarks = ${showLandmarks ? 'true' : 'false'};
+          window.landmarksData = ${JSON.stringify(PUERTO_PRINCESA_LANDMARKS || [])};
           
           // Delivery markers data
           window.deliveries = ${JSON.stringify(markers)};
@@ -556,18 +581,35 @@ export default function RiderMapScreen({ navigation }) {
                 markerZoomAnimation: true
               }).setView([window.currentLocation.lat, window.currentLocation.lng], 14);
               
-              // Use a more modern map style
-              L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '©OpenStreetMap, ©CartoDB',
-                subdomains: 'abcd',
-                maxZoom: 19
-              }).addTo(window.map);
+              // Define Tile Layers
+              window.tileLayers = {
+                street: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                  attribution: '©OpenStreetMap, ©CartoDB',
+                  subdomains: 'abcd',
+                  maxZoom: 19
+                }),
+                satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                  attribution: '©ESRI World Imagery',
+                  maxZoom: 19
+                }),
+                dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                  attribution: '©CartoDB Dark Matter',
+                  subdomains: 'abcd',
+                  maxZoom: 19
+                })
+              };
+
+              window.activeTileLayer = window.tileLayers[window.currentLayerName] || window.tileLayers.street;
+              window.activeTileLayer.addTo(window.map);
               
               // Add rider marker
               addRiderMarker();
               
               // Add delivery markers
               addDeliveryMarkers();
+
+              // Add landmark markers
+              addLandmarkMarkers();
               
               // Draw optimized route line if there are deliveries
               if (window.routeMode === 'focused' && window.deliveries.length > 0) {
@@ -585,6 +627,65 @@ export default function RiderMapScreen({ navigation }) {
             } catch (error) {
               console.error('Map initialization error:', error);
             }
+          }
+
+          function switchTileLayer(layerName) {
+            if (!window.map || !window.tileLayers || !window.tileLayers[layerName]) return;
+            if (window.activeTileLayer) {
+              window.map.removeLayer(window.activeTileLayer);
+            }
+            window.activeTileLayer = window.tileLayers[layerName];
+            window.activeTileLayer.addTo(window.map);
+            window.currentLayerName = layerName;
+          }
+
+          function addLandmarkMarkers() {
+            try {
+              window.landmarkMarkers = [];
+              if (!window.landmarksData) return;
+
+              window.landmarksData.forEach(lm => {
+                if (!lm.lat || !lm.lng) return;
+
+                const icon = L.divIcon({
+                  html: \`
+                    <div class="landmark-badge">
+                      <span>\${lm.category === 'mall' ? '🛍️' : lm.category === 'park' ? '🌴' : lm.category === 'airport' ? '✈️' : lm.category === 'government' ? '🏛️' : lm.category === 'landmark' ? '🏟️' : '📍'}</span>
+                      <span>\${lm.name}</span>
+                    </div>
+                  \`,
+                  className: 'landmark-marker-wrap',
+                  iconSize: [110, 24],
+                  iconAnchor: [55, 12]
+                });
+
+                const marker = L.marker([lm.lat, lm.lng], {
+                  icon: icon,
+                  zIndexOffset: 200
+                });
+
+                marker.bindPopup(\`<b>\${lm.name}</b><br/>\${lm.address || ''}<br/><i>Brgy. \${lm.barangay || ''}</i>\`);
+                window.landmarkMarkers.push(marker);
+
+                if (window.showLandmarks) {
+                  marker.addTo(window.map);
+                }
+              });
+            } catch (err) {
+              console.error('Error adding landmark markers:', err);
+            }
+          }
+
+          function toggleLandmarksLayer(show) {
+            window.showLandmarks = show;
+            if (!window.landmarkMarkers || !window.map) return;
+            window.landmarkMarkers.forEach(marker => {
+              if (show) {
+                if (!window.map.hasLayer(marker)) marker.addTo(window.map);
+              } else {
+                if (window.map.hasLayer(marker)) window.map.removeLayer(marker);
+              }
+            });
           }
           
           function addRiderMarker() {
@@ -1136,6 +1237,10 @@ export default function RiderMapScreen({ navigation }) {
                 addDeliveryMarkers();
                 clearRouteLine();
                 window.fitAllMarkers();
+              } else if (data.type === 'SET_MAP_LAYER') {
+                switchTileLayer(data.layer);
+              } else if (data.type === 'TOGGLE_LANDMARKS') {
+                toggleLandmarksLayer(data.show);
               }
             } catch (error) {
               console.error('Error processing message:', error);
@@ -1342,19 +1447,69 @@ export default function RiderMapScreen({ navigation }) {
       }));
     }
 
-    // Active delivery list tap matches map "View Details": show drop-up first.
+  const handleLayerChange = (layer) => {
+    setMapLayer(layer);
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'SET_MAP_LAYER',
+        layer: layer
+      }));
+    }
+  };
+
+  const handleToggleLandmarks = () => {
+    const next = !showLandmarks;
+    setShowLandmarks(next);
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'TOGGLE_LANDMARKS',
+        show: next
+      }));
+    }
+  };
+
+  const openGoogleMaps = () => {
+    const lat = selectedDelivery?.orders?.delivery_lat ?? selectedDelivery?.delivery_lat;
+    const lng = selectedDelivery?.orders?.delivery_lng ?? selectedDelivery?.delivery_lng;
+    if (!lat || !lng) {
+      Alert.alert('Error', 'Delivery coordinates not available');
+      return;
+    }
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    Linking.openURL(url);
+  };
+
+  const openWaze = () => {
+    const lat = selectedDelivery?.orders?.delivery_lat ?? selectedDelivery?.delivery_lat;
+    const lng = selectedDelivery?.orders?.delivery_lng ?? selectedDelivery?.delivery_lng;
+    if (!lat || !lng) {
+      Alert.alert('Error', 'Delivery coordinates not available');
+      return;
+    }
+    const url = `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+    Linking.openURL(url);
+  };
+
+  const callCustomer = () => {
+    const phone = selectedDelivery?.orders?.customer_name?.phone_number;
+    if (!phone) {
+      Alert.alert('No Phone Number', 'Customer phone number is not available.');
+      return;
+    }
+    Linking.openURL(`tel:${phone}`);
   };
 
   const openNavigation = () => {
-    if (!selectedDelivery?.orders?.delivery_lat || !selectedDelivery?.orders?.delivery_lng) {
+    const lat = selectedDelivery?.orders?.delivery_lat ?? selectedDelivery?.delivery_lat;
+    const lng = selectedDelivery?.orders?.delivery_lng ?? selectedDelivery?.delivery_lng;
+    if (!lat || !lng) {
       Alert.alert('Error', 'Delivery coordinates not available');
       return;
     }
 
-    const { delivery_lat, delivery_lng } = selectedDelivery.orders;
     const url = Platform.select({
-      ios: `maps:${delivery_lat},${delivery_lng}`,
-      android: `geo:${delivery_lat},${delivery_lng}?q=${delivery_lat},${delivery_lng}(${encodeURIComponent(selectedDelivery.orders?.delivery_address || 'Delivery')})`
+      ios: `maps:${lat},${lng}`,
+      android: `geo:${lat},${lng}?q=${lat},${lng}(${encodeURIComponent(selectedDelivery.orders?.delivery_address || 'Delivery')})`
     });
     
     Linking.openURL(url);
@@ -1423,7 +1578,7 @@ export default function RiderMapScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#0033A0" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Delivery Map</Text>
+        <Text style={styles.headerTitle}>Rider GPS Cockpit</Text>
         {/* tracking toggle button */}
         <TouchableOpacity
           onPress={() => setTracking(prev => !prev)}
@@ -1453,6 +1608,49 @@ export default function RiderMapScreen({ navigation }) {
           onLoadStart={() => devLog('WebView loading started')}
           onLoad={() => devLog('WebView loaded')}
         />
+
+        {/* Top Floating ETA Capsule */}
+        {routeEtaMinutes !== null && (
+          <View style={styles.topEtaBadge}>
+            <Ionicons name="navigate-circle" size={18} color="#10B981" />
+            <Text style={styles.topEtaText}>
+              {routeEtaMinutes} min • {routeDistanceKm} km Live Route
+            </Text>
+          </View>
+        )}
+
+        {/* Top-Right HUD Layer Controls */}
+        <View style={styles.hudOverlay}>
+          <TouchableOpacity
+            style={[styles.hudButton, mapLayer === 'satellite' && styles.hudButtonActive]}
+            onPress={() => handleLayerChange(mapLayer === 'satellite' ? 'street' : 'satellite')}
+          >
+            <Ionicons name={mapLayer === 'satellite' ? 'earth' : 'map-outline'} size={16} color={mapLayer === 'satellite' ? '#fff' : '#0033A0'} />
+            <Text style={[styles.hudButtonText, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
+              {mapLayer === 'satellite' ? 'Satellite' : 'Street'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.hudButton, mapLayer === 'dark' && styles.hudButtonActive]}
+            onPress={() => handleLayerChange(mapLayer === 'dark' ? 'street' : 'dark')}
+          >
+            <Ionicons name={mapLayer === 'dark' ? 'moon' : 'sunny-outline'} size={16} color={mapLayer === 'dark' ? '#fff' : '#0033A0'} />
+            <Text style={[styles.hudButtonText, mapLayer === 'dark' && styles.hudButtonTextActive]}>
+              {mapLayer === 'dark' ? 'Night' : 'Day'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.hudButton, showLandmarks && styles.hudButtonActive]}
+            onPress={handleToggleLandmarks}
+          >
+            <Ionicons name="flag" size={16} color={showLandmarks ? '#fff' : '#0033A0'} />
+            <Text style={[styles.hudButtonText, showLandmarks && styles.hudButtonTextActive]}>
+              Landmarks
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Bottom Panel - Active Deliveries List */}
@@ -1537,13 +1735,13 @@ export default function RiderMapScreen({ navigation }) {
               >
                 <View style={[
                   styles.chipNumber,
-                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#0033A0' }
+                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
                 ]}>
                   <Text style={styles.chipNumberText}>{index + 1}</Text>
                 </View>
                 <View style={[
                   styles.chipStatus,
-                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#0033A0' }
+                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
                 ]} />
                 <View style={styles.chipInfo}>
                   <Text style={styles.chipOrder}>
@@ -1570,7 +1768,7 @@ export default function RiderMapScreen({ navigation }) {
         <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delivery Details</Text>
+              <Text style={styles.modalTitle}>Delivery Navigation</Text>
               <TouchableOpacity onPress={() => setShowDeliveryModal(false)}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
@@ -1581,7 +1779,7 @@ export default function RiderMapScreen({ navigation }) {
                 <View style={styles.modalStatus}>
                   <View style={[
                     styles.modalStatusBadge,
-                    { backgroundColor: selectedDelivery.status === 'assigned' ? '#F59E0B' : '#0033A0' }
+                    { backgroundColor: selectedDelivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
                   ]}>
                     <Text style={styles.modalStatusText}>
                       {selectedDelivery.status === 'assigned' ? 'Waiting for Acceptance' : 'Out for Delivery'}
@@ -1601,12 +1799,14 @@ export default function RiderMapScreen({ navigation }) {
                     </Text>
                   </View>
 
-                  <View style={styles.modalInfoRow}>
-                    <Ionicons name="call" size={18} color="#666" />
-                    <Text style={styles.modalInfoText}>
-                      {selectedDelivery.orders?.customer_name?.phone_number || 'No phone'}
-                    </Text>
-                  </View>
+                  {selectedDelivery.orders?.customer_name?.phone_number ? (
+                    <TouchableOpacity style={styles.phoneTouchRow} onPress={callCustomer}>
+                      <Ionicons name="call" size={18} color="#10B981" />
+                      <Text style={styles.phoneText}>
+                        {selectedDelivery.orders?.customer_name?.phone_number} (Tap to Call)
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
 
                   <View style={styles.modalInfoRow}>
                     <Ionicons name="location" size={18} color="#666" />
@@ -1625,21 +1825,35 @@ export default function RiderMapScreen({ navigation }) {
                   )}
                 </View>
 
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalActionButton, styles.navigateButton]}
-                    onPress={openNavigation}
-                  >
-                    <Ionicons name="navigate" size={20} color="#fff" />
-                    <Text style={styles.modalActionText}>Navigate</Text>
-                  </TouchableOpacity>
+                {/* 1-Tap External GPS Launchers */}
+                <View style={styles.launcherSection}>
+                  <Text style={styles.launcherLabel}>Launch External GPS Navigation:</Text>
+                  <View style={styles.launcherRow}>
+                    <TouchableOpacity
+                      style={[styles.launcherBtn, { backgroundColor: '#1A73E8' }]}
+                      onPress={openGoogleMaps}
+                    >
+                      <Ionicons name="navigate" size={18} color="#fff" />
+                      <Text style={styles.launcherBtnText}>Google Maps</Text>
+                    </TouchableOpacity>
 
+                    <TouchableOpacity
+                      style={[styles.launcherBtn, { backgroundColor: '#33CCFF' }]}
+                      onPress={openWaze}
+                    >
+                      <Ionicons name="car" size={18} color="#fff" />
+                      <Text style={styles.launcherBtnText}>Waze</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.modalActionButton, styles.detailsButton]}
                     onPress={viewDeliveryDetails}
                   >
                     <Ionicons name="document-text" size={20} color="#fff" />
-                    <Text style={styles.modalActionText}>Full Details</Text>
+                    <Text style={styles.modalActionText}>Full Details & POD</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1726,15 +1940,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0033A0',
   },
   mapContainer: {
     flex: 1,
+    position: 'relative',
   },
   webview: {
     flex: 1,
+  },
+  topEtaBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    zIndex: 20,
+  },
+  topEtaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  hudOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'column',
+    gap: 6,
+    zIndex: 20,
+  },
+  hudButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  hudButtonActive: {
+    backgroundColor: '#0033A0',
+  },
+  hudButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0033A0',
+  },
+  hudButtonTextActive: {
+    color: '#fff',
   },
   bottomPanel: {
     backgroundColor: '#fff',
@@ -1819,8 +2090,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   deliveryChipSelected: {
-    borderColor: '#0033A0',
-    backgroundColor: '#f0f4ff',
+    borderColor: '#ED2939',
+    backgroundColor: '#fff5f5',
   },
   chipNumber: {
     width: 20,
@@ -1874,13 +2145,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 18,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
@@ -1890,49 +2161,89 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   modalBody: {
-    padding: 20,
+    padding: 18,
   },
   modalStatus: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalStatusBadge: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   modalStatusText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   modalInfo: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 14,
   },
   modalOrderNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#0033A0',
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  phoneTouchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 10,
+    backgroundColor: '#ecfdf5',
+    padding: 8,
+    borderRadius: 8,
+  },
+  phoneText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#065f46',
   },
   modalInfoRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
-    gap: 12,
+    marginBottom: 8,
+    gap: 10,
   },
   modalInfoText: {
     flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 18,
+  },
+  launcherSection: {
+    marginBottom: 16,
+  },
+  launcherLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  launcherRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  launcherBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 6,
+  },
+  launcherBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   modalActions: {
     flexDirection: 'row',
-    gap: 12,
   },
   modalActionButton: {
     flex: 1,
@@ -1943,15 +2254,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  navigateButton: {
-    backgroundColor: '#0033A0',
-  },
   detailsButton: {
     backgroundColor: '#ED2939',
   },
   modalActionText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
