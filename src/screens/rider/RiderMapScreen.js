@@ -374,45 +374,6 @@ export default function RiderMapScreen({ navigation }) {
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
           }
           
-          /* Controls */
-          .controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-          }
-          
-          .control-button {
-            background: white;
-            border: none;
-            border-radius: 12px;
-            padding: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            color: #0033A0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.2s;
-            backdrop-filter: blur(10px);
-            background: rgba(255, 255, 255, 0.95);
-          }
-          
-          .control-button:hover {
-            transform: scale(1.05);
-            background: white;
-          }
-          
-          .control-button:active {
-            transform: scale(0.95);
-          }
-          
           .attribution {
             position: absolute;
             bottom: 5px;
@@ -529,15 +490,6 @@ export default function RiderMapScreen({ navigation }) {
         </style>
       </head>
       <body>
-        <div class="controls">
-          <button class="control-button" onclick="window.fitAllMarkers()">
-            <span style="font-size: 18px;">📍</span> Fit All
-          </button>
-          <button class="control-button" onclick="window.centerOnMe()">
-            <span style="font-size: 18px;">🎯</span> My Location
-          </button>
-        </div>
-        
         <div id="map"></div>
         <div class="attribution">© OpenStreetMap contributors</div>
         
@@ -1652,6 +1604,14 @@ export default function RiderMapScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Floating Bottom-Right My Location FAB */}
+        <TouchableOpacity
+          style={styles.recenterFloatingBtn}
+          onPress={refreshLocation}
+        >
+          <Ionicons name="locate" size={22} color="#0033A0" />
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Panel - Active Deliveries List */}
@@ -2007,6 +1967,23 @@ const styles = StyleSheet.create({
   },
   hudButtonTextActive: {
     color: '#fff',
+  },
+  recenterFloatingBtn: {
+    position: 'absolute',
+    bottom: 16,
+    right: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    zIndex: 20,
   },
   bottomPanel: {
     backgroundColor: '#fff',

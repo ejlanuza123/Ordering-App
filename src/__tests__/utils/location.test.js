@@ -111,10 +111,12 @@ describe('Puerto Princesa Location Utilities - Verified Landmarks & Barangays', 
     expect(wwii.lat).toBe(9.739040);
     expect(wwii.lng).toBe(118.736550);
 
-    // 16. Puerto Princesa Public Market -> Tagumpay
-    const market = PUERTO_PRINCESA_LANDMARKS.find(l => l.name === 'Puerto Princesa Public Market');
+    // 16. Puerto Princesa Old Public Market -> Tagumpay
+    const market = PUERTO_PRINCESA_LANDMARKS.find(l => l.name.includes('Old Public Market'));
     expect(market).toBeDefined();
     expect(market.barangay).toBe('Tagumpay');
+    expect(market.lat).toBe(9.7422666);
+    expect(market.lng).toBe(118.7333285);
   });
 
   it('accurately detects barangay when pin-pointing at exact landmark coordinates', () => {

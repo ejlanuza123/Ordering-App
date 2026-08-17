@@ -231,19 +231,29 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     lng: 118.736550 
   },
 
-  // 16. Puerto Princesa Public Market
+  // 16. Puerto Princesa Old Public Market
   { 
-    name: 'Puerto Princesa Public Market', 
-    address: 'Public Market area',
-    aliases: ['public market', 'old public market', 'palengke', 'puerto princesa public market', 'tiangge'], 
+    name: 'Old Public Market', 
+    address: 'Valencia St. / Malvar St.',
+    aliases: ['old public market', 'public market', 'old market', 'palengke', 'puerto princesa old public market', 'tiangge', 'lumang palengke'], 
     category: 'Market', 
     icon: 'basket', 
     barangay: 'Tagumpay', 
-    lat: 9.743500, 
-    lng: 118.730500 
+    lat: 9.7422666, 
+    lng: 118.7333285 
   },
 
   // Additional Noteworthy Sites
+  { 
+    name: 'Puerto Princesa City New Public Market', 
+    address: 'Market Site, San Jose',
+    aliases: ['new public market', 'puerto princesa city new public market', 'new market', 'san jose new market', 'bagong palengke', 'new market terminal'], 
+    category: 'Market', 
+    icon: 'basket', 
+    barangay: 'San Jose', 
+    lat: 9.7462458, 
+    lng: 118.7370428 
+  },
   { 
     name: 'City Coliseum Park', 
     address: 'Peneyra Rd.',
@@ -316,13 +326,13 @@ export const PUERTO_PRINCESA_LANDMARKS = [
   },
   { 
     name: 'Ospital ng Palawan (ONP)', 
-    address: 'Malvar St.',
-    aliases: ['onp', 'ospital ng palawan', 'onp hospital'], 
+    address: '220 Malvar St.',
+    aliases: ['onp', 'ospital ng palawan', 'onp hospital', 'ospital'], 
     category: 'Hospital', 
     icon: 'medkit', 
-    barangay: 'Maligaya', 
-    lat: 9.744000, 
-    lng: 118.737000 
+    barangay: 'San Miguel', 
+    lat: 9.7478371, 
+    lng: 118.7416775 
   },
   { 
     name: 'Palawan State University (PSU Main)', 
