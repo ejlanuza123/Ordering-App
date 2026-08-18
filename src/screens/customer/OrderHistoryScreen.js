@@ -1200,9 +1200,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
 
-            {/* Order Timeline */}
+            {/* Delivery Milestones & Timestamps */}
             <View style={[styles.detailsSection, styles.lastSection]}>
-              <Text style={styles.sectionTitle}>Order Timeline</Text>
+              <Text style={styles.sectionTitle}>Order Milestones</Text>
               <View style={styles.timeline}>
                 <View style={styles.timelineItem}>
                   <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
@@ -1211,18 +1211,39 @@ export default function OrderHistoryScreen({ navigation, route }) {
                     <Text style={styles.timelineTime}>{formatDate(selectedOrder.created_at)}</Text>
                   </View>
                 </View>
+
+                {!!selectedOrder.deliveries?.[0]?.accepted_at && (
+                  <View style={styles.timelineItem}>
+                    <View style={[styles.timelineDot, { backgroundColor: '#2563EB' }]} />
+                    <View style={styles.timelineContent}>
+                      <Text style={styles.timelineTitle}>Rider Accepted</Text>
+                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].accepted_at)}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {!!selectedOrder.deliveries?.[0]?.picked_up_at && (
+                  <View style={styles.timelineItem}>
+                    <View style={[styles.timelineDot, { backgroundColor: '#7e0083' }]} />
+                    <View style={styles.timelineContent}>
+                      <Text style={styles.timelineTitle}>Picked Up / In Transit</Text>
+                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].picked_up_at)}</Text>
+                    </View>
+                  </View>
+                )}
+
                 <View style={styles.timelineItem}>
                   <View style={[styles.timelineDot, { 
-                    backgroundColor: selectedOrder.status === 'Completed' ? '#10B981' : 
-                                   selectedOrder.status === 'Cancelled' ? '#EF4444' : '#e9ecef' 
+                    backgroundColor: (selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? '#10B981' : 
+                                   (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? '#EF4444' : '#94A3B8' 
                   }]} />
                   <View style={styles.timelineContent}>
                     <Text style={styles.timelineTitle}>
-                      {selectedOrder.status === 'Cancelled' ? 'Order Cancelled' : 'Order Delivered'}
+                      {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? 'Order Cancelled' : 'Order Delivered'}
                     </Text>
                     <Text style={styles.timelineTime}>
-                      {selectedOrder.status === 'Completed' ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
-                       selectedOrder.status === 'Cancelled' ? formatDate(selectedOrder.created_at) : 'Pending'}
+                      {(selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
+                       (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? formatDate(selectedOrder.created_at) : 'In Progress'}
                     </Text>
                   </View>
                 </View>
