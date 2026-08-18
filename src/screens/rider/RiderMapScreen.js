@@ -519,6 +519,52 @@ export default function RiderMapScreen({ navigation, route }) {
             background: transparent;
             border: none;
           }
+
+          /* Enhanced High-Visibility Navigation Night Map */
+          .dark-mode-active .leaflet-tile-pane {
+            filter: brightness(1.35) contrast(1.3) saturate(1.15);
+          }
+          .dark-mode-active #map {
+            background: #0f172a;
+          }
+          .dark-mode-active .delivery-label {
+            background: #1e293b;
+            color: #f8fafc;
+            border-color: #334155;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+          }
+          .dark-mode-active .delivery-pin-numbered {
+            box-shadow: 0 0 16px rgba(0, 51, 160, 0.7), 0 4px 12px rgba(0,0,0,0.6);
+            border-color: #93c5fd;
+          }
+          .dark-mode-active .delivery-pin-active {
+            box-shadow: 0 0 18px rgba(237, 41, 57, 0.8), 0 4px 12px rgba(0,0,0,0.6);
+            border-color: #fecaca;
+          }
+          .dark-mode-active .landmark-badge {
+            background: rgba(30, 41, 59, 0.95);
+            color: #f8fafc;
+            border: 1px solid #475569;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+          }
+          .dark-mode-active .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #334155;
+          }
+          .dark-mode-active .leaflet-popup-tip {
+            background: #1e293b;
+          }
+          .dark-mode-active .popup-title {
+            color: #f8fafc;
+          }
+          .dark-mode-active .popup-address {
+            color: #94a3b8;
+          }
+          .dark-mode-active .attribution {
+            background: rgba(15, 23, 42, 0.85);
+            color: #94a3b8;
+          }
         </style>
       </head>
       <body>
@@ -585,6 +631,9 @@ export default function RiderMapScreen({ navigation, route }) {
 
               window.activeTileLayer = window.tileLayers[window.currentLayerName] || window.tileLayers.street;
               window.activeTileLayer.addTo(window.map);
+              if (window.currentLayerName === 'dark') {
+                document.body.classList.add('dark-mode-active');
+              }
               
               // Add rider marker
               addRiderMarker();
@@ -621,6 +670,14 @@ export default function RiderMapScreen({ navigation, route }) {
             window.activeTileLayer = window.tileLayers[layerName];
             window.activeTileLayer.addTo(window.map);
             window.currentLayerName = layerName;
+            if (layerName === 'dark') {
+              document.body.classList.add('dark-mode-active');
+            } else {
+              document.body.classList.remove('dark-mode-active');
+            }
+            if (window.routeLine) {
+              window.routeLine.bringToFront();
+            }
           }
 
           function addLandmarkMarkers() {

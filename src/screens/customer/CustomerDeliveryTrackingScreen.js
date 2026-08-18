@@ -165,6 +165,35 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             font-size: 9px;
             z-index: 1000;
           }
+
+          /* Enhanced High-Visibility Navigation Night Map */
+          .dark-mode-active .leaflet-tile-pane {
+            filter: brightness(1.35) contrast(1.3) saturate(1.15);
+          }
+          .dark-mode-active #map {
+            background: #0f172a;
+          }
+          .dark-mode-active .dest-marker {
+            box-shadow: 0 0 16px rgba(237, 41, 57, 0.8), 0 3px 10px rgba(0,0,0,0.6);
+            border-color: #fecaca;
+          }
+          .dark-mode-active .motorcycle-glider-icon {
+            box-shadow: 0 0 16px rgba(59, 130, 246, 0.9), 0 4px 14px rgba(0, 51, 160, 0.6);
+            border-color: #93c5fd;
+          }
+          .dark-mode-active .sonar-ring {
+            background: rgba(59, 130, 246, 0.4);
+          }
+          .dark-mode-active .landmark-badge {
+            background: rgba(30, 41, 59, 0.95);
+            color: #f8fafc;
+            border: 1px solid #475569;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+          }
+          .dark-mode-active .attribution {
+            background: rgba(15, 23, 42, 0.85);
+            color: #94a3b8;
+          }
         </style>
       </head>
       <body>
@@ -238,7 +267,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             if (!window.riderMarker) {
               const riderIcon = L.divIcon({
                 className: '',
-                html: '<div class="motorcycle-glider-wrap"><div class="sonar-ring"></div><div class="motorcycle-glider-icon">🏍️</div></div>',
+                html: '<div class="motorcycle-glider-wrap"><div class="sonar-ring"></div><div class="motorcycle-glider-icon">🛵</div></div>',
                 iconSize: [44, 44],
                 iconAnchor: [22, 22]
               });
@@ -294,6 +323,11 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
             }
             window.activeLayer = window.tileLayers[layerName];
             window.activeLayer.addTo(window.map);
+            if (layerName === 'dark') {
+              document.body.classList.add('dark-mode-active');
+            } else {
+              document.body.classList.remove('dark-mode-active');
+            }
             if (window.routeLine) {
               window.routeLine.bringToFront();
             }
