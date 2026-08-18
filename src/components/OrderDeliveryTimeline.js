@@ -11,12 +11,22 @@ const TIMELINE_STEPS = [
 ];
 
 export const getActiveStepIndex = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s === 'completed' || s === 'delivered') return 4;
-  if (s === 'in_transit' || s === 'in transit' || s === 'on the way' || s === 'delivering') return 3;
-  if (s === 'processing' || s === 'preparing' || s === 'picked_up' || s === 'ready') return 2;
-  if (s === 'confirmed' || s === 'accepted') return 1;
-  return 0; // Placed / Pending
+  const s = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+  
+  // Step 4: Delivered / Completed
+  if (['completed', 'delivered', 'received'].includes(s)) return 4;
+  
+  // Step 3: In Transit / Out for Delivery / On the way
+  if (['outfordelivery', 'intransit', 'transit', 'ontheway', 'delivering', 'dispatched'].includes(s)) return 3;
+  
+  // Step 2: Preparing / Packing / Rider Picked Up / Ready
+  if (['processing', 'preparing', 'packing', 'riderpickedup', 'riderpickeduptheorder', 'pickedup', 'ready', 'readyforpickup'].includes(s)) return 2;
+  
+  // Step 1: Confirmed / Accepted / Assigned
+  if (['confirmed', 'accepted', 'assigned', 'orderconfirmed'].includes(s)) return 1;
+  
+  // Step 0: Placed / Pending
+  return 0;
 };
 
 export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnline = false, etaMinutes = null, distanceKm = null }) {

@@ -567,36 +567,72 @@ export default function OrderHistoryScreen({ navigation, route }) {
   };
 
   const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'pending': return '#F59E0B';
-      case 'processing': return '#0033A0';
-      case 'rider picked up the order':
+    const s = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+    switch(s) {
+      case 'pending':
+      case 'placed':
+        return '#F59E0B';
+      case 'confirmed':
+      case 'accepted':
+      case 'assigned':
+        return '#2563EB';
+      case 'processing':
+      case 'preparing':
+        return '#0033A0';
+      case 'riderpickedup':
+      case 'riderpickeduptheorder':
+      case 'pickedup':
         return '#0EA5E9';
-      case 'out for delivery':
-      case 'out_for_delivery':
       case 'outfordelivery':
+      case 'intransit':
+      case 'transit':
+      case 'delivering':
         return '#7e0083';
-      case 'completed': return '#10B981';
-      case 'cancelled': return '#EF4444';
-      case 'archived': return '#F59E0B';
-      default: return '#666';
+      case 'completed':
+      case 'delivered':
+        return '#10B981';
+      case 'cancelled':
+      case 'failed':
+        return '#EF4444';
+      case 'archived':
+        return '#F59E0B';
+      default:
+        return '#666';
     }
   };
 
   const getStatusIcon = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'pending': return 'time';
-      case 'processing': return 'sync';
-      case 'rider picked up the order':
+    const s = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+    switch(s) {
+      case 'pending':
+      case 'placed':
+        return 'time';
+      case 'confirmed':
+      case 'accepted':
+      case 'assigned':
+        return 'checkmark-circle-outline';
+      case 'processing':
+      case 'preparing':
+        return 'sync';
+      case 'riderpickedup':
+      case 'riderpickeduptheorder':
+      case 'pickedup':
         return 'cube';
-      case 'out for delivery':
-      case 'out_for_delivery':
       case 'outfordelivery':
+      case 'intransit':
+      case 'transit':
+      case 'delivering':
         return 'bicycle';
-      case 'completed': return 'checkmark-circle';
-      case 'cancelled': return 'close-circle';
-      case 'archived': return 'archive';
-      default: return 'help-circle';
+      case 'completed':
+      case 'delivered':
+        return 'checkmark-circle';
+      case 'cancelled':
+      case 'failed':
+        return 'close-circle';
+      case 'archived':
+        return 'archive';
+      default:
+        return 'help-circle';
     }
   };
 
