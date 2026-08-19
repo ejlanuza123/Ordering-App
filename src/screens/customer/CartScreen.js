@@ -190,6 +190,15 @@ export default function CartScreen({ navigation }) {
   if (cartItems.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
+        <CustomAlertModal
+          visible={showAlert}
+          onClose={() => setShowAlert(false)}
+          type={alertConfig.type}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          confirmText="OK"
+        />
+
         {/* Custom header for empty state to match main screen */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
@@ -205,6 +214,8 @@ export default function CartScreen({ navigation }) {
           </View>
         </View>
 
+        <StorePauseBanner />
+
         {/* Empty Content */}
         <View style={[styles.emptyContent, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.emptyIcon}>
@@ -216,7 +227,18 @@ export default function CartScreen({ navigation }) {
           </Text>
           <TouchableOpacity 
             style={styles.shopButton}
-            onPress={() => navigation.navigate('Selection')}
+            onPress={() => {
+              if (pauseSettings?.isPaused && !pauseSettings?.allowPreorders) {
+                setAlertConfig({
+                  type: 'warning',
+                  title: pauseSettings.title || 'Store Operations Paused',
+                  message: pauseSettings.reason || 'Deliveries are temporarily paused and pre-orders are currently disabled. Please check back when operations resume.',
+                });
+                setShowAlert(true);
+                return;
+              }
+              navigation.navigate('Selection');
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.shopButtonText}>Browse Products</Text>

@@ -17,6 +17,8 @@ import ProductCard from '../../components/ProductCard';
 import { useCart } from '../../context/CartContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import StorePauseBanner from '../../components/StorePauseBanner';
+import { storeSettingsService } from '../../services/storeSettingsService';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 45) / 2;
@@ -62,7 +64,22 @@ export default function MyFavoritesScreen({ navigation }) {
     fetchFavoritesProducts();
   };
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = async (product) => {
+    try {
+      const pauseSettings = await storeSettingsService.getStorePauseSettings();
+      if (pauseSettings?.isPaused && !pauseSettings?.allowPreorders) {
+        setAlertConfig({
+          type: 'warning',
+          title: pauseSettings.title || 'Store Operations Paused',
+          message: pauseSettings.reason || 'Deliveries are temporarily paused and pre-orders are currently disabled. Please check back when operations resume.',
+        });
+        setShowAlert(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('Pause check error:', e);
+    }
+
     if (product.stock_quantity <= 0) {
       setAlertConfig({
         type: 'warning',
@@ -94,6 +111,8 @@ export default function MyFavoritesScreen({ navigation }) {
           <Text style={styles.headerTitle}>My Favorites</Text>
           <View style={{ width: 40 }} />
         </View>
+
+        <StorePauseBanner />
 
         {loading ? (
           <View style={styles.center}>
