@@ -4,9 +4,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_KEY = '@petron_store_pause_settings';
 
-export const storeSettingsService = {
-  _cachedSettings: null,
+let _activeChannel = null;
+const _subscribers = new Set();
+let _cachedSettings = null;
 
+const notifySubscribers = (fresh) => {
+  if (!fresh) return;
+  _cachedSettings = fresh;
+  _subscribers.forEach((cb) => {
+    try {
+      cb(fresh);
+    } catch (e) {
+      console.warn('Error in store settings subscriber callback:', e);
+    }
+  });
+};
+
+export const storeSettingsService = {
   /**
    * Fetch live store pause settings
    */
@@ -58,7 +72,7 @@ export const storeSettingsService = {
         autoReopen,
       };
 
-      this._cachedSettings = settings;
+      _cachedSettings = settings;
       await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(settings));
       return settings;
     } catch (err) {
@@ -67,7 +81,7 @@ export const storeSettingsService = {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
-          this._cachedSettings = parsed;
+          _cachedSettings = parsed;
           return parsed;
         }
       } catch (cacheErr) {
@@ -87,25 +101,47 @@ export const storeSettingsService = {
   },
 
   /**
-   * Subscribe to realtime store status changes
+   * Subscribe to realtime store status changes across broadcast and postgres_changes
    */
   subscribeToStorePauseChanges(callback) {
-    const channel = supabase
-      .channel('public:app_settings_store_pause')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_settings' },
-        async () => {
-          const fresh = await this.getStorePauseSettings();
-          if (typeof callback === 'function') {
-            callback(fresh);
+    if (typeof callback === 'function') {
+      _subscribers.add(callback);
+      if (_cachedSettings) {
+        callback(_cachedSettings);
+      }
+    }
+
+    if (!_activeChannel) {
+      _activeChannel = supabase
+        .channel('store_operations_realtime_sync')
+        .on('broadcast', { event: 'store_pause_changed' }, (payload) => {
+          if (payload?.payload) {
+            notifySubscribers(payload.payload);
+          } else {
+            this.getStorePauseSettings().then(notifySubscribers);
           }
-        }
-      )
-      .subscribe();
+        })
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'app_settings' },
+          async () => {
+            const fresh = await this.getStorePauseSettings();
+            notifySubscribers(fresh);
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this.getStorePauseSettings().then(notifySubscribers);
+          }
+        });
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      _subscribers.delete(callback);
+      if (_subscribers.size === 0 && _activeChannel) {
+        supabase.removeChannel(_activeChannel);
+        _activeChannel = null;
+      }
     };
   }
 };

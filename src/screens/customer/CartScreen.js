@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useCart } from '../../context/CartContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import StorePauseBanner from '../../components/StorePauseBanner';
 import { storeSettingsService } from '../../services/storeSettingsService';
