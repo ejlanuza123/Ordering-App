@@ -24,6 +24,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import StorePauseBanner from '../../components/StorePauseBanner';
+import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width } = Dimensions.get('window');
 const HOME_WELCOME_VERSION = 'v1';
@@ -62,6 +63,21 @@ export default function HomeScreen({ navigation, route }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [welcomeStepIndex, setWelcomeStepIndex] = useState(0);
+  const [pauseSettings, setPauseSettings] = useState(null);
+  const [showPauseAlert, setShowPauseAlert] = useState(false);
+  const [pauseAlertConfig, setPauseAlertConfig] = useState({ title: '', message: '' });
+
+  const handleQuickOrderPress = (category = 'Fuel') => {
+    if (pauseSettings?.isPaused && !pauseSettings?.allowPreorders) {
+      setPauseAlertConfig({
+        title: pauseSettings.title || 'Store Operations Paused',
+        message: pauseSettings.reason || 'Deliveries are temporarily paused and pre-orders are currently disabled. Please check back when operations resume.',
+      });
+      setShowPauseAlert(true);
+      return;
+    }
+    navigation.navigate('Selection', { category });
+  };
   const lastReplayTokenRef = React.useRef(null);
   const isWelcomeAnimatingRef = React.useRef(false);
   const welcomeStepTransition = React.useRef(new Animated.Value(1)).current;
@@ -396,7 +412,7 @@ export default function HomeScreen({ navigation, route }) {
         bounces={true}
       >
         {/* Store Holiday / Emergency Pause Live Banner */}
-        <StorePauseBanner />
+        <StorePauseBanner onStatusChange={setPauseSettings} />
 
         {/* Main Action Section - Enhanced Order Now Button */}
         <View style={styles.mainSection}>
@@ -406,7 +422,7 @@ export default function HomeScreen({ navigation, route }) {
           
           <TouchableOpacity 
             style={styles.orderNowButton}
-            onPress={() => navigation.navigate('Selection', { category: 'Fuel' })}
+            onPress={() => handleQuickOrderPress('Fuel')}
             activeOpacity={0.7}
           >
             <View style={styles.orderNowGradient}>
@@ -543,6 +559,16 @@ export default function HomeScreen({ navigation, route }) {
           </View>
         </View>
       </ScrollView>
+
+      {/* Store Pause Alert Modal */}
+      <CustomAlertModal
+        visible={showPauseAlert}
+        onClose={() => setShowPauseAlert(false)}
+        type="warning"
+        title={pauseAlertConfig.title}
+        message={pauseAlertConfig.message}
+        confirmText="Understood"
+      />
 
       {/* Review Choice Modal */}
       <Modal

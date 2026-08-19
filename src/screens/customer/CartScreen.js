@@ -12,8 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCart } from '../../context/CartContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
+import StorePauseBanner from '../../components/StorePauseBanner';
+import { storeSettingsService } from '../../services/storeSettingsService';
 import { supabase } from '../../lib/supabase';
 
 export default function CartScreen({ navigation }) {
@@ -21,6 +22,9 @@ export default function CartScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const total = getCartTotal();
   const [defaultDeliveryFee, setDefaultDeliveryFee] = useState(50);
+  const [pauseSettings, setPauseSettings] = useState(null);
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({ title: '', message: '', type: 'warning' });
   const [removeModalVisible, setRemoveModalVisible] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -53,6 +57,7 @@ export default function CartScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       fetchDefaultDeliveryFee();
+      storeSettingsService.getStorePauseSettings().then(setPauseSettings);
     }, [fetchDefaultDeliveryFee])
   );
 
@@ -106,6 +111,19 @@ export default function CartScreen({ navigation }) {
     }
 
     return { quantity: parsed, total: parsed * itemToEdit.current_price };
+  };
+
+  const handleCheckoutPress = () => {
+    if (pauseSettings?.isPaused && !pauseSettings?.allowPreorders) {
+      setAlertConfig({
+        type: 'warning',
+        title: pauseSettings.title || 'Store Operations Paused',
+        message: pauseSettings.reason || 'Deliveries are temporarily paused and pre-orders are currently disabled. You can checkout as soon as the store reopens.',
+      });
+      setShowAlert(true);
+      return;
+    }
+    navigation.navigate('Checkout');
   };
 
   const handleSaveEdit = () => {
@@ -210,6 +228,14 @@ export default function CartScreen({ navigation }) {
   // Main cart screen with items
   return (
     <>
+      <CustomAlertModal
+        visible={showAlert}
+        onClose={() => setShowAlert(false)}
+        type={alertConfig.type}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        confirmText="OK"
+      />
       <CustomAlertModal
         visible={removeModalVisible}
         onClose={() => setRemoveModalVisible(false)}
@@ -340,6 +366,7 @@ export default function CartScreen({ navigation }) {
           data={cartItems}
           keyExtractor={(item, index) => item.id.toString() + index}
           renderItem={renderItem}
+          ListHeaderComponent={<StorePauseBanner />}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: 120 } // Increased padding to make room for footer
@@ -366,11 +393,16 @@ export default function CartScreen({ navigation }) {
           </View>
 
           <TouchableOpacity 
-            style={styles.checkoutButton}
-            onPress={() => navigation.navigate('Checkout')}
+            style={[
+              styles.checkoutButton,
+              pauseSettings?.isPaused && !pauseSettings?.allowPreorders && { backgroundColor: '#9CA3AF' }
+            ]}
+            onPress={handleCheckoutPress}
             activeOpacity={0.8}
           >
-            <Text style={styles.checkoutText}>PROCEED TO CHECKOUT</Text>
+            <Text style={styles.checkoutText}>
+              {pauseSettings?.isPaused && !pauseSettings?.allowPreorders ? 'STORE PAUSED' : 'PROCEED TO CHECKOUT'}
+            </Text>
             <Ionicons name="arrow-forward" size={20} color="#fff" />
           </TouchableOpacity>
         </View>

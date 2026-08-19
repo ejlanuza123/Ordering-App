@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingChatHead from '../components/FloatingChatHead';
+import MaintenanceScreenLock from '../components/MaintenanceScreenLock';
 import { riderPresenceService } from '../services/riderPresenceService';
 import { mobileNotificationService } from '../services/mobileNotificationService';
 
@@ -249,6 +250,8 @@ export default function AppNavigator() {
         visible={isChatHeadVisible}
         onPress={handleOpenChat}
       />
+
+      <MaintenanceScreenLock userRole={role} />
     </View>
   );
 }
