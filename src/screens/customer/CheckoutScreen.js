@@ -21,9 +21,10 @@ import { orderService } from '../../services/orderService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import MapPickerModal from '../../components/OpenStreetMapPicker';
-import { getAddressFromCurrentLocation } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import SuccessModal from '../../components/SuccessModal';
+import StorePauseBanner from '../../components/StorePauseBanner';
+import { storeSettingsService } from '../../services/storeSettingsService';
 
 export default function CheckoutScreen({ navigation }) {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -236,6 +237,22 @@ export default function CheckoutScreen({ navigation }) {
       });
       setShowAlert(true);
       return;
+    }
+
+    // Validate store operational status
+    try {
+      const pauseSettings = await storeSettingsService.getStorePauseSettings();
+      if (pauseSettings?.isPaused && !pauseSettings?.allowPreorders) {
+        setAlertConfig({
+          type: 'warning',
+          title: pauseSettings.title || 'Store Operations Paused',
+          message: pauseSettings.reason || 'We are temporarily unable to accept new orders at this time. Please check back soon.',
+        });
+        setShowAlert(true);
+        return;
+      }
+    } catch (e) {
+      console.warn('Store pause check error:', e);
     }
 
     setLoading(true);
@@ -469,6 +486,9 @@ export default function CheckoutScreen({ navigation }) {
             bounces={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Store Holiday / Emergency Pause Live Banner */}
+            <StorePauseBanner />
+
             {/* Order Summary Card */}
             <View style={styles.card}>
               <View style={styles.cardHeader}>

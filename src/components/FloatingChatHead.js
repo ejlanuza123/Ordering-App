@@ -32,6 +32,10 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
     })
   ).current;
 
+  // Animation values for smooth transitions
+  const bubbleAnim = useRef(new Animated.Value(1)).current; // 1 = visible full bubble, 0 = collapsed
+  const tabAnim = useRef(new Animated.Value(0)).current;    // 0 = hidden edge tab, 1 = docked edge tab
+
   const bounds = useMemo(
     () => ({
       minX: EDGE_PADDING,
@@ -73,6 +77,56 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
     return () => unsubscribeUnread();
   }, [userId, visible]);
 
+  const animateHide = (targetSide, targetTop) => {
+    setToggleSide(targetSide);
+    setToggleTop(targetTop);
+
+    Animated.parallel([
+      Animated.timing(bubbleAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: false,
+      }),
+      Animated.spring(position, {
+        toValue: {
+          x: targetSide === 'left' ? 0 : screenWidth - CHAT_HEAD_SIZE,
+          y: targetTop,
+        },
+        tension: 110,
+        friction: 10,
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      setIsHidden(true);
+      Animated.spring(tabAnim, {
+        toValue: 1,
+        tension: 130,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const animateShow = () => {
+    Animated.timing(tabAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsHidden(false);
+      const targetX = toggleSide === 'left' ? bounds.minX : bounds.maxX;
+      position.setValue({ x: targetX, y: toggleTop });
+
+      Animated.spring(bubbleAnim, {
+        toValue: 1,
+        tension: 140,
+        friction: 6,
+        useNativeDriver: false,
+      }).start();
+      resetInactivityTimer();
+    });
+  };
+
   const resetInactivityTimer = () => {
     if (isHidden) return;
 
@@ -91,9 +145,7 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
           Math.max(EDGE_PADDING, screenHeight - TOGGLE_TAB_HEIGHT - EDGE_PADDING)
         );
 
-        setToggleSide(targetSide);
-        setToggleTop(targetTop);
-        setIsHidden(true);
+        animateHide(targetSide, targetTop);
       });
     }, INACTIVITY_TIMEOUT_MS);
   };
@@ -154,8 +206,6 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
   }
 
   if (isHidden) {
-    const toggleX = toggleSide === 'left' ? 0 : screenWidth - TOGGLE_TAB_WIDTH;
-
     const toggleTabDynamicStyle =
       toggleSide === 'left'
         ? {
@@ -171,34 +221,41 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
             borderRightWidth: 0,
           };
 
+    const tabSlideTranslateX = tabAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [toggleSide === 'left' ? -TOGGLE_TAB_WIDTH : TOGGLE_TAB_WIDTH, 0],
+    });
+
     return (
-      <TouchableOpacity
+      <Animated.View
         style={[
-          styles.toggleTab,
-          toggleTabDynamicStyle,
+          styles.toggleTabContainer,
           {
             left: toggleSide === 'left' ? 0 : undefined,
             right: toggleSide === 'right' ? 0 : undefined,
             top: toggleTop,
+            transform: [{ translateX: tabSlideTranslateX }, { scale: tabAnim }],
+            opacity: tabAnim,
           },
         ]}
-        onPress={() => {
-          setIsHidden(false);
-          resetInactivityTimer();
-        }}
-        activeOpacity={0.7}
       >
-        <Ionicons
-          name={toggleSide === 'left' ? 'chevron-forward' : 'chevron-back'}
-          size={20}
-          color="#FFFFFF"
-        />
-        {unreadCount > 0 && (
-          <View style={styles.toggleBadge}>
-            <Text style={styles.toggleBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleTab, toggleTabDynamicStyle]}
+          onPress={animateShow}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={toggleSide === 'left' ? 'chevron-forward' : 'chevron-back'}
+            size={20}
+            color="#FFFFFF"
+          />
+          {unreadCount > 0 && (
+            <View style={styles.toggleBadge}>
+              <Text style={styles.toggleBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
     );
   }
 
@@ -207,7 +264,11 @@ export default function FloatingChatHead({ userId, visible = true, onPress }) {
       style={[
         styles.container,
         {
-          transform: position.getTranslateTransform(),
+          transform: [
+            ...position.getTranslateTransform(),
+            { scale: bubbleAnim },
+          ],
+          opacity: bubbleAnim,
         },
       ]}
       {...panResponder.panHandlers}
@@ -264,8 +325,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  toggleTab: {
+  toggleTabContainer: {
     position: 'absolute',
+    zIndex: 999,
+    elevation: 12,
+  },
+  toggleTab: {
     width: TOGGLE_TAB_WIDTH,
     height: TOGGLE_TAB_HEIGHT,
     backgroundColor: '#0033A0',
@@ -277,8 +342,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.22,
     shadowRadius: 8,
-    zIndex: 999,
-    elevation: 11,
   },
   toggleBadge: {
     position: 'absolute',
