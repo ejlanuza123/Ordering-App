@@ -114,19 +114,28 @@ export default function MaintenanceScreenLock({ userRole = 'customer' }) {
 
   // Live countdown timer
   useEffect(() => {
-    if (!isLocked || !settings?.reopenAt) {
+    if (!isLocked || !settings?.reopenAt || typeof settings.reopenAt !== 'string' || !settings.reopenAt.trim()) {
       setTimeLeft('');
       return;
     }
 
     const calculateTime = () => {
       const target = new Date(settings.reopenAt).getTime();
+      if (Number.isNaN(target) || target <= 0) {
+        setTimeLeft('');
+        return;
+      }
+
       const now = Date.now();
       const diff = target - now;
 
       if (diff <= 0) {
-        setTimeLeft('Reopening now...');
-        loadSettings();
+        if (settings.autoReopen !== false) {
+          setTimeLeft('Reopening now...');
+          loadSettings();
+        } else {
+          setTimeLeft('');
+        }
         return;
       }
 
@@ -145,7 +154,7 @@ export default function MaintenanceScreenLock({ userRole = 'customer' }) {
     calculateTime();
     const interval = setInterval(calculateTime, 1000);
     return () => clearInterval(interval);
-  }, [isLocked, settings?.reopenAt]);
+  }, [isLocked, settings?.reopenAt, settings?.autoReopen]);
 
   if (!isLocked) {
     return null;

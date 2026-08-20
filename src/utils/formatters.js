@@ -9,6 +9,14 @@ export const formatCurrency = (amount) => {
 };
 
 export const formatOrderNumber = (orderNumber, orderId) => {
+  const numId = Number(orderId);
+  const hasValidOrderId = Number.isFinite(numId) && numId > 0;
+
+  // If orderNumber is absent, empty, or corrupted like 'ORD-0000' / 'ORD-000000'
+  if (!orderNumber || String(orderNumber).trim() === '' || String(orderNumber).includes('ORD-0000')) {
+    if (hasValidOrderId) return `#${numId}`;
+  }
+
   const rawValue = orderNumber ?? orderId;
   if (rawValue == null || rawValue === '') return '#-';
 
@@ -16,8 +24,15 @@ export const formatOrderNumber = (orderNumber, orderId) => {
   const match = str.match(/(\d+)$/);
 
   if (match) {
-    return `#${parseInt(match[1], 10)}`;
+    const parsed = parseInt(match[1], 10);
+    if (parsed > 0) {
+      return `#${parsed}`;
+    }
+    if (hasValidOrderId) {
+      return `#${numId}`;
+    }
   }
 
+  if (hasValidOrderId) return `#${numId}`;
   return `#${str}`;
 };

@@ -41,6 +41,17 @@ export const storeSettingsService = {
 
       if (error) throw error;
 
+      // If database query returned no rows, fall back to memory/local cache
+      if (!data || data.length === 0) {
+        if (_cachedSettings) return _cachedSettings;
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          _cachedSettings = parsed;
+          return parsed;
+        }
+      }
+
       const map = {};
       (data || []).forEach(row => {
         map[row.key] = row.value;
@@ -54,10 +65,10 @@ export const storeSettingsService = {
       const allowPreorders = map.store_allow_preorders === 'true';
       const autoReopen = map.store_auto_reopen !== 'false';
 
-      // Auto-reopen expiration check
-      if (isPaused && autoReopen && reopenAt) {
+      // Auto-reopen expiration check - only expire if reopenAt is a valid future timestamp that passed
+      if (isPaused && autoReopen && reopenAt && typeof reopenAt === 'string' && reopenAt.trim().length > 0) {
         const reopenTime = new Date(reopenAt).getTime();
-        if (!Number.isNaN(reopenTime) && reopenTime <= Date.now()) {
+        if (!Number.isNaN(reopenTime) && reopenTime > 0 && reopenTime <= Date.now()) {
           isPaused = false;
         }
       }
@@ -78,6 +89,7 @@ export const storeSettingsService = {
     } catch (err) {
       console.warn('Failed to fetch live store pause settings, loading cache:', err);
       try {
+        if (_cachedSettings) return _cachedSettings;
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (cached) {
           const parsed = JSON.parse(cached);
@@ -116,7 +128,10 @@ export const storeSettingsService = {
         .channel('store_operations_realtime_sync')
         .on('broadcast', { event: 'store_pause_changed' }, (payload) => {
           if (payload?.payload) {
-            notifySubscribers(payload.payload);
+            const fresh = payload.payload;
+            _cachedSettings = fresh;
+            AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh)).catch(() => {});
+            notifySubscribers(fresh);
           } else {
             this.getStorePauseSettings().then(notifySubscribers);
           }
