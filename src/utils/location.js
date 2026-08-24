@@ -49,7 +49,7 @@ export const PUERTO_PRINCESA_BARANGAYS = [
   { name: 'Inagawan', aliases: ['inagawan', 'brgy inagawan'], lat: 9.550000, lng: 118.620000 }
 ];
 
-// // Rich verified catalog of landmarks, parks, historical sites, hospitals, universities, fast food, and malls in Puerto Princesa City
+// Rich verified catalog of landmarks, parks, historical sites, hospitals, universities, fast food, and malls in Puerto Princesa City
 export const PUERTO_PRINCESA_LANDMARKS = [
   // 1. Malls & Shopping Hubs
   { 
@@ -101,8 +101,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Fast Food', 
     icon: 'restaurant', 
     barangay: 'San Pedro', 
-    lat: 9.7569611, 
-    lng: 118.7436146 
+    lat: 9.753730185345674, 
+    lng: 118.74785456387198 
   },
   { 
     name: 'Jollibee Rizal', 
@@ -111,8 +111,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Fast Food', 
     icon: 'restaurant', 
     barangay: 'Tagumpay', 
-    lat: 9.739959, 
-    lng: 118.7382802 
+    lat: 9.740021399485999, 
+    lng: 118.74086598152886 
   },
   { 
     name: 'Jollibee Malvar', 
@@ -121,8 +121,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Fast Food', 
     icon: 'restaurant', 
     barangay: 'San Miguel', 
-    lat: 9.7437293, 
-    lng: 118.7368364 
+    lat: 9.742523844423165, 
+    lng: 118.7367720008129 
   },
   { 
     name: 'Jollibee Palawan Drive Thru', 
@@ -131,8 +131,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Fast Food', 
     icon: 'restaurant', 
     barangay: 'San Pedro', 
-    lat: 9.7648376, 
-    lng: 118.7440386 
+    lat: 9.764932750900057, 
+    lng: 118.74667786758137 
   },
 
   // 3. Coliseums & Sports Hubs
@@ -153,8 +153,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Park', 
     icon: 'flower', 
     barangay: 'Santa Monica', 
-    lat: 9.7840625, 
-    lng: 118.7303241 
+    lat: 9.784258202779807, 
+    lng: 118.73487571858728 
   },
 
   // 4. Universities & Higher Education
@@ -165,8 +165,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'University', 
     icon: 'school', 
     barangay: 'Tiniguiban', 
-    lat: 9.7773331, 
-    lng: 118.7312721 
+    lat: 9.777481112300949, 
+    lng: 118.73380407921788 
   },
   { 
     name: 'Western Philippines University (WPU)', 
@@ -175,8 +175,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'University', 
     icon: 'school', 
     barangay: 'Santa Monica', 
-    lat: 9.7842528, 
-    lng: 118.7273844 
+    lat: 9.785296999552756, 
+    lng: 118.72800809456353 
   },
   { 
     name: 'Holy Trinity University (HTU Main)', 
@@ -185,8 +185,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'University', 
     icon: 'school', 
     barangay: 'Maligaya', 
-    lat: 9.7410047, 
-    lng: 118.729397 
+    lat: 9.741520357606452, 
+    lng: 118.73267535223547 
   },
   { 
     name: 'Holy Trinity University (Sta. Monica Campus)', 
@@ -195,8 +195,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'University', 
     icon: 'school', 
     barangay: 'Santa Monica', 
-    lat: 9.7937457, 
-    lng: 118.7340572 
+    lat: 9.793819697645192, 
+    lng: 118.73666428107279 
   },
 
   // 5. Hospitals & Medical Hubs
@@ -207,8 +207,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Hospital', 
     icon: 'medkit', 
     barangay: 'San Miguel', 
-    lat: 9.7478371, 
-    lng: 118.7416775 
+    lat: 9.747932255771385, 
+    lng: 118.74426312339932 
   },
   { 
     name: 'MMG-PPC Cooperative Hospital', 
@@ -239,8 +239,8 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     category: 'Market', 
     icon: 'basket', 
     barangay: 'Maunlad', 
-    lat: 9.7461309, 
-    lng: 118.7202496 
+    lat: 9.746323051427998, 
+    lng: 118.73824423098698 
   },
   { 
     name: 'Old Public Market', 
