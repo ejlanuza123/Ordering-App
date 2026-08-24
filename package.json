@@ -1,6 +1,6 @@
 {
   "name": "petron-san-pedro-app",
-  "version": "1.19.3",
+  "version": "1.19.4",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
