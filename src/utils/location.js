@@ -95,6 +95,16 @@ export const PUERTO_PRINCESA_LANDMARKS = [
 
   // 2. Fast Food & Popular Dining Landmarks
   { 
+    name: 'McDonald\'s Palawan', 
+    address: 'Rizal Ave., Puerto Princesa City',
+    aliases: ['mcdo palawan', 'mcdonalds palawan', 'mcdo rizal', 'mcdonalds rizal', 'mcdo downtown'], 
+    category: 'Fast Food', 
+    icon: 'restaurant', 
+    barangay: 'Tagumpay', 
+    lat: 9.740176132174744, 
+    lng: 118.73940002154445 
+  },
+  { 
     name: 'McDonald\'s Palawan Junction', 
     address: 'National Highway cor. North Road (Junction), San Pedro',
     aliases: ['mcdo junction', 'mcdonalds junction', 'mcdonalds palawan junction', 'mcdo san pedro', 'junction mcdo'], 
