@@ -36,6 +36,10 @@ export default function ProductReviewsScreen({ navigation }) {
   const [editRating, setEditRating] = useState(0);
   const [editComment, setEditComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showThreadModal, setShowThreadModal] = useState(false);
+  const [threadReview, setThreadReview] = useState(null);
+  const [threadReplyText, setThreadReplyText] = useState('');
+  const [submittingThreadReply, setSubmittingThreadReply] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({
     type: 'success',
@@ -103,6 +107,8 @@ export default function ProductReviewsScreen({ navigation }) {
           product_id,
           rating,
           comment,
+          replies,
+          admin_reply,
           created_at,
           products (
             id,
@@ -260,6 +266,56 @@ export default function ProductReviewsScreen({ navigation }) {
     fetchReviews();
   };
 
+  const openThread = (item) => {
+    setThreadReview(item);
+    setShowThreadModal(true);
+    setThreadReplyText('');
+  };
+
+  const submitThreadReply = async () => {
+    if (!threadReplyText.trim() || !threadReview?.id) return;
+    
+    try {
+      setSubmittingThreadReply(true);
+      const newMessage = {
+        sender: 'customer',
+        message: threadReplyText.trim(),
+        created_at: new Date().toISOString()
+      };
+      
+      const updatedReplies = [...(threadReview.replies || []), newMessage];
+      
+      const { error } = await supabase
+        .from('product_reviews')
+        .update({ replies: updatedReplies })
+        .eq('id', threadReview.id);
+        
+      if (error) throw error;
+      
+      // Update local state directly so UI responds instantly
+      setThreadReview({ ...threadReview, replies: updatedReplies });
+      setThreadReplyText('');
+      
+      // Update the review in the main list
+      setReviews(prev => prev.map(r => 
+        r.id === threadReview.id 
+          ? { ...r, replies: updatedReplies } 
+          : r
+      ));
+      
+    } catch (error) {
+      console.error('Error adding reply:', error);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to post reply.'
+      });
+      setShowAlert(true);
+    } finally {
+      setSubmittingThreadReply(false);
+    }
+  };
+
   const renderReviewItem = ({ item }) => (
     <TouchableOpacity
       style={styles.reviewCard}
@@ -323,6 +379,28 @@ export default function ProductReviewsScreen({ navigation }) {
           <Text style={styles.commentPreview} numberOfLines={2}>
             {item.comment}
           </Text>
+        )}
+
+        {/* Admin Reply or Thread */}
+        {item.submitted && (item.admin_reply || (item.replies && item.replies.length > 0)) && (
+          <TouchableOpacity 
+            style={styles.adminReplyContainer}
+            onPress={() => openThread(item)}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={styles.adminReplyLabel}>
+                {item.replies && item.replies.length > 0 
+                  ? `Conversation Thread (${item.replies.length + 1})` 
+                  : 'Official Store Response'}
+              </Text>
+              <Text style={{ fontSize: 10, color: '#0284C7' }}>View / Reply</Text>
+            </View>
+            <Text style={styles.adminReplyText} numberOfLines={2}>
+              {item.replies && item.replies.length > 0 
+                ? item.replies[item.replies.length - 1].message 
+                : item.admin_reply}
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Review Date */}
@@ -530,6 +608,63 @@ export default function ProductReviewsScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Thread Reply Modal */}
+      <Modal
+        visible={showThreadModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowThreadModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { height: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Conversation Thread</Text>
+              <TouchableOpacity onPress={() => setShowThreadModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={24} color="#0033A0" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1, marginVertical: 10 }}>
+              <View style={{ padding: 10, backgroundColor: '#f0f0f0', borderRadius: 8, marginBottom: 10 }}>
+                <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>You</Text>
+                <Text style={{ fontSize: 14 }}>{threadReview?.comment || '(No comment provided)'}</Text>
+              </View>
+
+              {threadReview?.replies?.map((msg, index) => (
+                <View key={index} style={{ padding: 10, backgroundColor: msg.sender === 'admin' ? '#E0F2FE' : '#f0f0f0', borderRadius: 8, marginBottom: 10, alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                  <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>{msg.sender === 'admin' ? 'Official Store' : 'You'}</Text>
+                  <Text style={{ fontSize: 14 }}>{msg.message}</Text>
+                </View>
+              ))}
+
+              {(!threadReview?.replies || threadReview.replies.length === 0) && threadReview?.admin_reply && (
+                <View style={{ padding: 10, backgroundColor: '#E0F2FE', borderRadius: 8, marginBottom: 10, alignSelf: 'flex-end', maxWidth: '85%' }}>
+                  <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>Official Store</Text>
+                  <Text style={{ fontSize: 14 }}>{threadReview.admin_reply}</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+              <TextInput
+                style={{ flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, maxHeight: 100 }}
+                placeholder="Reply to store..."
+                value={threadReplyText}
+                onChangeText={setThreadReplyText}
+                multiline
+              />
+              <TouchableOpacity 
+                style={{ marginLeft: 10, backgroundColor: '#0033A0', padding: 12, borderRadius: 25 }}
+                onPress={submitThreadReply}
+                disabled={submittingThreadReply || !threadReplyText.trim()}
+              >
+                {submittingThreadReply ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Alert Modal */}
       <CustomAlertModal
         visible={showAlert}
@@ -694,6 +829,26 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 16,
     marginBottom: 4,
+  },
+  adminReplyContainer: {
+    backgroundColor: '#F0F9FF',
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  adminReplyLabel: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#0284C7',
+    marginBottom: 2,
+  },
+  adminReplyText: {
+    fontSize: 12,
+    color: '#0F172A',
+    lineHeight: 16,
   },
   reviewDate: {
     fontSize: 10,
