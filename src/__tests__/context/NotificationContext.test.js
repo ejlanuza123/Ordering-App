@@ -1,4 +1,3 @@
-// src/__tests__/context/NotificationContext.test.js
 import React from 'react';
 import { render, waitFor, act } from '@testing-library/react-native';
 import { AppState } from 'react-native';
@@ -18,6 +17,12 @@ jest.mock('../../lib/supabase', () => ({
   supabase: {
     from: (...args) => mockFrom(...args),
     channel: (...args) => mockChannel(...args),
+  },
+}));
+
+jest.mock('../../services/mobileNotificationService', () => ({
+  mobileNotificationService: {
+    sendLocalNotification: jest.fn().mockResolvedValue({ success: true }),
   },
 }));
 

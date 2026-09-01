@@ -401,6 +401,16 @@ export const PUERTO_PRINCESA_LANDMARKS = [
     barangay: 'San Pedro', 
     lat: 9.753500, 
     lng: 118.747900 
+  },
+  { 
+    name: 'Special Battalion WWII Memorial Museum', 
+    address: 'Rizal Avenue Extension, Bancao-Bancao',
+    aliases: ['wwii museum', 'world war 2 museum', 'memorial museum'], 
+    category: 'Museum', 
+    icon: 'museum', 
+    barangay: 'Model', 
+    lat: 9.739040, 
+    lng: 118.736550 
   }
 ];
 

@@ -893,7 +893,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   const count = reorderItems(item.order_items);
                   setAlertConfig({
                     type: 'success',
-                    title: 'Added to Cart! ⚡',
+                    title: 'Added to Cart!',
                     message: `Re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
                   });
                   setShowAlert(true);
@@ -1033,14 +1033,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   setOrderDetailsModal(false);
                   setAlertConfig({
                     type: 'success',
-                    title: 'Added to Cart! ⚡',
+                    title: 'Added to Cart!',
                     message: `Successfully re-added ${count} ${count === 1 ? 'item' : 'items'} to your cart.`
                   });
                   setShowAlert(true);
                 }}
               >
-                <Ionicons name="flash" size={20} color="#fff" />
-                <Text style={styles.cancelButtonFullText}>⚡ Re-Order Items in 1-Tap</Text>
+                <Ionicons name="refresh" size={20} color="#fff" />
+                <Text style={styles.cancelButtonFullText}>Re-Order Items</Text>
               </TouchableOpacity>
             )}
 
