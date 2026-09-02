@@ -337,7 +337,7 @@ describe('offlineStorageService', () => {
 
     const result = await offlineStorageService.processSyncQueue();
 
-    expect(result).toEqual({ success: true, processed: 2, pending: 2 });
+    expect(result).toEqual({ success: true, processed: 0, pending: 2 });
     expect(AsyncStorage.setItem).toHaveBeenCalledWith(
       'sync_queue',
       expect.stringContaining('q-invalid-bundle')
@@ -424,5 +424,69 @@ describe('offlineStorageService', () => {
     offlineStorageService.getData.mockResolvedValue({ data: { PRODUCTS: 333 } });
     const lastSync = await offlineStorageService.getLastSync('PRODUCTS');
     expect(lastSync).toBe(333);
+  });
+
+  it('moves operation to dead letter queue when max retries exceeded', async () => {
+    AsyncStorage.getItem.mockImplementation((key) => {
+      if (key === 'sync_queue') {
+        return Promise.resolve(
+          JSON.stringify([
+            {
+              queueId: 'q-fatal',
+              type: 'update',
+              table: 'orders',
+              recordId: 'o-fatal',
+              retryCount: 4,
+              maxRetries: 5,
+              data: { status: 'Completed' },
+            },
+          ])
+        );
+      }
+      return Promise.resolve('[]');
+    });
+
+    const eq = jest.fn().mockResolvedValue({ error: new Error('unrecoverable schema error') });
+    const update = jest.fn().mockReturnValue({ eq });
+    mockFrom.mockReturnValue({ update });
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 0, pending: 0 });
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+      'dead_letter_queue',
+      expect.stringContaining('q-fatal')
+    );
+  });
+
+  it('skips operations that are still within backoff cool-down window', async () => {
+    Date.now.mockReturnValue(5000);
+
+    AsyncStorage.getItem.mockImplementation((key) => {
+      if (key === 'sync_queue') {
+        return Promise.resolve(
+          JSON.stringify([
+            {
+              queueId: 'q-backoff',
+              type: 'update',
+              table: 'orders',
+              recordId: 'o-1',
+              retryCount: 2,
+              lastAttemptTimestamp: 4000, // Attempted 1000ms ago, backoff for retry 2 is 4000ms
+              data: { status: 'Completed' },
+            },
+          ])
+        );
+      }
+      return Promise.resolve('[]');
+    });
+
+    const update = jest.fn();
+    mockFrom.mockReturnValue({ update });
+
+    const result = await offlineStorageService.processSyncQueue();
+
+    expect(result).toEqual({ success: true, processed: 0, pending: 1 });
+    expect(update).not.toHaveBeenCalled();
   });
 });

@@ -43,7 +43,7 @@ describe('orderService', () => {
       orderItems: [{ product_id: 'p-1', quantity: 1, price_at_order: 100 }],
     });
 
-    expect(result).toEqual({ success: true, queued: true, queueId: 'q-1' });
+    expect(result).toEqual({ success: true, queued: true, queueId: 'q-1', idempotencyKey: null });
     expect(mockQueueOperation).toHaveBeenCalledWith({
       type: 'create_order_bundle',
       table: 'orders',
@@ -271,5 +271,41 @@ describe('orderService', () => {
 
     expect(result).toEqual({ success: true, queued: true });
     expect(mockQueueOperation).toHaveBeenCalled();
+  });
+
+  it('recovers existing order when idempotencyKey matches already created order', async () => {
+    mockGetStatus.mockResolvedValue({ isOnline: true });
+
+    const existingOrder = { id: 'order-existing', user_id: 'u-1', total_amount: 100, idempotency_key: 'idem-1' };
+    const mockMaybeSingle = jest.fn().mockResolvedValue({ data: existingOrder, error: null });
+    const mockEq2 = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+    const mockEq1 = jest.fn().mockReturnValue({ eq: mockEq2 });
+    const mockSelectExisting = jest.fn().mockReturnValue({ eq: mockEq1 });
+    const mockSelectItems = jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ data: [{ id: 'item-1' }], error: null }),
+    });
+
+    mockFrom.mockImplementation((table) => {
+      if (table === 'orders') {
+        return { select: mockSelectExisting };
+      }
+      return { select: mockSelectItems };
+    });
+
+    const { orderService } = require('../../services/orderService');
+
+    const result = await orderService.createOrderWithItems({
+      userId: 'u-1',
+      orderInsert: { user_id: 'u-1', total_amount: 100 },
+      orderItems: [{ product_id: 'p-1', quantity: 1, price_at_order: 100 }],
+      idempotencyKey: 'idem-1',
+    });
+
+    expect(result).toEqual({
+      success: true,
+      queued: false,
+      order: existingOrder,
+      deduplicated: true,
+    });
   });
 });

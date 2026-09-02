@@ -1,5 +1,5 @@
 //src/screens/customer/CheckoutScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -30,6 +30,7 @@ export default function CheckoutScreen({ navigation }) {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const checkoutKeyRef = useRef(null);
   
   const [address, setAddress] = useState('');
   const [addressLat, setAddressLat] = useState(null);
@@ -258,6 +259,11 @@ export default function CheckoutScreen({ navigation }) {
     setLoading(true);
 
     try {
+      if (!checkoutKeyRef.current) {
+        checkoutKeyRef.current = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      }
+      const currentIdempotencyKey = checkoutKeyRef.current;
+
       const orderInsert = {
             user_id: user.id,
             total_amount: grandTotal,
@@ -265,7 +271,8 @@ export default function CheckoutScreen({ navigation }) {
             payment_method: paymentMethod,
             special_instructions: specialInstructions.trim() || null,
             status: 'Pending',
-            delivery_fee: deliveryFee // Save delivery fee to database
+            delivery_fee: deliveryFee, // Save delivery fee to database
+            idempotency_key: currentIdempotencyKey
       };
       if (addressLat != null && addressLng != null) {
         orderInsert.delivery_lat = addressLat;
@@ -283,10 +290,12 @@ export default function CheckoutScreen({ navigation }) {
         userId: user.id,
         orderInsert,
         orderItems: orderItemsData,
+        idempotencyKey: currentIdempotencyKey,
       });
 
-      // Clear cart first
+      // Clear cart and reset checkout transaction key
       clearCart();
+      checkoutKeyRef.current = null;
 
       if (orderResult.queued) {
         setAlertConfig({

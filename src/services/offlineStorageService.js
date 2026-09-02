@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   PROFILES: 'cached_profiles',
   CART: 'cart_items',
   SYNC_QUEUE: 'sync_queue',
+  DEAD_LETTER_QUEUE: 'dead_letter_queue',
   LAST_SYNC: 'last_sync'
 };
 
@@ -85,7 +86,10 @@ export const offlineStorageService = {
         ...operation,
         queueId,
         recordId,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        retryCount: operation.retryCount ?? 0,
+        lastAttemptTimestamp: operation.lastAttemptTimestamp ?? null,
+        maxRetries: operation.maxRetries ?? 5
       });
       await AsyncStorage.setItem(
         STORAGE_KEYS.SYNC_QUEUE,
@@ -149,24 +153,72 @@ export const offlineStorageService = {
   },
 
   /**
-   * Process queued operations when back online
+   * Get dead-letter operations that exceeded max retries
+   */
+  async getDeadLetterQueue() {
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error('Error getting dead letter queue:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Clear dead letter queue
+   */
+  async clearDeadLetterQueue() {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      return { success: true };
+    } catch (error) {
+      console.error('Error clearing dead letter queue:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Process queued operations when back online with exponential backoff & dead-letter isolation
    */
   async processSyncQueue() {
     try {
       const queue = await this.getSyncQueue();
       const results = [];
+      const updatedQueue = [];
+      const newDeadLetters = [];
+      const now = Date.now();
 
       for (const operation of queue) {
+        const queueId = operation.queueId ?? operation.id;
+        const recordId = operation.recordId ?? operation.targetId ?? operation.data?.id ?? operation.id;
+        const retryCount = typeof operation.retryCount === 'number' ? operation.retryCount : 0;
+        const maxRetries = typeof operation.maxRetries === 'number' ? operation.maxRetries : 5;
+        const lastAttempt = operation.lastAttemptTimestamp ? Number(operation.lastAttemptTimestamp) : null;
+        
+        // Calculate exponential backoff delay: 1s, 2s, 4s, 8s, 16s... up to 30s
+        const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 30000);
+
+        // If still in backoff cool-down period, keep in queue and skip execution for this run
+        if (lastAttempt && (now - lastAttempt) < backoffMs) {
+          updatedQueue.push(operation);
+          continue;
+        }
+
+        let opSuccess = false;
+        let opError = null;
+
         try {
-          let result;
-          const queueId = operation.queueId ?? operation.id;
-          const recordId = operation.recordId ?? operation.targetId ?? operation.data?.id ?? operation.id;
+          let result = null;
 
           switch (operation.type) {
             case 'create_order':
               result = await supabase
                 .from(operation.table)
                 .insert([operation.data]);
+              if (result.error) throw result.error;
+              opSuccess = true;
               break;
 
             case 'create_order_bundle': {
@@ -174,43 +226,88 @@ export const offlineStorageService = {
               const itemsPayload = operation?.data?.items;
 
               if (!orderPayload || !Array.isArray(itemsPayload)) {
-                results.push({ queueId, success: false, error: 'Invalid order bundle payload' });
-                continue;
+                throw new Error('Invalid order bundle payload');
               }
 
-              const { data: orderData, error: orderError } = await supabase
-                .from('orders')
-                .insert([orderPayload])
-                .select('id')
-                .single();
+              let orderData = null;
 
-              if (orderError) {
-                results.push({ queueId, success: false, error: orderError.message });
-                continue;
+              // Check if order was already created with this idempotency key
+              if (orderPayload.idempotency_key) {
+                const { data: existingOrder } = await supabase
+                  .from('orders')
+                  .select('id, order_number')
+                  .eq('idempotency_key', orderPayload.idempotency_key)
+                  .maybeSingle();
+
+                if (existingOrder) {
+                  orderData = existingOrder;
+                }
               }
 
-              const orderItems = itemsPayload.map((item) => ({
-                ...item,
-                order_id: orderData.id,
-              }));
+              if (!orderData) {
+                const { data: insertedOrder, error: orderError } = await supabase
+                  .from('orders')
+                  .insert([orderPayload])
+                  .select('id')
+                  .single();
 
-              const { error: itemsError } = await supabase
-                .from('order_items')
-                .insert(orderItems);
+                if (orderError) {
+                  // Handle unique key constraint if created concurrently
+                  if (orderPayload.idempotency_key && (orderError.code === '23505' || orderError.message?.includes('duplicate key') || orderError.message?.includes('idempotency'))) {
+                    const { data: recoveredOrder } = await supabase
+                      .from('orders')
+                      .select('id, order_number')
+                      .eq('idempotency_key', orderPayload.idempotency_key)
+                      .maybeSingle();
+                    if (recoveredOrder) {
+                      orderData = recoveredOrder;
+                    }
+                  }
 
-              if (itemsError) {
-                results.push({ queueId, success: false, error: itemsError.message });
-                continue;
+                  if (!orderData) throw orderError;
+                } else {
+                  orderData = insertedOrder;
+                }
               }
 
-              results.push({ queueId, success: true });
-              continue;
+              if (orderPayload.idempotency_key) {
+                const { data: existingItems } = await supabase
+                  .from('order_items')
+                  .select('id')
+                  .eq('order_id', orderData.id);
+
+                if (!existingItems || existingItems.length === 0) {
+                  const orderItems = itemsPayload.map((item) => ({
+                    ...item,
+                    order_id: orderData.id,
+                  }));
+
+                  const { error: itemsError } = await supabase
+                    .from('order_items')
+                    .insert(orderItems);
+
+                  if (itemsError) throw itemsError;
+                }
+              } else {
+                const orderItems = itemsPayload.map((item) => ({
+                  ...item,
+                  order_id: orderData.id,
+                }));
+
+                const { error: itemsError } = await supabase
+                  .from('order_items')
+                  .insert(orderItems);
+
+                if (itemsError) throw itemsError;
+              }
+
+              opSuccess = true;
+              break;
             }
 
             case 'update':
               if (!recordId) {
-                results.push({ queueId, success: false, error: 'Missing recordId for update operation' });
-                continue;
+                throw new Error('Missing recordId for update operation');
               }
               {
                 const match = operation.match || { id: recordId };
@@ -223,13 +320,14 @@ export const offlineStorageService = {
                 });
 
                 result = await query;
+                if (result.error) throw result.error;
+                opSuccess = true;
               }
               break;
 
             case 'delete':
               if (!recordId) {
-                results.push({ queueId, success: false, error: 'Missing recordId for delete operation' });
-                continue;
+                throw new Error('Missing recordId for delete operation');
               }
               {
                 const match = operation.match || { id: recordId };
@@ -242,41 +340,65 @@ export const offlineStorageService = {
                 });
 
                 result = await query;
+                if (result.error) throw result.error;
+                opSuccess = true;
               }
               break;
 
             default:
-              continue;
+              console.warn('Unknown operation type:', operation.type);
+              throw new Error(`Unknown operation type: ${operation.type}`);
           }
+        } catch (err) {
+          opError = err?.message || 'Unknown sync error';
+          console.error(`Failed to sync operation ${queueId}:`, opError);
+        }
 
-          if (result.error) {
-            console.error(`Failed to sync operation ${queueId}:`, result.error);
+        if (opSuccess) {
+          results.push({ queueId, success: true });
+        } else {
+          const nextRetry = retryCount + 1;
+          if (nextRetry >= maxRetries) {
+            console.warn(`Sync operation ${queueId} exceeded max retries (${maxRetries}), moving to dead-letter queue.`);
+            newDeadLetters.push({
+              ...operation,
+              failedAt: Date.now(),
+              error: opError
+            });
           } else {
-            results.push({ queueId, success: true });
+            updatedQueue.push({
+              ...operation,
+              retryCount: nextRetry,
+              lastAttemptTimestamp: Date.now(),
+              lastError: opError
+            });
           }
-        } catch (error) {
-          console.error(`Error processing operation ${operation.queueId ?? operation.id}:`, error);
         }
       }
 
-      // Remove processed operations
-      const unprocessed = queue.filter(
-        op => !results.find(r => r.queueId === (op.queueId ?? op.id) && r.success)
-      );
+      // Persist dead letters if any failed permanently
+      if (newDeadLetters.length > 0) {
+        const existingDead = await this.getDeadLetterQueue();
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.DEAD_LETTER_QUEUE,
+          JSON.stringify([...existingDead, ...newDeadLetters])
+        );
+      }
 
-      if (unprocessed.length === 0) {
+      // Update sync queue with remaining unprocessed items
+      if (updatedQueue.length === 0) {
         await AsyncStorage.removeItem(STORAGE_KEYS.SYNC_QUEUE);
       } else {
         await AsyncStorage.setItem(
           STORAGE_KEYS.SYNC_QUEUE,
-          JSON.stringify(unprocessed)
+          JSON.stringify(updatedQueue)
         );
       }
 
       return {
         success: true,
         processed: results.length,
-        pending: unprocessed.length
+        pending: updatedQueue.length
       };
     } catch (error) {
       console.error('Error processing sync queue:', error);

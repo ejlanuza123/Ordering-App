@@ -16,7 +16,14 @@ export const orderService = {
     userId,
     orderInsert,
     orderItems,
+    idempotencyKey,
   }) {
+    const finalIdempotencyKey = idempotencyKey || orderInsert?.idempotency_key || null;
+    const finalOrderInsert = {
+      ...orderInsert,
+      ...(finalIdempotencyKey ? { idempotency_key: finalIdempotencyKey } : {}),
+    };
+
     const isOnline = await getOnlineState();
 
     if (!isOnline) {
@@ -25,7 +32,7 @@ export const orderService = {
         table: 'orders',
         data: {
           userId,
-          order: orderInsert,
+          order: finalOrderInsert,
           items: orderItems,
         },
       });
@@ -38,14 +45,72 @@ export const orderService = {
         success: true,
         queued: true,
         queueId: queueResult.queueId || null,
+        idempotencyKey: finalIdempotencyKey,
       };
     }
 
-    const { data: orderData, error: orderError } = await supabase
+    // Check if an order with this idempotency key was already created (e.g. from network timeout retry)
+    if (finalIdempotencyKey) {
+      try {
+        const { data: existingOrder } = await supabase
+          .from('orders')
+          .select()
+          .eq('user_id', userId)
+          .eq('idempotency_key', finalIdempotencyKey)
+          .maybeSingle();
+
+        if (existingOrder) {
+          const { data: existingItems } = await supabase
+            .from('order_items')
+            .select('id')
+            .eq('order_id', existingOrder.id);
+
+          if (!existingItems || existingItems.length === 0) {
+            const itemsWithOrderId = orderItems.map((item) => ({
+              ...item,
+              order_id: existingOrder.id,
+            }));
+            await supabase.from('order_items').insert(itemsWithOrderId);
+          }
+
+          return {
+            success: true,
+            queued: false,
+            order: existingOrder,
+            deduplicated: true,
+          };
+        }
+      } catch (checkErr) {
+        console.warn('Idempotency check warning:', checkErr?.message);
+      }
+    }
+
+    let orderData = null;
+    let orderError = null;
+
+    const insertResult = await supabase
       .from('orders')
-      .insert([orderInsert])
+      .insert([finalOrderInsert])
       .select()
       .single();
+
+    orderData = insertResult?.data;
+    orderError = insertResult?.error;
+
+    // Handle race condition where idempotency unique constraint was triggered
+    if (orderError && finalIdempotencyKey && (orderError.code === '23505' || orderError.message?.includes('duplicate key') || orderError.message?.includes('idempotency'))) {
+      const { data: recoveredOrder } = await supabase
+        .from('orders')
+        .select()
+        .eq('user_id', userId)
+        .eq('idempotency_key', finalIdempotencyKey)
+        .maybeSingle();
+
+      if (recoveredOrder) {
+        orderData = recoveredOrder;
+        orderError = null;
+      }
+    }
 
     if (orderError) throw orderError;
 
