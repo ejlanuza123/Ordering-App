@@ -14,7 +14,8 @@ import {
   Dimensions,
   Platform,
   Linking,
-  TextInput
+  TextInput,
+  BackHandler
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -89,6 +90,28 @@ export default function OrderHistoryScreen({ navigation, route }) {
   ];
 
   const isArchivedView = selectedFilter === 'archived';
+
+  const handleBackPress = () => {
+    if (isArchivedView) {
+      setSelectedFilter('all');
+      return true;
+    }
+    navigation.goBack();
+    return false;
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isArchivedView) {
+        setSelectedFilter('all');
+        return true;
+      }
+      return false;
+    };
+
+    const backHandlerSubscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandlerSubscription.remove();
+  }, [isArchivedView]);
 
   // helper removes leading zeros after prefix (e.g. ORD-000010 -> ORD-10)
   const formatOrderNumber = (num) => {
@@ -1272,9 +1295,10 @@ export default function OrderHistoryScreen({ navigation, route }) {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity 
-            onPress={() => navigation.goBack()}
+            onPress={handleBackPress}
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel={isArchivedView ? "Back to Orders" : "Go Back"}
           >
             <Ionicons name="arrow-back" size={24} color="#0033A0" />
           </TouchableOpacity>
@@ -1289,13 +1313,13 @@ export default function OrderHistoryScreen({ navigation, route }) {
             onPress={() => setSelectedFilter(isArchivedView ? 'all' : 'archived')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
+            accessibilityLabel={isArchivedView ? "View All Orders" : "View Archived Orders"}
           >
             <Ionicons
-              name={isArchivedView ? 'list' : 'archive'}
+              name={isArchivedView ? 'receipt-outline' : 'archive-outline'}
               size={22}
               color={isArchivedView ? '#fff' : '#0033A0'}
             />
-            {isArchivedView && <Text style={styles.archiveHeaderLabel}>ARCHIVED</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -1353,22 +1377,34 @@ export default function OrderHistoryScreen({ navigation, route }) {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="receipt-outline" size={80} color="#ccc" />
+              <Ionicons 
+                name={isArchivedView ? "archive-outline" : "receipt-outline"} 
+                size={80} 
+                color="#ccc" 
+              />
               <Text style={styles.emptyTitle}>
-                {selectedFilter === 'all' ? 'No orders yet' : `No ${selectedFilter} orders`}
+                {isArchivedView 
+                  ? 'No archived orders' 
+                  : selectedFilter === 'all' 
+                    ? 'No orders yet' 
+                    : `No ${selectedFilter} orders`}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {selectedFilter === 'all' 
-                  ? 'Place your first order to see it here!' 
-                  : `You don't have any ${selectedFilter} orders`
+                {isArchivedView
+                  ? 'Orders you archive will appear here.'
+                  : selectedFilter === 'all' 
+                    ? 'Place your first order to see it here!' 
+                    : `You don't have any ${selectedFilter} orders`
                 }
               </Text>
               <TouchableOpacity 
                 style={styles.orderNowButton}
-                onPress={() => navigation.navigate('Selection')}
+                onPress={() => isArchivedView ? setSelectedFilter('all') : navigation.navigate('Selection')}
                 activeOpacity={0.8}
               >
-                <Text style={styles.orderNowText}>Order Now</Text>
+                <Text style={styles.orderNowText}>
+                  {isArchivedView ? 'Back to Orders' : 'Order Now'}
+                </Text>
               </TouchableOpacity>
             </View>
           }
