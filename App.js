@@ -15,6 +15,7 @@ import { RiderRatingProvider } from './src/context/RiderRatingContext';
 import { networkStateService } from './src/services/networkStateService';
 import { setupGlobalErrorHandlers } from './src/services/errorHandlerService';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import OfflineBanner from './src/components/OfflineBanner';
 
 function AppContent() {
   // Initialize error handling and network monitoring on app launch
@@ -37,6 +38,7 @@ function AppContent() {
                     <ReviewProvider>
                       <RiderRatingProvider>
                         <AppNavigator />
+                        <OfflineBanner />
                       </RiderRatingProvider>
                     </ReviewProvider>
                   </DeliveryProofProvider>

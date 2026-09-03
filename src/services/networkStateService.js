@@ -10,8 +10,39 @@ let unsubscribeNetInfo = null;
 let isCurrentlyOnline = null;
 let offlineStartedAt = null;
 let syncInProgress = false;
+const listeners = new Set();
+
+function notifyListeners(payload) {
+  listeners.forEach((listener) => {
+    try {
+      listener(payload);
+    } catch (err) {
+      console.error('[NetworkState] Listener error:', err);
+    }
+  });
+}
 
 export const networkStateService = {
+  /**
+   * Subscribe to network state changes
+   * @param {Function} listener Callback receiving ({ isOnline, wasOffline, initial })
+   * @returns {Function} Unsubscribe function
+   */
+  subscribe(listener) {
+    if (typeof listener !== 'function') return () => {};
+    listeners.add(listener);
+    if (isCurrentlyOnline !== null) {
+      try {
+        listener({ isOnline: isCurrentlyOnline, wasOffline: false, initial: true });
+      } catch (err) {
+        console.error('[NetworkState] Subscriber initial callback error:', err);
+      }
+    }
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
   /**
    * Start monitoring network state
    * Automatically processes sync queue when transitioning from offline → online
@@ -26,6 +57,7 @@ export const networkStateService = {
       // Get initial state
       const initialState = await NetInfo.fetch();
       isCurrentlyOnline = initialState.isConnected;
+      notifyListeners({ isOnline: isCurrentlyOnline, wasOffline: false, initial: true });
 
       const queueHealth = await offlineStorageService.getSyncQueueHealth();
       if (queueHealth.success && queueHealth.isStuck) {
@@ -61,6 +93,7 @@ export const networkStateService = {
         }
 
         isCurrentlyOnline = isNowOnline;
+        notifyListeners({ isOnline: isNowOnline, wasOffline });
       });
 
       console.log('[NetworkState] Monitoring started');

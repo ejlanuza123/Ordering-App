@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { locationTrackingService } from '../../services/locationTrackingService';
+import { networkStateService } from '../../services/networkStateService';
 import { chatService } from '../../services/chatService';
 import { useAuth } from '../../context/AuthContext';
 import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
@@ -551,6 +552,26 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
       unsubscribe?.();
     };
   }, [activeRiderId, sendRiderToMap, updateEtaAndRoute]);
+
+  useEffect(() => {
+    const unsubscribe = networkStateService.subscribe(({ isOnline, wasOffline }) => {
+      if (isOnline && wasOffline) {
+        fetchLiveOrderData();
+        if (activeRiderId) {
+          locationTrackingService.getRiderLocation(activeRiderId).then((loc) => {
+            if (loc?.latitude && loc?.longitude) {
+              setRiderLocation({ lat: loc.latitude, lng: loc.longitude });
+              setIsOnline(!!loc.isOnline);
+              setLastSeen(loc.lastSeen || null);
+              sendRiderToMap(loc.latitude, loc.longitude, false);
+            }
+          }).catch((e) => console.warn('Failed to refresh rider location on reconnect:', e));
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [fetchLiveOrderData, activeRiderId, sendRiderToMap]);
 
   const { user } = useAuth();
   const [openingChat, setOpeningChat] = useState(false);

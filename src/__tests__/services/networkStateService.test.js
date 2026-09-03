@@ -196,4 +196,38 @@ describe('networkStateService', () => {
     logSpy.mockRestore();
     Date.now.mockRestore();
   });
+
+  it('notifies subscribers on network state changes and handles unsubscribe', async () => {
+    mockFetch.mockResolvedValue({ isConnected: true });
+    mockGetSyncQueueHealth.mockResolvedValue({ success: true, isStuck: false, pendingCount: 0, oldestAgeMs: 0 });
+
+    let netInfoCallback;
+    mockAddEventListener.mockImplementation((cb) => {
+      netInfoCallback = cb;
+      return jest.fn();
+    });
+
+    const { networkStateService } = require('../../services/networkStateService');
+
+    const listener = jest.fn();
+    const unsub = networkStateService.subscribe(listener);
+
+    await networkStateService.startMonitoring();
+    expect(listener).toHaveBeenCalledWith({ isOnline: true, wasOffline: false, initial: true });
+
+    // Transition offline
+    await netInfoCallback({ isConnected: false });
+    expect(listener).toHaveBeenCalledWith({ isOnline: false, wasOffline: false });
+
+    // Transition online
+    await netInfoCallback({ isConnected: true });
+    expect(listener).toHaveBeenCalledWith({ isOnline: true, wasOffline: true });
+
+    // Unsubscribe
+    unsub();
+    await netInfoCallback({ isConnected: false });
+    expect(listener).toHaveBeenCalledTimes(3);
+
+    networkStateService.stopMonitoring();
+  });
 });
