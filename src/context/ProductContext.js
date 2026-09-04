@@ -1,9 +1,9 @@
 // mobile-app/src/context/ProductContext.js
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { AppState } from 'react-native';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { AppState, Alert } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { Alert } from 'react-native';
+import { offlineStorageService } from '../services/offlineStorageService';
 
 const ProductContext = createContext(null);
 
@@ -14,6 +14,32 @@ export const ProductProvider = ({ children }) => {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [hasRealtimeUpdates, setHasRealtimeUpdates] = useState(false);
+  const [isOfflineCatalog, setIsOfflineCatalog] = useState(false);
+
+  // Keep ref to latest products for synchronous fallback
+  const productsRef = useRef([]);
+  productsRef.current = products;
+
+  // Hydrate from local cache immediately on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const cached = await offlineStorageService.getData('PRODUCTS');
+        if (isMounted && cached?.success && Array.isArray(cached.data) && cached.data.length > 0) {
+          setProducts(cached.data);
+          setIsOfflineCatalog(true);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.warn('Failed to hydrate products from cache:', e?.message || e);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Fetch all products
   const fetchProducts = useCallback(async () => {
@@ -21,7 +47,9 @@ export const ProductProvider = ({ children }) => {
     const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('fetch timeout')), timeoutMs));
 
     try {
-      setLoading(true);
+      if (productsRef.current.length === 0) {
+        setLoading(true);
+      }
       const fetchPromise = supabase
         .from('products')
         .select('*')
@@ -31,18 +59,29 @@ export const ProductProvider = ({ children }) => {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
       if (error) throw error;
-      setProducts(data || []);
-      setLastUpdated(new Date());
+      if (data) {
+        setProducts(data);
+        setIsOfflineCatalog(false);
+        setLastUpdated(new Date());
+        await offlineStorageService.saveData('PRODUCTS', data, 60 * 24 * 30);
+      }
     } catch (error) {
-      console.error('Error fetching products:', error.message);
-      Alert.alert('Error', 'Failed to load products');
+      console.warn('Error fetching products from network:', error.message);
+      // Fallback to offline storage
+      const cached = await offlineStorageService.getData('PRODUCTS');
+      if (cached?.success && Array.isArray(cached.data) && cached.data.length > 0) {
+        setProducts(cached.data);
+        setIsOfflineCatalog(true);
+      } else if (productsRef.current.length === 0) {
+        Alert.alert('Error', 'Failed to load products');
+      }
     } finally {
       setLoading(false);
       setHasRealtimeUpdates(false);
     }
   }, []);
 
-  // Fetch single product by ID
+  // Fetch single product by ID with offline fallback
   const getProductById = useCallback(async (productId) => {
     try {
       const { data, error } = await supabase
@@ -54,28 +93,45 @@ export const ProductProvider = ({ children }) => {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error fetching product:', error.message);
+      console.warn('Network product lookup failed, checking local cache:', error.message);
+      const local = productsRef.current.find(p => p.id === productId);
+      if (local) return local;
+
+      const cached = await offlineStorageService.getData('PRODUCTS');
+      if (cached?.success && Array.isArray(cached.data)) {
+        return cached.data.find(p => p.id === productId) || null;
+      }
       return null;
     }
   }, []);
 
   // Update local product state
   const updateProductInState = useCallback((updatedProduct) => {
-    setProducts(prevProducts => 
-      prevProducts.map(p => 
+    setProducts(prevProducts => {
+      const updated = prevProducts.map(p => 
         p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p
-      )
-    );
+      );
+      offlineStorageService.saveData('PRODUCTS', updated, 60 * 24 * 30).catch(() => {});
+      return updated;
+    });
   }, []);
 
   // Add new product to state
   const addProductToState = useCallback((newProduct) => {
-    setProducts(prev => [newProduct, ...prev]);
+    setProducts(prev => {
+      const updated = [newProduct, ...prev];
+      offlineStorageService.saveData('PRODUCTS', updated, 60 * 24 * 30).catch(() => {});
+      return updated;
+    });
   }, []);
 
   // Remove product from state
   const removeProductFromState = useCallback((productId) => {
-    setProducts(prev => prev.filter(p => p.id !== productId));
+    setProducts(prev => {
+      const updated = prev.filter(p => p.id !== productId);
+      offlineStorageService.saveData('PRODUCTS', updated, 60 * 24 * 30).catch(() => {});
+      return updated;
+    });
   }, []);
 
   // Check if product is low stock
@@ -164,6 +220,7 @@ export const ProductProvider = ({ children }) => {
     loading,
     lastUpdated,
     hasRealtimeUpdates,
+    isOfflineCatalog,
     fetchProducts,
     getProductById,
     getProductsByCategory,

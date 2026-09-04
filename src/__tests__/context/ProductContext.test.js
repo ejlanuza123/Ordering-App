@@ -18,6 +18,15 @@ jest.mock('../../context/AuthContext', () => ({
   useAuth: () => authState,
 }));
 
+const mockOfflineStorage = {
+  getData: jest.fn().mockResolvedValue({ success: false, data: null }),
+  saveData: jest.fn().mockResolvedValue({ success: true }),
+};
+
+jest.mock('../../services/offlineStorageService', () => ({
+  offlineStorageService: mockOfflineStorage,
+}));
+
 jest.mock('../../lib/supabase', () => ({
   supabase: {
     from: (...args) => mockFrom(...args),
@@ -36,6 +45,8 @@ const Probe = ({ useProducts }) => {
 describe('ProductContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOfflineStorage.getData.mockResolvedValue({ success: false, data: null });
+    mockOfflineStorage.saveData.mockResolvedValue({ success: true });
     authState.user = { id: 'u-1' };
     realtimeCallback = undefined;
 
@@ -245,6 +256,66 @@ describe('ProductContext', () => {
     expect(ctxRef.current.products).toEqual([]);
 
     alertSpy.mockRestore();
+  });
+
+  it('hydrates products from offline storage cache when initial network call fails and does not show alert', async () => {
+    const { Alert } = require('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    mockOfflineStorage.getData.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          id: 'cached-1',
+          name: 'Cached Diesel',
+          category: 'Fuel',
+          stock_quantity: 15,
+          low_stock_threshold: 10,
+          is_active: true,
+        },
+      ],
+    });
+    mockOrder.mockResolvedValue({ data: null, error: new Error('network down') });
+
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+      expect(ctxRef.current.products).toHaveLength(1);
+    });
+
+    expect(ctxRef.current.products[0].name).toBe('Cached Diesel');
+    expect(ctxRef.current.isOfflineCatalog).toBe(true);
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
+  it('saves fresh products to offline storage when fetch succeeds', async () => {
+    const { ProductProvider, useProducts } = require('../../context/ProductContext');
+
+    render(
+      <ProductProvider>
+        <Probe useProducts={useProducts} />
+      </ProductProvider>
+    );
+
+    await waitFor(() => {
+      expect(ctxRef.current.loading).toBe(false);
+      expect(ctxRef.current.products).toHaveLength(2);
+    });
+
+    expect(mockOfflineStorage.saveData).toHaveBeenCalledWith(
+      'PRODUCTS',
+      expect.any(Array),
+      60 * 24 * 30
+    );
   });
 
   it('returns null when getProductById query fails', async () => {
