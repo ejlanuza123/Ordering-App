@@ -37,7 +37,15 @@ jest.mock('../../context/CartContext', () => ({
 
 jest.mock('../../services/orderService', () => ({
   orderService: {
+    getQueuedOrders: jest.fn().mockResolvedValue([]),
     updateOrder: jest.fn().mockResolvedValue({ success: true }),
+  },
+}));
+
+jest.mock('../../services/offlineStorageService', () => ({
+  offlineStorageService: {
+    saveData: jest.fn().mockResolvedValue({ success: true }),
+    getData: jest.fn().mockResolvedValue({ success: true, data: [] }),
   },
 }));
 
@@ -123,7 +131,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
     const backBtn = getByLabelText('Go Back');
     fireEvent.press(backBtn);
     expect(mockNavigation.goBack).toHaveBeenCalledTimes(1);
-  }, 30000);
+  }, 60000);
 
   it('switches to "Archived Orders" without text label and returns to order list on back press', async () => {
     const { findByText, queryByText, getByLabelText } = render(

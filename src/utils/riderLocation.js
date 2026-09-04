@@ -341,12 +341,11 @@ export const getStoreToCustomerFallback = ({
 
   const distanceKm = Number(Math.max(0.5, distanceRaw).toFixed(1));
   const etaText = estimateDeliveryTime(distanceKm, 20);
-  const match = etaText.match(/(\d+)\s*min/);
-  const etaMinutes = match ? parseInt(match[1], 10) : Math.round((distanceKm / 20) * 60) + 15;
+  const etaMinutes = Math.max(15, Math.round((distanceKm / 20) * 60) + 15);
 
   return {
     distanceKm,
-    etaMinutes: Math.max(15, etaMinutes),
+    etaMinutes,
     etaText,
     isFallback: true,
   };

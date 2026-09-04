@@ -143,7 +143,7 @@ describe('DeliveryProofContext', () => {
     nowSpy.mockRestore();
   }, 15000);
 
-  it('returns failure when uploadProofPhoto upload fails', async () => {
+  it('falls back to local photo URI with isOfflinePending flag when uploadProofPhoto upload fails', async () => {
     const FileSystem = require('expo-file-system/legacy');
     const { decode } = require('base64-arraybuffer');
 
@@ -174,7 +174,11 @@ describe('DeliveryProofContext', () => {
     );
 
     await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
-    expect(result).toEqual({ success: false, error: 'upload failed' });
+    expect(result).toEqual({
+      success: true,
+      photoUrl: 'file:///tmp/proof.jpg',
+      isOfflinePending: true,
+    });
   }, 15000);
 
   it('saves delivery proof after delivery/order lookup', async () => {
@@ -252,7 +256,9 @@ describe('DeliveryProofContext', () => {
     expect(result.data.id).toBe('proof-1');
   }, 15000);
 
-  it('returns failure when saveDeliveryProof insert fails', async () => {
+  it('falls back to offline queue with isOfflinePending flag when saveDeliveryProof insert fails', async () => {
+    mockAuthState.user = { id: 'rider-1', email: 'rider@example.com' };
+
     const deliverySingle = jest.fn().mockResolvedValue({
       data: { id: 'delivery-1', rider_id: 'rider-1', order_id: 'order-1' },
       error: null,
@@ -261,16 +267,20 @@ describe('DeliveryProofContext', () => {
       data: { id: 'order-1', rider_id: 'rider-1' },
       error: null,
     });
-    const insertSingle = jest.fn().mockResolvedValue({
-      data: null,
-      error: new Error('insert proof failed'),
+
+    const mockInsert = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({ data: null, error: new Error('insert proof failed') }),
+      }),
     });
 
     mockFrom.mockImplementation((table) => {
       if (table === 'deliveries') {
         return {
           select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ single: deliverySingle }),
+            eq: jest.fn().mockReturnValue({
+              single: deliverySingle,
+            }),
           }),
         };
       }
@@ -278,16 +288,16 @@ describe('DeliveryProofContext', () => {
       if (table === 'orders') {
         return {
           select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ single: orderSingle }),
+            eq: jest.fn().mockReturnValue({
+              single: orderSingle,
+            }),
           }),
         };
       }
 
       if (table === 'delivery_proofs') {
         return {
-          insert: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({ single: insertSingle }),
-          }),
+          insert: mockInsert,
         };
       }
 
@@ -323,7 +333,17 @@ describe('DeliveryProofContext', () => {
     );
 
     await waitFor(() => expect(result).not.toBeNull(), { timeout: 15000 });
-    expect(result).toEqual({ success: false, error: 'insert proof failed' });
+    expect(result).toEqual({
+      success: true,
+      isOfflinePending: true,
+      data: expect.objectContaining({
+        delivery_id: 'delivery-1',
+        photo_url: 'https://cdn.test/proof.jpg',
+        recipient_name: 'John Receiver',
+        notes: 'Left at gate',
+        offline: true,
+      }),
+    });
   }, 15000);
 
   it('returns null when proof is not found', async () => {

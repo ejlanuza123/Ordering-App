@@ -171,8 +171,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
         await offlineStorageService.saveData(`orders_cache_${user.id}`, fetchedData, 60 * 24 * 7);
       } catch (networkErr) {
         console.warn('Network error fetching orders from Supabase, attempting offline cache:', networkErr.message);
-        const cached = await offlineStorageService.getData(`orders_cache_${user.id}`);
-        if (cached && Array.isArray(cached)) {
+        const cachedRes = await offlineStorageService.getData(`orders_cache_${user.id}`);
+        const cached = cachedRes?.data ?? (Array.isArray(cachedRes) ? cachedRes : null);
+        if (Array.isArray(cached) && cached.length > 0) {
           fetchedData = cached;
         } else if (queuedOrders.length > 0) {
           fetchedData = [];
