@@ -18,6 +18,7 @@ import { chatService } from '../../services/chatService';
 import { useAuth } from '../../context/AuthContext';
 import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
 import { PUERTO_PRINCESA_LANDMARKS, detectNearestLandmark } from '../../utils/location';
+import { getStoreToCustomerFallback } from '../../utils/riderLocation';
 
 const ROUTE_REFRESH_MIN_MS = 10000;
 
@@ -55,10 +56,20 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
   const [riderLocation, setRiderLocation] = useState(null);
   const [etaMinutes, setEtaMinutes] = useState(null);
   const [distanceKm, setDistanceKm] = useState(null);
+  const [isLiveRoute, setIsLiveRoute] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
   const [mapLayer, setMapLayer] = useState('street'); // 'street' | 'satellite' | 'dark'
   const [showLandmarks, setShowLandmarks] = useState(true);
+
+  // Compute static store-to-customer distance and ETA fallback
+  const fallbackEta = useMemo(() => {
+    return getStoreToCustomerFallback({
+      destinationLat: destination?.lat,
+      destinationLng: destination?.lng,
+      addressText: deliveryAddress || '',
+    });
+  }, [destination, deliveryAddress]);
 
   // Compute nearest landmark waypoint to rider's current position
   const nearestLandmark = useMemo(() => {
@@ -445,6 +456,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
     if (routeResult.success) {
       setEtaMinutes(Math.max(1, Math.round(routeResult.duration)));
       setDistanceKm(Number(routeResult.distance.toFixed(2)));
+      setIsLiveRoute(true);
       sendRouteToMap(routeResult.geometry);
     }
   }, [destination, sendRouteToMap]);
@@ -629,23 +641,31 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         <OrderDeliveryTimeline
           status={currentStatus}
           isRiderOnline={isOnline}
-          etaMinutes={etaMinutes}
-          distanceKm={distanceKm}
+          etaMinutes={etaMinutes ?? fallbackEta.etaMinutes}
+          distanceKm={distanceKm ?? fallbackEta.distanceKm}
         />
 
         <View style={styles.metricsRow}>
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>ESTIMATED ARRIVAL</Text>
-            <Text style={styles.metricValue}>{etaMinutes !== null ? `${etaMinutes} mins` : 'Calculating...'}</Text>
+            <Text style={styles.metricValue}>
+              {etaMinutes !== null
+                ? `${etaMinutes} mins${isLiveRoute ? '' : ' (Est.)'}`
+                : `${fallbackEta.etaMinutes} mins (Est.)`}
+            </Text>
           </View>
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>DISTANCE</Text>
-            <Text style={styles.metricValue}>{distanceKm !== null ? `${distanceKm} km` : '--'}</Text>
+            <Text style={styles.metricValue}>
+              {distanceKm !== null
+                ? `${distanceKm} km`
+                : `${fallbackEta.distanceKm} km`}
+            </Text>
           </View>
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>WAYPOINT</Text>
             <Text style={styles.metricValue} numberOfLines={1}>
-              {nearestLandmark ? nearestLandmark.name : 'En Route'}
+              {nearestLandmark ? nearestLandmark.name : (isLiveRoute ? 'En Route' : 'Store Dispatch')}
             </Text>
           </View>
         </View>

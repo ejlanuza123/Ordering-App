@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
 import { useCart } from '../../context/CartContext';
 import { orderService } from '../../services/orderService';
+import { offlineStorageService } from '../../services/offlineStorageService';
 import { chatService } from '../../services/chatService';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,45 +125,70 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          total_amount,
-          delivery_fee,
-          status,
-          delivery_address,
-          delivery_lat,
-          delivery_lng,
-          payment_method,
-          created_at,
-          archived,
-          order_items (
-            quantity,
-            price_at_order,
-            products (
-              id,
-              name,
-              category,
-              unit
-            )
-          ),
-          deliveries (
-            id,
-            status,
-            rider_id,
-            assigned_at,
-            accepted_at
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // 1. Retrieve any locally queued orders from the offline sync queue
+      const queuedOrders = user?.id ? await orderService.getQueuedOrders(user.id) : [];
 
-      if (error) throw error;
+      let fetchedData = null;
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            id,
+            order_number,
+            total_amount,
+            delivery_fee,
+            status,
+            delivery_address,
+            delivery_lat,
+            delivery_lng,
+            payment_method,
+            created_at,
+            archived,
+            order_items (
+              quantity,
+              price_at_order,
+              products (
+                id,
+                name,
+                category,
+                unit
+              )
+            ),
+            deliveries (
+              id,
+              status,
+              rider_id,
+              assigned_at,
+              accepted_at
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        fetchedData = data || [];
+        // Cache to offline storage for future offline viewing
+        await offlineStorageService.saveData(`orders_cache_${user.id}`, fetchedData, 60 * 24 * 7);
+      } catch (networkErr) {
+        console.warn('Network error fetching orders from Supabase, attempting offline cache:', networkErr.message);
+        const cached = await offlineStorageService.getData(`orders_cache_${user.id}`);
+        if (cached && Array.isArray(cached)) {
+          fetchedData = cached;
+        } else if (queuedOrders.length > 0) {
+          fetchedData = [];
+        } else {
+          throw networkErr;
+        }
+      }
+
+      // Merge queued offline orders with server/cached orders, eliminating duplicates
+      const fetchedList = fetchedData || [];
+      const existingIds = new Set(fetchedList.map((o) => o.id));
+      const filteredQueued = queuedOrders.filter((q) => !existingIds.has(q.id));
+      const combinedOrders = [...filteredQueued, ...fetchedList];
       
-      setOrders(data || []);
-      applyFilter(data || [], selectedFilter);
+      setOrders(combinedOrders);
+      applyFilter(combinedOrders, selectedFilter);
     } catch (error) {
       console.log('Error fetching orders:', error.message);
       setAlertConfig({
@@ -178,6 +204,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
   };
 
   const fetchOrderDetails = async (orderId) => {
+    // Check if order exists in local state as an offline queued order
+    const foundLocal = orders.find((o) => o.id === orderId);
+    if (foundLocal?.isOfflineQueued) {
+      setSelectedOrder(foundLocal);
+      setOrderDetailsModal(true);
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -263,12 +297,17 @@ export default function OrderHistoryScreen({ navigation, route }) {
       }
     } catch (error) {
       console.log('Error fetching order details:', error.message);
-      setAlertConfig({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to load order details'
-      });
-      setShowAlert(true);
+      if (foundLocal) {
+        setSelectedOrder(foundLocal);
+        setOrderDetailsModal(true);
+      } else {
+        setAlertConfig({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to load order details'
+        });
+        setShowAlert(true);
+      }
     }
   };
 
@@ -292,7 +331,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
       if (order.archived) return false;
       const status = order.status?.toLowerCase() || '';
       switch (filter) {
-        case 'pending': return status === 'pending';
+        case 'pending': return status === 'pending' || status === 'pending_sync' || status === 'offline';
         case 'processing': return status === 'processing';
         case 'delivery': return status === 'out for delivery';
         case 'completed': return status === 'completed';
@@ -305,7 +344,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   const handleCancelPress = (order) => {
     const status = order.status?.toLowerCase();
-    if (status !== 'pending' && status !== 'processing') {
+    if (status !== 'pending' && status !== 'pending_sync' && status !== 'offline' && status !== 'processing') {
       setAlertConfig({
         type: 'warning',
         title: 'Cannot Cancel',
@@ -592,6 +631,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
   const getStatusColor = (status) => {
     const s = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
     switch(s) {
+      case 'pendingsync':
+      case 'offline':
+        return '#D97706';
       case 'pending':
       case 'placed':
         return '#F59E0B';
@@ -627,6 +669,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
   const getStatusIcon = (status) => {
     const s = String(status || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
     switch(s) {
+      case 'pendingsync':
+      case 'offline':
+        return 'cloud-offline-outline';
       case 'pending':
       case 'placed':
         return 'time';
@@ -722,7 +767,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   const canCancelOrder = (status) => {
     const lowerStatus = status?.toLowerCase();
-    return lowerStatus === 'pending' || lowerStatus === 'processing' || lowerStatus === 'confirmed';
+    return lowerStatus === 'pending' || lowerStatus === 'pending_sync' || lowerStatus === 'offline' || lowerStatus === 'processing' || lowerStatus === 'confirmed';
   };
 
   const canArchiveOrder = (status) => {
@@ -740,6 +785,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
     if (!orderOrStatus) return false;
     if (typeof orderOrStatus === 'object') {
       const order = orderOrStatus;
+      if (order.isOfflineQueued) return false;
       const effective = getEffectiveOrderStatus(order).toLowerCase();
       return effective !== 'completed' && effective !== 'delivered' && effective !== 'cancelled' && !order.archived;
     }
@@ -748,12 +794,15 @@ export default function OrderHistoryScreen({ navigation, route }) {
       lowerStatus !== 'completed' &&
       lowerStatus !== 'delivered' &&
       lowerStatus !== 'cancelled' &&
-      lowerStatus !== 'archived'
+      lowerStatus !== 'archived' &&
+      lowerStatus !== 'pending_sync' &&
+      lowerStatus !== 'offline'
     );
   };
 
   const getStatusLabel = (status) => {
     const normalized = (status || '').toLowerCase();
+    if (normalized === 'pending_sync' || normalized === 'pendingsync' || normalized === 'offline') return 'Pending Upload (Offline)';
     if (normalized === 'rider picked up the order' || normalized === 'picked_up') return 'Rider Picked Up';
     if (normalized === 'out_for_delivery' || normalized === 'outfordelivery') return 'Out for Delivery';
     return status;
@@ -838,7 +887,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   const renderOrderItem = ({ item }) => {
     const isArchived = !!item.archived;
-    const effectiveStatus = getEffectiveOrderStatus(item);
+    const isOffline = !!item.isOfflineQueued || item.status === 'pending_sync' || item.status === 'offline';
+    const effectiveStatus = isOffline ? 'pending_sync' : getEffectiveOrderStatus(item);
     const statusKey = isArchived ? 'archived' : effectiveStatus.toLowerCase();
     const displayStatus = isArchived ? 'Archived' : getStatusLabel(effectiveStatus);
     const statusColor = getStatusColor(statusKey);
@@ -858,7 +908,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
             </Text>
             <Text style={styles.orderDate}>{formatTimeAgo(item.created_at)}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+          <View style={[styles.statusBadge, { backgroundColor: isOffline ? '#FEF3C7' : statusColor + '20' }]}>
             <Ionicons 
               name={statusIcon} 
               size={14} 
@@ -881,7 +931,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
           )}
         </View>
 
-        {!isArchived && (
+        {isOffline ? (
+          <View style={styles.deliveryIndicatorsRow}>
+            <View style={[styles.deliveryIndicatorChip, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
+              <Ionicons name="cloud-offline-outline" size={12} color="#B45309" />
+              <Text style={[styles.deliveryIndicatorText, { color: '#B45309' }]}>
+                ⚡ Pending Upload (Offline) • Saved locally
+              </Text>
+            </View>
+          </View>
+        ) : !isArchived ? (
           <View style={styles.deliveryIndicatorsRow}>
             <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
               <Ionicons name={isAssigned ? 'person' : 'person-outline'} size={12} color={isAssigned ? '#065F46' : '#92400E'} />
@@ -896,7 +955,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </Text>
             </View>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.orderFooter}>
           <View style={styles.orderTotal}>
@@ -1014,11 +1073,26 @@ export default function OrderHistoryScreen({ navigation, route }) {
               </View>
             </View>
 
+            {/* Offline Queued Order Banner */}
+            {selectedOrder.isOfflineQueued && (
+              <View style={styles.offlineOrderBanner}>
+                <View style={styles.offlineOrderBannerHeader}>
+                  <Ionicons name="cloud-offline" size={20} color="#B45309" />
+                  <Text style={styles.offlineOrderBannerTitle}>Pending Offline Upload</Text>
+                </View>
+                <Text style={styles.offlineOrderBannerText}>
+                  This order was placed while your device was offline. It is safely stored locally and will be automatically uploaded as soon as your device reconnects to the network.
+                </Text>
+              </View>
+            )}
+
             {/* 5-Step Order Delivery Progress Timeline */}
-            <OrderDeliveryTimeline 
-              status={effectiveStatus} 
-              isRiderOnline={selectedOrder.deliveries?.[0]?.rider?.is_online}
-            />
+            {!selectedOrder.isOfflineQueued && (
+              <OrderDeliveryTimeline 
+                status={effectiveStatus} 
+                isRiderOnline={selectedOrder.deliveries?.[0]?.rider?.is_online}
+              />
+            )}
 
             {/* Cancel Button - Show if order can be cancelled */}
             {canCancelOrder(effectiveStatus) && (
@@ -1068,13 +1142,15 @@ export default function OrderHistoryScreen({ navigation, route }) {
             )}
 
             {/* Digital E-Receipt Button */}
-            <TouchableOpacity
-              style={[styles.cancelButtonFull, { backgroundColor: '#0033A0', marginBottom: 10 }]}
-              onPress={() => setShowReceiptModal(true)}
-            >
-              <Ionicons name="receipt" size={20} color="#fff" />
-              <Text style={styles.cancelButtonFullText}>View Digital E-Receipt</Text>
-            </TouchableOpacity>
+            {!selectedOrder.isOfflineQueued && (
+              <TouchableOpacity
+                style={[styles.cancelButtonFull, { backgroundColor: '#0033A0', marginBottom: 10 }]}
+                onPress={() => setShowReceiptModal(true)}
+              >
+                <Ionicons name="receipt" size={20} color="#fff" />
+                <Text style={styles.cancelButtonFullText}>View Digital E-Receipt</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Archive / Restore Button - Show only if order is completed or delivered */}
             {canArchiveOrder(selectedOrder.status) && (
@@ -1165,20 +1241,22 @@ export default function OrderHistoryScreen({ navigation, route }) {
             {/* Delivery Information */}
             <View style={styles.detailsSection}>
               <Text style={styles.sectionTitle}>Delivery Information</Text>
-              <View style={styles.detailsIndicatorsRow}>
-                <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
-                  <Ionicons name={isAssigned ? 'person' : 'person-outline'} size={12} color={isAssigned ? '#065F46' : '#92400E'} />
-                  <Text style={[styles.deliveryIndicatorText, { color: isAssigned ? '#065F46' : '#92400E' }]}>
-                    {isAssigned ? 'Rider Assigned' : 'Waiting for Rider'}
-                  </Text>
+              {!selectedOrder.isOfflineQueued && (
+                <View style={styles.detailsIndicatorsRow}>
+                  <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
+                    <Ionicons name={isAssigned ? 'person' : 'person-outline'} size={12} color={isAssigned ? '#065F46' : '#92400E'} />
+                    <Text style={[styles.deliveryIndicatorText, { color: isAssigned ? '#065F46' : '#92400E' }]}>
+                      {isAssigned ? 'Rider Assigned' : 'Waiting for Rider'}
+                    </Text>
+                  </View>
+                  <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
+                    <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
+                    <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
+                      {isAccepted ? 'Accepted - Ready to Pick Up' : 'Awaiting Acceptance'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.deliveryIndicatorChip, isAccepted ? styles.deliveryIndicatorAccepted : styles.deliveryIndicatorPending]}>
-                  <Ionicons name={isAccepted ? 'checkmark-circle' : 'time-outline'} size={12} color={isAccepted ? '#1E3A8A' : '#92400E'} />
-                  <Text style={[styles.deliveryIndicatorText, { color: isAccepted ? '#1E3A8A' : '#92400E' }]}>
-                {isAccepted ? 'Accepted - Ready to Pick Up' : 'Awaiting Acceptance'}
-                  </Text>
-                </View>
-              </View>
+              )}
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
                   <Ionicons name="location" size={18} color="#666" />
@@ -1194,10 +1272,12 @@ export default function OrderHistoryScreen({ navigation, route }) {
             </View>
             
             {/* Rider Information */}
-            <RiderInfoCard 
-              delivery={selectedOrder.deliveries?.[0] || null} 
-              onChatPress={selectedOrder.deliveries?.[0]?.rider?.id ? () => handleChatRider(selectedOrder) : null} 
-            />
+            {!selectedOrder.isOfflineQueued && (
+              <RiderInfoCard 
+                delivery={selectedOrder.deliveries?.[0] || null} 
+                onChatPress={selectedOrder.deliveries?.[0]?.rider?.id ? () => handleChatRider(selectedOrder) : null} 
+              />
+            )}
 
             {/* Track Delivery Live Button - Show for all active (non-completed/non-cancelled) orders */}
             {canTrackOrder(selectedOrder) && (
@@ -1224,54 +1304,56 @@ export default function OrderHistoryScreen({ navigation, route }) {
             )}
 
             {/* Delivery Milestones & Timestamps */}
-            <View style={[styles.detailsSection, styles.lastSection]}>
-              <Text style={styles.sectionTitle}>Order Milestones</Text>
-              <View style={styles.timeline}>
-                <View style={styles.timelineItem}>
-                  <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineTitle}>Order Placed</Text>
-                    <Text style={styles.timelineTime}>{formatDate(selectedOrder.created_at)}</Text>
-                  </View>
-                </View>
-
-                {!!selectedOrder.deliveries?.[0]?.accepted_at && (
+            {!selectedOrder.isOfflineQueued && (
+              <View style={[styles.detailsSection, styles.lastSection]}>
+                <Text style={styles.sectionTitle}>Order Milestones</Text>
+                <View style={styles.timeline}>
                   <View style={styles.timelineItem}>
-                    <View style={[styles.timelineDot, { backgroundColor: '#2563EB' }]} />
+                    <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
                     <View style={styles.timelineContent}>
-                      <Text style={styles.timelineTitle}>Rider Accepted</Text>
-                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].accepted_at)}</Text>
+                      <Text style={styles.timelineTitle}>Order Placed</Text>
+                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.created_at)}</Text>
                     </View>
                   </View>
-                )}
 
-                {!!selectedOrder.deliveries?.[0]?.picked_up_at && (
-                  <View style={styles.timelineItem}>
-                    <View style={[styles.timelineDot, { backgroundColor: '#7e0083' }]} />
-                    <View style={styles.timelineContent}>
-                      <Text style={styles.timelineTitle}>Picked Up / In Transit</Text>
-                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].picked_up_at)}</Text>
+                  {!!selectedOrder.deliveries?.[0]?.accepted_at && (
+                    <View style={styles.timelineItem}>
+                      <View style={[styles.timelineDot, { backgroundColor: '#2563EB' }]} />
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineTitle}>Rider Accepted</Text>
+                        <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].accepted_at)}</Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
 
-                <View style={styles.timelineItem}>
-                  <View style={[styles.timelineDot, { 
-                    backgroundColor: (selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? '#10B981' : 
-                                   (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? '#EF4444' : '#94A3B8' 
-                  }]} />
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineTitle}>
-                      {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? 'Order Cancelled' : 'Order Delivered'}
-                    </Text>
-                    <Text style={styles.timelineTime}>
-                      {(selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
-                       (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? formatDate(selectedOrder.created_at) : 'In Progress'}
-                    </Text>
+                  {!!selectedOrder.deliveries?.[0]?.picked_up_at && (
+                    <View style={styles.timelineItem}>
+                      <View style={[styles.timelineDot, { backgroundColor: '#7e0083' }]} />
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineTitle}>Picked Up / In Transit</Text>
+                        <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].picked_up_at)}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <View style={styles.timelineItem}>
+                    <View style={[styles.timelineDot, { 
+                      backgroundColor: (selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? '#10B981' : 
+                                     (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? '#EF4444' : '#94A3B8' 
+                    }]} />
+                    <View style={styles.timelineContent}>
+                      <Text style={styles.timelineTitle}>
+                        {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? 'Order Cancelled' : 'Order Delivered'}
+                      </Text>
+                      <Text style={styles.timelineTime}>
+                        {(selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
+                         (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? formatDate(selectedOrder.created_at) : 'In Progress'}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -2460,5 +2542,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  offlineOrderBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  offlineOrderBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  offlineOrderBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  offlineOrderBannerText: {
+    fontSize: 13,
+    color: '#B45309',
+    lineHeight: 18,
   },
 });

@@ -300,3 +300,56 @@ export const isWithinServiceArea = (latitude, longitude) => {
   );
 };
 
+export const DEFAULT_STORE_LOCATION = {
+  latitude: 9.754820,
+  longitude: 118.748890,
+  name: 'Petron San Pedro',
+};
+
+/**
+ * Calculates a reliable static store-to-customer distance and ETA fallback
+ * when live rider GPS coordinates or routing APIs are unavailable.
+ *
+ * @param {Object} [params]
+ * @param {number} [params.destinationLat]
+ * @param {number} [params.destinationLng]
+ * @param {string} [params.addressText]
+ * @param {Object} [params.storeCoords]
+ * @returns {{ distanceKm: number, etaMinutes: number, etaText: string, isFallback: boolean }}
+ */
+export const getStoreToCustomerFallback = ({
+  destinationLat,
+  destinationLng,
+  addressText = '',
+  storeCoords = DEFAULT_STORE_LOCATION,
+} = {}) => {
+  let destLat = Number(destinationLat);
+  let destLng = Number(destinationLng);
+
+  // If coordinates are invalid or missing, attempt fallback to town centroid
+  if (!Number.isFinite(destLat) || !Number.isFinite(destLng) || (destLat === 0 && destLng === 0)) {
+    destLat = 9.743330;
+    destLng = 118.739730;
+  }
+
+  const distanceRaw = calculateDistance(
+    storeCoords.latitude,
+    storeCoords.longitude,
+    destLat,
+    destLng
+  );
+
+  const distanceKm = Number(Math.max(0.5, distanceRaw).toFixed(1));
+  const etaText = estimateDeliveryTime(distanceKm, 20);
+  const match = etaText.match(/(\d+)\s*min/);
+  const etaMinutes = match ? parseInt(match[1], 10) : Math.round((distanceKm / 20) * 60) + 15;
+
+  return {
+    distanceKm,
+    etaMinutes: Math.max(15, etaMinutes),
+    etaText,
+    isFallback: true,
+  };
+};
+
+

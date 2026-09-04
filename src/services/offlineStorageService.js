@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 
 const STORAGE_KEYS = {
@@ -213,6 +215,44 @@ export const offlineStorageService = {
           let result = null;
 
           switch (operation.type) {
+            case 'insert':
+            case 'create': {
+              if (operation.table === 'delivery_proofs' && operation.data?.photo_url && !operation.data.photo_url.startsWith('http')) {
+                try {
+                  const localUri = operation.data.photo_url;
+                  const uriParts = localUri.split('.');
+                  const extension = uriParts[uriParts.length - 1].toLowerCase();
+                  const filename = `delivery_proofs/${operation.data.delivery_id}_${Date.now()}.${extension}`;
+
+                  const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+                  const buffer = decode(base64);
+
+                  const { error: uploadError } = await supabase.storage
+                    .from('delivery-proofs')
+                    .upload(filename, buffer, {
+                      contentType: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+                      upsert: false
+                    });
+
+                  if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                      .from('delivery-proofs')
+                      .getPublicUrl(filename);
+                    operation.data.photo_url = publicUrl;
+                  }
+                } catch (imgErr) {
+                  console.warn('Failed to upload local proof image during sync:', imgErr);
+                }
+              }
+
+              result = await supabase
+                .from(operation.table)
+                .insert([operation.data]);
+              if (result.error) throw result.error;
+              opSuccess = true;
+              break;
+            }
+
             case 'create_order':
               result = await supabase
                 .from(operation.table)

@@ -18,7 +18,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
+import { offlineStorageService } from '../../services/offlineStorageService';
 import { chatService } from '../../services/chatService';
 import { formatCurrency, formatOrderNumber } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -73,13 +75,27 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
   const displayOrderNumber = formatOrderNumber(orderData?.order_number, orderData?.id || deliveryData?.order_id);
 
   const hasExistingProof = async (deliveryId) => {
-    const { count, error } = await supabase
-      .from('delivery_proofs')
-      .select('*', { count: 'exact', head: true })
-      .eq('delivery_id', deliveryId);
+    try {
+      const { count, error } = await supabase
+        .from('delivery_proofs')
+        .select('*', { count: 'exact', head: true })
+        .eq('delivery_id', deliveryId);
 
-    if (error) throw error;
-    return (count || 0) > 0;
+      if (!error && (count || 0) > 0) {
+        return true;
+      }
+    } catch (err) {
+      console.warn('Network error checking delivery proof from Supabase:', err.message);
+    }
+
+    // Dead zone / offline fallback: check local storage
+    try {
+      const offlineProof = await AsyncStorage.getItem(`delivery_proof_${deliveryId}`);
+      if (offlineProof) return true;
+    } catch (e) {
+      console.warn('Error checking offline proof cache:', e);
+    }
+    return false;
   };
 
   const getCancellationReasonText = () => {
@@ -283,8 +299,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         customer: customerData 
       });
     } catch (error) {
-      console.error('Error fetching delivery details:', error.message);
-      Alert.alert('Error', 'Failed to load delivery details');
+      console.warn('Error fetching delivery details (offline/dead zone):', error.message);
+      if (!deliveryData) {
+        Alert.alert('Error', 'Failed to load delivery details');
+      }
     } finally {
       setFetchingData(false);
     }
@@ -318,12 +336,32 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       }
 
       // Update delivery
-      const { error: deliveryError } = await supabase
-        .from('deliveries')
-        .update(updates)
-        .eq('id', deliveryData.id);
+      let isOfflineUpdate = false;
+      try {
+        const { error: deliveryError } = await supabase
+          .from('deliveries')
+          .update(updates)
+          .eq('id', deliveryData.id);
 
-      if (deliveryError) throw deliveryError;
+        if (deliveryError) throw deliveryError;
+      } catch (deliveryErr) {
+        console.warn('Network error updating delivery status, queueing offline:', deliveryErr.message);
+        await offlineStorageService.queueOperation({
+          type: 'update',
+          table: 'deliveries',
+          recordId: deliveryData.id,
+          data: updates,
+          match: { id: deliveryData.id }
+        });
+        isOfflineUpdate = true;
+      }
+
+      if (isOfflineUpdate) {
+        setDeliveryData((prev) => ({
+          ...prev,
+          ...updates
+        }));
+      }
 
       // Order status sync is handled server-side by a deliveries trigger.
       // This keeps lifecycle transitions consistent even with strict rider RLS on orders.
@@ -362,7 +400,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       }
 
       // Update rider earnings if delivered
-      if (newStatus === 'delivered' && profile?.id) {
+      if (newStatus === 'delivered' && profile?.id && !isOfflineUpdate) {
         try {
           // Get the delivery fee from the order
           const deliveryFee = parseFloat(orderData?.delivery_fee) || 0;
@@ -391,17 +429,26 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
       setAlertConfig({
         type: 'success',
-        title: 'Success!',
-        message: `Delivery status updated to ${
-          newStatus === 'accepted' ? 'Accepted' :
-          newStatus === 'picked_up' ? 'Picked Up' : 
-          newStatus === 'out_for_delivery' ? 'Out for Delivery' : 
-          newStatus === 'delivered' ? 'Delivered' : 'Failed'
-        }`
+        title: isOfflineUpdate ? 'Saved Offline' : 'Success!',
+        message: isOfflineUpdate
+          ? `Delivery status updated to ${
+              newStatus === 'accepted' ? 'Accepted' :
+              newStatus === 'picked_up' ? 'Picked Up' : 
+              newStatus === 'out_for_delivery' ? 'Out for Delivery' : 
+              newStatus === 'delivered' ? 'Delivered' : 'Failed'
+            }. Status and proof are safely saved locally and will auto-sync once connected.`
+          : `Delivery status updated to ${
+              newStatus === 'accepted' ? 'Accepted' :
+              newStatus === 'picked_up' ? 'Picked Up' : 
+              newStatus === 'out_for_delivery' ? 'Out for Delivery' : 
+              newStatus === 'delivered' ? 'Delivered' : 'Failed'
+            }`
       });
       setShowAlert(true);
       
-      await fetchAllDeliveryData();
+      if (!isOfflineUpdate) {
+        await fetchAllDeliveryData();
+      }
       setShowStatusModal(false);
       setSelectedAction(null);
     } catch (error) {

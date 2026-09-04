@@ -171,4 +171,64 @@ export const orderService = {
       queued: false,
     };
   },
+
+  /**
+   * Retrieves pending offline-queued orders for a user from the sync queue.
+   * Formats each queued mutation into a full order structure for immediate UI rendering.
+   *
+   * @param {string} userId
+   * @returns {Promise<Array>}
+   */
+  async getQueuedOrders(userId) {
+    if (!userId) return [];
+    try {
+      const queue = await offlineStorageService.getSyncQueue();
+      if (!Array.isArray(queue) || queue.length === 0) return [];
+
+      const queuedOrders = queue
+        .filter((op) => {
+          const isOrderOp = op.type === 'create_order_bundle' || op.type === 'create_order';
+          const matchesUser = op.data?.userId === userId || op.data?.order?.user_id === userId;
+          return isOrderOp && matchesUser;
+        })
+        .map((op) => {
+          const orderData = op.data?.order || {};
+          const itemsData = op.data?.items || [];
+          const qId = op.queueId || op.id || 'offline';
+
+          return {
+            id: `offline-${qId}`,
+            queueId: qId,
+            order_number: 'PENDING-SYNC',
+            status: 'pending_sync',
+            isOfflineQueued: true,
+            created_at: new Date(op.timestamp || Date.now()).toISOString(),
+            total_amount: Number(orderData.total_amount) || 0,
+            delivery_fee: Number(orderData.delivery_fee) || 0,
+            delivery_address: orderData.delivery_address || 'Current Location',
+            delivery_lat: orderData.delivery_lat || null,
+            delivery_lng: orderData.delivery_lng || null,
+            payment_method: orderData.payment_method || 'Cash on Delivery',
+            archived: false,
+            order_items: itemsData.map((item) => ({
+              quantity: item.quantity || 1,
+              price_at_order: item.price_at_order || item.price || 0,
+              products: {
+                id: item.product_id || item.id,
+                name: item.name || 'Product',
+                category: item.category || 'General',
+                unit: item.unit || 'pc',
+              },
+            })),
+            deliveries: [],
+          };
+        });
+
+      return queuedOrders;
+    } catch (err) {
+      console.warn('Failed to retrieve queued offline orders:', err?.message || err);
+      return [];
+    }
+  },
 };
+
