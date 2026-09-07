@@ -14,6 +14,29 @@ const STORAGE_KEYS = {
   LAST_SYNC: 'last_sync'
 };
 
+const syncListeners = new Set();
+const deadLetterListeners = new Set();
+
+function notifySyncListeners(event) {
+  syncListeners.forEach((listener) => {
+    try {
+      listener(event);
+    } catch (err) {
+      console.error('[OfflineStorage] Sync listener error:', err);
+    }
+  });
+}
+
+function notifyDeadLetterListeners(items) {
+  deadLetterListeners.forEach((listener) => {
+    try {
+      listener(items);
+    } catch (err) {
+      console.error('[OfflineStorage] Dead letter listener error:', err);
+    }
+  });
+}
+
 export const offlineStorageService = {
   /**
    * Save data to local storage
@@ -155,6 +178,35 @@ export const offlineStorageService = {
   },
 
   /**
+   * Subscribe to sync lifecycle events (sync_start, sync_progress, sync_complete, sync_error)
+   */
+  subscribeToSyncEvents(listener) {
+    if (typeof listener !== 'function') return () => {};
+    syncListeners.add(listener);
+    return () => {
+      syncListeners.delete(listener);
+    };
+  },
+
+  /**
+   * Subscribe to dead letter queue changes
+   */
+  subscribeToDeadLetterUpdates(listener) {
+    if (typeof listener !== 'function') return () => {};
+    deadLetterListeners.add(listener);
+    this.getDeadLetterQueue().then((items) => {
+      try {
+        listener(items);
+      } catch (err) {
+        console.error('[OfflineStorage] Initial dead letter listener error:', err);
+      }
+    });
+    return () => {
+      deadLetterListeners.delete(listener);
+    };
+  },
+
+  /**
    * Get dead-letter operations that exceeded max retries
    */
   async getDeadLetterQueue() {
@@ -174,9 +226,119 @@ export const offlineStorageService = {
   async clearDeadLetterQueue() {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      notifyDeadLetterListeners([]);
       return { success: true };
     } catch (error) {
       console.error('Error clearing dead letter queue:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Retry a specific dead letter operation by re-queuing into active sync queue
+   */
+  async retryDeadLetterOperation(queueId) {
+    try {
+      const deadLetters = await this.getDeadLetterQueue();
+      const targetIndex = deadLetters.findIndex(
+        (op) => (op.queueId ?? op.id) === queueId
+      );
+
+      if (targetIndex === -1) {
+        return { success: false, error: 'Operation not found in dead-letter queue' };
+      }
+
+      const [operationToRetry] = deadLetters.splice(targetIndex, 1);
+      if (deadLetters.length === 0) {
+        await AsyncStorage.removeItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      } else {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.DEAD_LETTER_QUEUE,
+          JSON.stringify(deadLetters)
+        );
+      }
+      notifyDeadLetterListeners(deadLetters);
+
+      // Re-queue with clean retry state
+      await this.queueOperation({
+        ...operationToRetry,
+        retryCount: 0,
+        lastAttemptTimestamp: null,
+        lastError: null,
+      });
+
+      // Trigger sync
+      this.processSyncQueue().catch((err) => {
+        console.error('[OfflineStorage] Background retry failed:', err);
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error retrying dead letter operation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Retry all operations in the dead letter queue
+   */
+  async retryAllDeadLetters() {
+    try {
+      const deadLetters = await this.getDeadLetterQueue();
+      if (!deadLetters || deadLetters.length === 0) {
+        return { success: true, count: 0 };
+      }
+
+      await AsyncStorage.removeItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      notifyDeadLetterListeners([]);
+
+      for (const op of deadLetters) {
+        await this.queueOperation({
+          ...op,
+          retryCount: 0,
+          lastAttemptTimestamp: null,
+          lastError: null,
+        });
+      }
+
+      this.processSyncQueue().catch((err) => {
+        console.error('[OfflineStorage] Background retry all failed:', err);
+      });
+
+      return { success: true, count: deadLetters.length };
+    } catch (error) {
+      console.error('Error retrying all dead letters:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Remove a single dead letter operation permanently
+   */
+  async removeDeadLetterOperation(queueId) {
+    try {
+      const deadLetters = await this.getDeadLetterQueue();
+      const filtered = deadLetters.filter(
+        (op) => (op.queueId ?? op.id) !== queueId
+      );
+
+      if (filtered.length === deadLetters.length) {
+        return { success: false, error: 'Operation not found' };
+      }
+
+      if (filtered.length === 0) {
+        await AsyncStorage.removeItem(STORAGE_KEYS.DEAD_LETTER_QUEUE);
+      } else {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.DEAD_LETTER_QUEUE,
+          JSON.stringify(filtered)
+        );
+      }
+
+      notifyDeadLetterListeners(filtered);
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing dead letter operation:', error);
       return { success: false, error: error.message };
     }
   },
@@ -192,7 +354,23 @@ export const offlineStorageService = {
       const newDeadLetters = [];
       const now = Date.now();
 
+      notifySyncListeners({
+        type: 'sync_start',
+        total: queue.length,
+        pending: queue.length,
+      });
+
+      let processedIndex = 0;
       for (const operation of queue) {
+        processedIndex++;
+        notifySyncListeners({
+          type: 'sync_progress',
+          current: processedIndex,
+          total: queue.length,
+          operation: operation.type,
+          table: operation.table,
+        });
+
         const queueId = operation.queueId ?? operation.id;
         const recordId = operation.recordId ?? operation.targetId ?? operation.data?.id ?? operation.id;
         const retryCount = typeof operation.retryCount === 'number' ? operation.retryCount : 0;
@@ -419,10 +597,12 @@ export const offlineStorageService = {
       // Persist dead letters if any failed permanently
       if (newDeadLetters.length > 0) {
         const existingDead = await this.getDeadLetterQueue();
+        const combined = [...existingDead, ...newDeadLetters];
         await AsyncStorage.setItem(
           STORAGE_KEYS.DEAD_LETTER_QUEUE,
-          JSON.stringify([...existingDead, ...newDeadLetters])
+          JSON.stringify(combined)
         );
+        notifyDeadLetterListeners(combined);
       }
 
       // Update sync queue with remaining unprocessed items
@@ -435,6 +615,13 @@ export const offlineStorageService = {
         );
       }
 
+      notifySyncListeners({
+        type: 'sync_complete',
+        processed: results.length,
+        pending: updatedQueue.length,
+        deadLetters: newDeadLetters.length,
+      });
+
       return {
         success: true,
         processed: results.length,
@@ -442,6 +629,10 @@ export const offlineStorageService = {
       };
     } catch (error) {
       console.error('Error processing sync queue:', error);
+      notifySyncListeners({
+        type: 'sync_error',
+        error: error.message,
+      });
       return { success: false, error: error.message };
     }
   },

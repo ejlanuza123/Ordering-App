@@ -16,6 +16,7 @@ import { networkStateService } from './src/services/networkStateService';
 import { setupGlobalErrorHandlers } from './src/services/errorHandlerService';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OfflineBanner from './src/components/OfflineBanner';
+import SyncStatusToast from './src/components/SyncStatusToast';
 
 function AppContent() {
   // Initialize error handling and network monitoring on app launch
@@ -39,6 +40,7 @@ function AppContent() {
                       <RiderRatingProvider>
                         <AppNavigator />
                         <OfflineBanner />
+                        <SyncStatusToast />
                       </RiderRatingProvider>
                     </ReviewProvider>
                   </DeliveryProofProvider>

@@ -3,9 +3,100 @@ import { supabase } from '../lib/supabase';
 
 const UPDATE_INTERVAL_MS = 10000; // Update location every 10 seconds
 
+export const calculateDistanceMeters = (lat1, lng1, lat2, lng2) => {
+  if (lat1 === lat2 && lng1 === lng2) return 0;
+  const R = 6371000; // Earth's radius in meters
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+export const shouldUpdateLocation = (
+  lastCoords,
+  newCoords,
+  lastUpdateTime,
+  currentTime = Date.now(),
+  options = {}
+) => {
+  const {
+    minDisplacementMeters = 10,
+    stationaryHeartbeatMs = 45000,
+    minIntervalMs = 4000,
+    highSpeedThresholdKmh = 20,
+    highSpeedMinIntervalMs = 3000,
+    highSpeedMinDisplacementMeters = 15,
+  } = options;
+
+  if (!lastCoords || !lastUpdateTime) {
+    return { shouldUpdate: true, reason: 'initial' };
+  }
+
+  const elapsedMs = currentTime - lastUpdateTime;
+  const displacement = calculateDistanceMeters(
+    lastCoords.latitude,
+    lastCoords.longitude,
+    newCoords.latitude,
+    newCoords.longitude
+  );
+
+  // Heartbeat check: if stationary for a while, update to keep presence alive
+  if (elapsedMs >= stationaryHeartbeatMs) {
+    return { shouldUpdate: true, reason: 'heartbeat', displacement, elapsedMs };
+  }
+
+  // Speed evaluation (speed from GPS in m/s if present, else derived from displacement/time)
+  const speedKmh =
+    newCoords.speed != null && newCoords.speed >= 0
+      ? newCoords.speed * 3.6
+      : elapsedMs > 0
+      ? (displacement / (elapsedMs / 1000)) * 3.6
+      : 0;
+
+  if (speedKmh >= highSpeedThresholdKmh) {
+    if (elapsedMs >= highSpeedMinIntervalMs && displacement >= highSpeedMinDisplacementMeters) {
+      return { shouldUpdate: true, reason: 'high_speed_movement', displacement, elapsedMs, speedKmh };
+    }
+  }
+
+  // Standard movement check
+  if (displacement >= minDisplacementMeters && elapsedMs >= minIntervalMs) {
+    return { shouldUpdate: true, reason: 'movement', displacement, elapsedMs };
+  }
+
+  // Stationary / jitter suppression
+  return { shouldUpdate: false, reason: 'throttled_stationary', displacement, elapsedMs };
+};
+
 export const locationTrackingService = {
   locationSubscription: null,
   updateTimeout: null,
+  lastCoords: null,
+  lastUpdateTime: null,
+  activeDeliveryCache: null, // { id, expiresAt }
+  ACTIVE_DELIVERY_TTL_MS: 30000,
+
+  resetTrackingState() {
+    this.lastCoords = null;
+    this.lastUpdateTime = null;
+    this.activeDeliveryCache = null;
+  },
+
+  setActiveDeliveryId(deliveryId) {
+    this.activeDeliveryCache = {
+      id: deliveryId,
+      expiresAt: Date.now() + this.ACTIVE_DELIVERY_TTL_MS,
+    };
+  },
+
+  clearActiveDeliveryId() {
+    this.activeDeliveryCache = null;
+  },
 
   /**
    * Request location permissions
@@ -92,8 +183,21 @@ export const locationTrackingService = {
   /**
    * Update rider location in database
    */
-  async updateRiderLocation(riderId, coords) {
+  async updateRiderLocation(riderId, coords, options = {}) {
     try {
+      if (!options.force && this.lastCoords && this.lastUpdateTime) {
+        const check = shouldUpdateLocation(
+          this.lastCoords,
+          coords,
+          this.lastUpdateTime,
+          Date.now(),
+          options
+        );
+        if (!check.shouldUpdate) {
+          return { success: true, throttled: true, reason: check.reason };
+        }
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -107,24 +211,40 @@ export const locationTrackingService = {
 
       if (profileError) throw profileError;
 
-      // Also update active delivery if exists
-      const { data: delivery } = await supabase
-        .from('deliveries')
-        .select('id')
-        .eq('rider_id', riderId)
-        .in('status', ['accepted', 'picked_up', 'out_for_delivery'])
-        .order('assigned_at', { ascending: false })
-        .limit(1)
-        .single();
+      this.lastCoords = { latitude: coords.latitude, longitude: coords.longitude };
+      this.lastUpdateTime = Date.now();
 
-      if (delivery) {
+      // Check cached active delivery or query Supabase
+      const now = Date.now();
+      let deliveryId = null;
+
+      if (this.activeDeliveryCache && this.activeDeliveryCache.expiresAt > now) {
+        deliveryId = this.activeDeliveryCache.id;
+      } else {
+        const { data: delivery } = await supabase
+          .from('deliveries')
+          .select('id')
+          .eq('rider_id', riderId)
+          .in('status', ['accepted', 'picked_up', 'out_for_delivery'])
+          .order('assigned_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        deliveryId = delivery?.id || null;
+        this.activeDeliveryCache = {
+          id: deliveryId,
+          expiresAt: now + this.ACTIVE_DELIVERY_TTL_MS,
+        };
+      }
+
+      if (deliveryId) {
         await supabase
           .from('deliveries')
           .update({
             rider_lat: coords.latitude,
             rider_lng: coords.longitude
           })
-          .eq('id', delivery.id);
+          .eq('id', deliveryId);
       }
 
       return { success: true };
@@ -145,6 +265,7 @@ export const locationTrackingService = {
       }
 
       this.clearUpdateTimeout();
+      this.resetTrackingState();
 
       // Mark as offline
       await supabase

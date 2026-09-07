@@ -28,6 +28,9 @@ describe('locationTrackingService', () => {
     jest.clearAllMocks();
     global.fetch = jest.fn();
 
+    const { locationTrackingService } = require('../../services/locationTrackingService');
+    locationTrackingService.resetTrackingState();
+
     mockChannel.mockReturnValue({
       on: jest.fn().mockReturnValue({
         subscribe: jest.fn().mockReturnValue({
@@ -396,5 +399,133 @@ describe('locationTrackingService', () => {
 
     cleanup();
     expect(unsubscribe).toHaveBeenCalled();
+  });
+
+  describe('Adaptive GPS Throttling & Delivery Caching', () => {
+    const {
+      calculateDistanceMeters,
+      shouldUpdateLocation,
+      locationTrackingService,
+    } = require('../../services/locationTrackingService');
+
+    it('calculates Haversine distance in meters accurately', () => {
+      const d0 = calculateDistanceMeters(9.75, 118.74, 9.75, 118.74);
+      expect(d0).toBe(0);
+
+      // Distance between two points ~ 111 meters apart (0.001 deg lat)
+      const d1 = calculateDistanceMeters(9.75, 118.74, 9.751, 118.74);
+      expect(Math.round(d1)).toBeGreaterThan(100);
+      expect(Math.round(d1)).toBeLessThan(120);
+    });
+
+    it('shouldUpdateLocation approves initial coordinate reading', () => {
+      const decision = shouldUpdateLocation(null, { latitude: 9.75, longitude: 118.74 }, null);
+      expect(decision.shouldUpdate).toBe(true);
+      expect(decision.reason).toBe('initial');
+    });
+
+    it('shouldUpdateLocation suppresses stationary jitter when under 10m and under 45s', () => {
+      const last = { latitude: 9.75000, longitude: 118.74000 };
+      const current = { latitude: 9.75002, longitude: 118.74002 }; // ~3 meters
+      const lastTime = 1000;
+      const now = 15000; // 14 seconds elapsed
+
+      const decision = shouldUpdateLocation(last, current, lastTime, now);
+      expect(decision.shouldUpdate).toBe(false);
+      expect(decision.reason).toBe('throttled_stationary');
+    });
+
+    it('shouldUpdateLocation approves heartbeat when stationary for >= 45s', () => {
+      const last = { latitude: 9.75000, longitude: 118.74000 };
+      const current = { latitude: 9.75002, longitude: 118.74002 }; // ~3 meters
+      const lastTime = 1000;
+      const now = 47000; // 46s elapsed
+
+      const decision = shouldUpdateLocation(last, current, lastTime, now);
+      expect(decision.shouldUpdate).toBe(true);
+      expect(decision.reason).toBe('heartbeat');
+    });
+
+    it('shouldUpdateLocation approves movement when >= 10m and >= 4s', () => {
+      const last = { latitude: 9.75000, longitude: 118.74000 };
+      const current = { latitude: 9.75012, longitude: 118.74000 }; // ~13.3 meters
+      const lastTime = 1000;
+      const now = 7000; // 6s elapsed (speed ~8 km/h, below 20 km/h high-speed threshold)
+
+      const decision = shouldUpdateLocation(last, current, lastTime, now);
+      expect(decision.shouldUpdate).toBe(true);
+      expect(decision.reason).toBe('movement');
+    });
+
+    it('shouldUpdateLocation detects high-speed movement when speed >= 20 km/h', () => {
+      const last = { latitude: 9.7500, longitude: 118.7400 };
+      const current = { latitude: 9.7505, longitude: 118.7405 }; // ~75 meters
+      const lastTime = 1000;
+      const now = 6000; // 5s elapsed (speed ~54 km/h)
+
+      const decision = shouldUpdateLocation(last, current, lastTime, now);
+      expect(decision.shouldUpdate).toBe(true);
+      expect(decision.reason).toBe('high_speed_movement');
+    });
+
+    it('caches active delivery ID within TTL to avoid redundant select queries', async () => {
+      const mockProfilesEq = jest.fn().mockResolvedValue({ error: null });
+      const mockDeliveriesSingle = jest.fn().mockResolvedValue({ data: { id: 'd-cached' }, error: null });
+      const mockDeliveriesUpdateEq = jest.fn().mockResolvedValue({ error: null });
+
+      const mockDeliveriesSelect = jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          in: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                single: mockDeliveriesSingle,
+              }),
+            }),
+          }),
+        }),
+      });
+
+      mockFrom.mockImplementation((table) => {
+        if (table === 'profiles') {
+          return {
+            update: jest.fn().mockReturnValue({ eq: mockProfilesEq }),
+          };
+        }
+        return {
+          select: mockDeliveriesSelect,
+          update: jest.fn().mockReturnValue({ eq: mockDeliveriesUpdateEq }),
+        };
+      });
+
+      // First update: should query deliveries and cache d-cached
+      const res1 = await locationTrackingService.updateRiderLocation(
+        'r-1',
+        { latitude: 9.70, longitude: 118.70 },
+        { force: true }
+      );
+      expect(res1).toEqual({ success: true });
+      expect(mockDeliveriesSelect).toHaveBeenCalledTimes(1);
+      expect(mockDeliveriesUpdateEq).toHaveBeenCalledWith('id', 'd-cached');
+
+      // Second update within TTL: should reuse cached delivery ID and NOT query select again
+      const res2 = await locationTrackingService.updateRiderLocation(
+        'r-1',
+        { latitude: 9.71, longitude: 118.71 },
+        { force: true }
+      );
+      expect(res2).toEqual({ success: true });
+      expect(mockDeliveriesSelect).toHaveBeenCalledTimes(1); // Still 1 call!
+      expect(mockDeliveriesUpdateEq).toHaveBeenCalledTimes(2);
+
+      // Manual invalidation
+      locationTrackingService.clearActiveDeliveryId();
+      const res3 = await locationTrackingService.updateRiderLocation(
+        'r-1',
+        { latitude: 9.72, longitude: 118.72 },
+        { force: true }
+      );
+      expect(res3).toEqual({ success: true });
+      expect(mockDeliveriesSelect).toHaveBeenCalledTimes(2); // Queried again
+    });
   });
 });

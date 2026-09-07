@@ -489,4 +489,161 @@ describe('offlineStorageService', () => {
     expect(result).toEqual({ success: true, processed: 0, pending: 1 });
     expect(update).not.toHaveBeenCalled();
   });
+
+  describe('Sync Lifecycle Events and Dead-Letter Recovery', () => {
+    it('emits sync_start, sync_progress, and sync_complete events to subscribers', async () => {
+      AsyncStorage.getItem.mockImplementation((key) => {
+        if (key === 'sync_queue') {
+          return Promise.resolve(
+            JSON.stringify([
+              {
+                queueId: 'q-evt-1',
+                type: 'create_order',
+                table: 'orders',
+                data: { id: 'o-1' },
+              },
+              {
+                queueId: 'q-evt-2',
+                type: 'create_order',
+                table: 'orders',
+                data: { id: 'o-2' },
+              },
+            ])
+          );
+        }
+        return Promise.resolve('[]');
+      });
+
+      const insert = jest.fn().mockResolvedValue({ error: null });
+      mockFrom.mockReturnValue({ insert });
+
+      const receivedEvents = [];
+      const unsubscribe = offlineStorageService.subscribeToSyncEvents((evt) => {
+        receivedEvents.push(evt);
+      });
+
+      await offlineStorageService.processSyncQueue();
+
+      expect(receivedEvents.length).toBeGreaterThanOrEqual(4);
+      expect(receivedEvents[0]).toEqual({
+        type: 'sync_start',
+        total: 2,
+        pending: 2,
+      });
+      expect(receivedEvents[1]).toEqual(
+        expect.objectContaining({
+          type: 'sync_progress',
+          current: 1,
+          total: 2,
+        })
+      );
+      expect(receivedEvents[2]).toEqual(
+        expect.objectContaining({
+          type: 'sync_progress',
+          current: 2,
+          total: 2,
+        })
+      );
+      expect(receivedEvents[receivedEvents.length - 1]).toEqual({
+        type: 'sync_complete',
+        processed: 2,
+        pending: 0,
+        deadLetters: 0,
+      });
+
+      unsubscribe();
+    });
+
+    it('retries a specific dead letter operation and moves it back to sync queue', async () => {
+      const deadItem = {
+        queueId: 'q-dead-1',
+        type: 'update',
+        table: 'orders',
+        recordId: 'o-dead',
+        retryCount: 5,
+        lastError: 'fatal error',
+        data: { status: 'Delivered' },
+      };
+
+      AsyncStorage.getItem.mockImplementation((key) => {
+        if (key === 'dead_letter_queue') {
+          return Promise.resolve(JSON.stringify([deadItem]));
+        }
+        if (key === 'sync_queue') {
+          return Promise.resolve('[]');
+        }
+        return Promise.resolve(null);
+      });
+
+      const queueSpy = jest.spyOn(offlineStorageService, 'queueOperation').mockResolvedValue({ success: true });
+      const syncSpy = jest.spyOn(offlineStorageService, 'processSyncQueue').mockResolvedValue({ success: true });
+
+      const deadLetterUpdates = [];
+      const unsub = offlineStorageService.subscribeToDeadLetterUpdates((items) => {
+        deadLetterUpdates.push(items);
+      });
+
+      const result = await offlineStorageService.retryDeadLetterOperation('q-dead-1');
+
+      expect(result.success).toBe(true);
+      expect(queueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queueId: 'q-dead-1',
+          retryCount: 0,
+          lastError: null,
+        })
+      );
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('dead_letter_queue');
+
+      unsub();
+      queueSpy.mockRestore();
+      syncSpy.mockRestore();
+    });
+
+    it('retries all dead letter operations and clears dead letter storage', async () => {
+      const deadItems = [
+        { queueId: 'q-d-1', type: 'update', table: 'orders' },
+        { queueId: 'q-d-2', type: 'insert', table: 'delivery_proofs' },
+      ];
+
+      AsyncStorage.getItem.mockImplementation((key) => {
+        if (key === 'dead_letter_queue') {
+          return Promise.resolve(JSON.stringify(deadItems));
+        }
+        if (key === 'sync_queue') {
+          return Promise.resolve('[]');
+        }
+        return Promise.resolve(null);
+      });
+
+      const queueSpy = jest.spyOn(offlineStorageService, 'queueOperation').mockResolvedValue({ success: true });
+      const syncSpy = jest.spyOn(offlineStorageService, 'processSyncQueue').mockResolvedValue({ success: true });
+
+      const result = await offlineStorageService.retryAllDeadLetters();
+
+      expect(result).toEqual({ success: true, count: 2 });
+      expect(queueSpy).toHaveBeenCalledTimes(2);
+      expect(AsyncStorage.removeItem).toHaveBeenCalledWith('dead_letter_queue');
+
+      queueSpy.mockRestore();
+      syncSpy.mockRestore();
+    });
+
+    it('removes a single dead letter operation permanently', async () => {
+      const deadItems = [
+        { queueId: 'q-rem-1', type: 'update' },
+        { queueId: 'q-rem-2', type: 'insert' },
+      ];
+
+      AsyncStorage.getItem.mockResolvedValue(JSON.stringify(deadItems));
+
+      const result = await offlineStorageService.removeDeadLetterOperation('q-rem-1');
+
+      expect(result.success).toBe(true);
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(
+        'dead_letter_queue',
+        JSON.stringify([{ queueId: 'q-rem-2', type: 'insert' }])
+      );
+    });
+  });
 });

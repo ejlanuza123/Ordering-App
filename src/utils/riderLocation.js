@@ -95,6 +95,10 @@ export const updateRiderLocation = async (riderId, latitude, longitude) => {
   }
 };
 
+import { shouldUpdateLocation, calculateDistanceMeters } from '../services/locationTrackingService';
+
+export { shouldUpdateLocation, calculateDistanceMeters };
+
 // Start location tracking with callback
 export const startLocationTracking = async (riderId, onLocationUpdate, options = {}) => {
   const {
@@ -110,6 +114,9 @@ export const startLocationTracking = async (riderId, onLocationUpdate, options =
       return permResult;
     }
 
+    let lastCoords = null;
+    let lastUpdateTime = null;
+
     // Watch position
     const subscription = await Location.watchPositionAsync(
       {
@@ -119,9 +126,20 @@ export const startLocationTracking = async (riderId, onLocationUpdate, options =
       },
       async (location) => {
         const { latitude, longitude, accuracy } = location.coords;
-        
-        // Update database
-        await updateRiderLocation(riderId, latitude, longitude);
+        const now = Date.now();
+
+        let shouldWrite = true;
+        if (lastCoords && lastUpdateTime) {
+          const check = shouldUpdateLocation(lastCoords, location.coords, lastUpdateTime, now, options);
+          shouldWrite = check.shouldUpdate;
+        }
+
+        // Update database if movement or heartbeat triggers it
+        if (shouldWrite) {
+          lastCoords = { latitude, longitude };
+          lastUpdateTime = now;
+          await updateRiderLocation(riderId, latitude, longitude);
+        }
         
         // Call callback
         if (onLocationUpdate) {
