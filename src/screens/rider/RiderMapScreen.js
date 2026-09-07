@@ -521,8 +521,8 @@ export default function RiderMapScreen({ navigation, route }) {
           }
 
           /* Enhanced High-Visibility Navigation Night Map */
-          .dark-mode-active .leaflet-tile-pane {
-            filter: brightness(1.35) contrast(1.3) saturate(1.15);
+          .dark-tiles {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7) !important;
           }
           .dark-mode-active #map {
             background: #0f172a;
@@ -613,18 +613,17 @@ export default function RiderMapScreen({ navigation, route }) {
               
               // Define Tile Layers
               window.tileLayers = {
-                street: L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                  attribution: '©OpenStreetMap, ©CartoDB',
-                  subdomains: 'abcd',
+                street: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '&copy; OpenStreetMap contributors',
                   maxZoom: 19
                 }),
                 satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                   attribution: '©ESRI World Imagery',
                   maxZoom: 19
                 }),
-                dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                  attribution: '©CartoDB Dark Matter',
-                  subdomains: 'abcd',
+                dark: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                  attribution: '&copy; OpenStreetMap contributors',
+                  className: 'dark-tiles',
                   maxZoom: 19
                 })
               };
