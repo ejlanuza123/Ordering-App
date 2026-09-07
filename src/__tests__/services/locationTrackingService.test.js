@@ -16,6 +16,12 @@ jest.mock('expo-location', () => ({
   },
 }), { virtual: true });
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn(),
+  getItem: jest.fn(),
+  removeItem: jest.fn(),
+}));
+
 jest.mock('../../lib/supabase', () => ({
   supabase: {
     from: (...args) => mockFrom(...args),
@@ -526,6 +532,80 @@ describe('locationTrackingService', () => {
       );
       expect(res3).toEqual({ success: true });
       expect(mockDeliveriesSelect).toHaveBeenCalledTimes(2); // Queried again
+    });
+
+    it('manages battery saver preference in AsyncStorage', async () => {
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      const {
+        locationTrackingService,
+        RIDER_BATTERY_SAVER_STORAGE_KEY,
+      } = require('../../services/locationTrackingService');
+
+      AsyncStorage.getItem.mockResolvedValueOnce('false');
+      locationTrackingService.isInitialized = false;
+      const isEnabled = await locationTrackingService.isBatterySaverEnabled();
+      expect(isEnabled).toBe(false);
+      expect(AsyncStorage.getItem).toHaveBeenCalledWith(RIDER_BATTERY_SAVER_STORAGE_KEY);
+
+      await locationTrackingService.setBatterySaverEnabled(true);
+      expect(locationTrackingService.batterySaverEnabled).toBe(true);
+      expect(AsyncStorage.setItem).toHaveBeenCalledWith(RIDER_BATTERY_SAVER_STORAGE_KEY, 'true');
+    });
+
+    it('bypasses adaptive throttling and query caching when battery saver is disabled', async () => {
+      const { locationTrackingService } = require('../../services/locationTrackingService');
+
+      const mockProfilesEq = jest.fn().mockResolvedValue({ error: null });
+      const mockDeliveriesUpdateEq = jest.fn().mockResolvedValue({ error: null });
+      const mockDeliveriesSingle = jest.fn().mockResolvedValue({
+        data: { id: 'd-direct-1' },
+        error: null,
+      });
+      const mockDeliveriesSelect = jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          in: jest.fn().mockReturnValue({
+            order: jest.fn().mockReturnValue({
+              limit: jest.fn().mockReturnValue({
+                single: mockDeliveriesSingle,
+              }),
+            }),
+          }),
+        }),
+      });
+
+      mockFrom.mockImplementation((table) => {
+        if (table === 'profiles') {
+          return {
+            update: jest.fn().mockReturnValue({ eq: mockProfilesEq }),
+          };
+        }
+        return {
+          select: mockDeliveriesSelect,
+          update: jest.fn().mockReturnValue({ eq: mockDeliveriesUpdateEq }),
+        };
+      });
+
+      // Disable battery saver
+      await locationTrackingService.setBatterySaverEnabled(false);
+
+      // Ping 1
+      const res1 = await locationTrackingService.updateRiderLocation(
+        'r-1',
+        { latitude: 9.75, longitude: 118.75 }
+      );
+      expect(res1).toEqual({ success: true });
+      expect(mockDeliveriesSelect).toHaveBeenCalledTimes(1);
+
+      // Ping 2: Identical stationary coordinates within 1 second without force.
+      // When battery saver is off, should NOT throttle and should update DB directly!
+      const res2 = await locationTrackingService.updateRiderLocation(
+        'r-1',
+        { latitude: 9.75, longitude: 118.75 }
+      );
+      expect(res2).toEqual({ success: true });
+      expect(res2.throttled).toBeUndefined();
+      // Should also NOT cache delivery query; queries deliveries again on every tick
+      expect(mockDeliveriesSelect).toHaveBeenCalledTimes(2);
     });
   });
 });

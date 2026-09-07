@@ -1,5 +1,8 @@
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+
+export const RIDER_BATTERY_SAVER_STORAGE_KEY = '@rider_battery_saver_enabled';
 
 const UPDATE_INTERVAL_MS = 10000; // Update location every 10 seconds
 
@@ -80,11 +83,50 @@ export const locationTrackingService = {
   lastUpdateTime: null,
   activeDeliveryCache: null, // { id, expiresAt }
   ACTIVE_DELIVERY_TTL_MS: 30000,
+  batterySaverEnabled: true,
+  isInitialized: false,
 
   resetTrackingState() {
     this.lastCoords = null;
     this.lastUpdateTime = null;
     this.activeDeliveryCache = null;
+  },
+
+  async initBatterySaverPreference() {
+    try {
+      const stored = await AsyncStorage.getItem(RIDER_BATTERY_SAVER_STORAGE_KEY);
+      if (stored !== null) {
+        this.batterySaverEnabled = stored === 'true';
+      } else {
+        this.batterySaverEnabled = true;
+      }
+    } catch (e) {
+      this.batterySaverEnabled = true;
+    } finally {
+      this.isInitialized = true;
+    }
+    return this.batterySaverEnabled;
+  },
+
+  async isBatterySaverEnabled() {
+    if (!this.isInitialized) {
+      await this.initBatterySaverPreference();
+    }
+    return this.batterySaverEnabled;
+  },
+
+  async setBatterySaverEnabled(enabled) {
+    this.batterySaverEnabled = Boolean(enabled);
+    this.isInitialized = true;
+    if (!this.batterySaverEnabled) {
+      this.activeDeliveryCache = null;
+    }
+    try {
+      await AsyncStorage.setItem(RIDER_BATTERY_SAVER_STORAGE_KEY, String(this.batterySaverEnabled));
+    } catch (e) {
+      console.warn('Failed to persist battery saver preference:', e);
+    }
+    return this.batterySaverEnabled;
   },
 
   setActiveDeliveryId(deliveryId) {
@@ -185,7 +227,11 @@ export const locationTrackingService = {
    */
   async updateRiderLocation(riderId, coords, options = {}) {
     try {
-      if (!options.force && this.lastCoords && this.lastUpdateTime) {
+      const isSaver = options.batterySaver !== undefined
+        ? Boolean(options.batterySaver)
+        : this.batterySaverEnabled;
+
+      if (isSaver && !options.force && this.lastCoords && this.lastUpdateTime) {
         const check = shouldUpdateLocation(
           this.lastCoords,
           coords,
@@ -218,7 +264,7 @@ export const locationTrackingService = {
       const now = Date.now();
       let deliveryId = null;
 
-      if (this.activeDeliveryCache && this.activeDeliveryCache.expiresAt > now) {
+      if (isSaver && this.activeDeliveryCache && this.activeDeliveryCache.expiresAt > now) {
         deliveryId = this.activeDeliveryCache.id;
       } else {
         const { data: delivery } = await supabase
@@ -231,10 +277,14 @@ export const locationTrackingService = {
           .single();
 
         deliveryId = delivery?.id || null;
-        this.activeDeliveryCache = {
-          id: deliveryId,
-          expiresAt: now + this.ACTIVE_DELIVERY_TTL_MS,
-        };
+        if (isSaver) {
+          this.activeDeliveryCache = {
+            id: deliveryId,
+            expiresAt: now + this.ACTIVE_DELIVERY_TTL_MS,
+          };
+        } else {
+          this.activeDeliveryCache = null;
+        }
       }
 
       if (deliveryId) {

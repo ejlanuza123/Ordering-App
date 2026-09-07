@@ -95,7 +95,7 @@ export const updateRiderLocation = async (riderId, latitude, longitude) => {
   }
 };
 
-import { shouldUpdateLocation, calculateDistanceMeters } from '../services/locationTrackingService';
+import { shouldUpdateLocation, calculateDistanceMeters, locationTrackingService } from '../services/locationTrackingService';
 
 export { shouldUpdateLocation, calculateDistanceMeters };
 
@@ -128,13 +128,17 @@ export const startLocationTracking = async (riderId, onLocationUpdate, options =
         const { latitude, longitude, accuracy } = location.coords;
         const now = Date.now();
 
+        const isSaver = options.batterySaver !== undefined
+          ? Boolean(options.batterySaver)
+          : locationTrackingService.batterySaverEnabled;
+
         let shouldWrite = true;
-        if (lastCoords && lastUpdateTime) {
+        if (isSaver && lastCoords && lastUpdateTime) {
           const check = shouldUpdateLocation(lastCoords, location.coords, lastUpdateTime, now, options);
           shouldWrite = check.shouldUpdate;
         }
 
-        // Update database if movement or heartbeat triggers it
+        // Update database if movement or heartbeat triggers it, or continuous mode when battery saver is off
         if (shouldWrite) {
           lastCoords = { latitude, longitude };
           lastUpdateTime = now;

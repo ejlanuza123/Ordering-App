@@ -21,6 +21,7 @@ import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 import { riderPresenceService } from '../../services/riderPresenceService';
+import { locationTrackingService } from '../../services/locationTrackingService';
 
 export default function RiderProfileScreen({ navigation }) {
   const { profile, signOut } = useAuth();
@@ -51,6 +52,8 @@ export default function RiderProfileScreen({ navigation }) {
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
   const [onlineStatus, setOnlineStatus] = useState(true);
   const [togglingOnlineStatus, setTogglingOnlineStatus] = useState(false);
+  const [batterySaverEnabled, setBatterySaverEnabled] = useState(true);
+  const [togglingBatterySaver, setTogglingBatterySaver] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -66,6 +69,9 @@ export default function RiderProfileScreen({ navigation }) {
       setNotificationsEnabled(profile.notifications_enabled !== false); // Default to true
       setOnlineStatus(profile.is_online !== false);
     }
+    locationTrackingService.isBatterySaverEnabled().then((enabled) => {
+      setBatterySaverEnabled(enabled);
+    });
     fetchRiderStats();
   }, [profile]);
 
@@ -211,6 +217,34 @@ export default function RiderProfileScreen({ navigation }) {
       setShowAlert(true);
     } finally {
       setTogglingOnlineStatus(false);
+    }
+  };
+
+  const handleBatterySaverToggle = async (newValue) => {
+    try {
+      setTogglingBatterySaver(true);
+      setBatterySaverEnabled(newValue);
+      await locationTrackingService.setBatterySaverEnabled(newValue);
+
+      setAlertConfig({
+        type: 'success',
+        title: newValue ? 'Battery Saver Enabled' : 'Continuous Tracking Mode',
+        message: newValue
+          ? 'Adaptive GPS throttling is active. Stationary jitter is filtered and updates are throttled to save battery.'
+          : 'Battery saver is off. Coordinates will be sent on every GPS reading (original continuous tracking, higher battery drain).'
+      });
+      setShowAlert(true);
+    } catch (error) {
+      console.error('Error toggling battery saver preference:', error);
+      setBatterySaverEnabled(!newValue);
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to update battery saver preference'
+      });
+      setShowAlert(true);
+    } finally {
+      setTogglingBatterySaver(false);
     }
   };
 
@@ -480,6 +514,33 @@ export default function RiderProfileScreen({ navigation }) {
               onValueChange={handleNotificationsToggle}
               disabled={togglingNotifications}
               trackColor={{ false: '#d1d5db', true: '#0033A0' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={styles.preferenceItem}>
+            <View style={styles.preferenceInfo}>
+              <View style={[styles.preferenceIconWrap, batterySaverEnabled ? styles.preferenceIconOnline : null]}>
+                <Ionicons
+                  name={batterySaverEnabled ? "battery-charging" : "battery-half"}
+                  size={18}
+                  color={batterySaverEnabled ? "#10B981" : "#F59E0B"}
+                />
+              </View>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.preferenceText}>Battery Saver (Adaptive GPS)</Text>
+                <Text style={styles.preferenceSubtext}>
+                  {batterySaverEnabled
+                    ? 'Throttles stationary GPS updates and caches active delivery queries to save battery'
+                    : 'Continuous mode: Sends location on every reading (original high battery drain)'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={batterySaverEnabled}
+              onValueChange={handleBatterySaverToggle}
+              disabled={togglingBatterySaver}
+              trackColor={{ false: '#d1d5db', true: '#10B981' }}
               thumbColor="#fff"
             />
           </View>
