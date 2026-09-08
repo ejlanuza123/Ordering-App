@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const TIMELINE_STEPS = [
   { id: 'placed', label: 'Placed', icon: 'receipt-outline', activeIcon: 'receipt', desc: 'Order received' },
@@ -30,20 +31,21 @@ export const getActiveStepIndex = (status) => {
 };
 
 export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnline = false, etaMinutes = null, distanceKm = null }) {
+  const { colors, isDarkMode } = useTheme();
   const activeIndex = getActiveStepIndex(status);
   const currentStep = TIMELINE_STEPS[activeIndex] || TIMELINE_STEPS[0];
 
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
       {/* Active Stage Header Badge */}
       <View style={styles.headerBadgeRow}>
         <View style={styles.stageTitleGroup}>
-          <Text style={styles.stageTitleText}>{currentStep.label}</Text>
-          <Text style={styles.stageDescText}>{currentStep.desc}</Text>
+          <Text style={[styles.stageTitleText, { color: colors.primary }]}>{currentStep.label}</Text>
+          <Text style={[styles.stageDescText, { color: colors.textSecondary }]}>{currentStep.desc}</Text>
         </View>
 
         {activeIndex === 3 && (
-          <View style={styles.liveIndicatorBadge}>
+          <View style={[styles.liveIndicatorBadge, { backgroundColor: isDarkMode ? (isRiderOnline ? '#065F4630' : '#78350F30') : '#ECFDF5' }]}>
             <View style={[styles.pulsingDot, { backgroundColor: isRiderOnline ? '#10B981' : '#F59E0B' }]} />
             <Text style={[styles.liveIndicatorText, { color: isRiderOnline ? '#10B981' : '#F59E0B' }]}>
               {isRiderOnline ? 'LIVE RIDER' : 'RIDER EN ROUTE'}
@@ -66,7 +68,7 @@ export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnlin
                 <View
                   style={[
                     styles.connectorLine,
-                    { backgroundColor: idx <= activeIndex ? '#0033A0' : '#E5E7EB' }
+                    { backgroundColor: idx <= activeIndex ? colors.primary : (isDarkMode ? '#334155' : '#E5E7EB') }
                   ]}
                 />
               )}
@@ -75,9 +77,9 @@ export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnlin
               <View
                 style={[
                   styles.circleBase,
-                  isDone && styles.circleDone,
-                  isActive && styles.circleActive,
-                  isUpcoming && styles.circleUpcoming,
+                  isDone && [styles.circleDone, { backgroundColor: colors.primary }],
+                  isActive && [styles.circleActive, { backgroundColor: colors.primary, borderColor: isDarkMode ? '#60A5FA' : '#93C5FD', shadowColor: colors.primary }],
+                  isUpcoming && [styles.circleUpcoming, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F3F4F6', borderColor: colors.border }],
                 ]}
               >
                 {isDone ? (
@@ -86,7 +88,7 @@ export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnlin
                   <Ionicons
                     name={isActive ? step.activeIcon : step.icon}
                     size={14}
-                    color={isActive ? '#fff' : '#9CA3AF'}
+                    color={isActive ? '#fff' : (isDarkMode ? colors.textSecondary : '#9CA3AF')}
                   />
                 )}
               </View>
@@ -95,8 +97,9 @@ export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnlin
               <Text
                 style={[
                   styles.stepLabelText,
-                  isActive && styles.stepLabelActive,
-                  isDone && styles.stepLabelDone,
+                  { color: isDarkMode ? colors.textSecondary : '#9CA3AF' },
+                  isActive && [styles.stepLabelActive, { color: colors.primary }],
+                  isDone && [styles.stepLabelDone, { color: colors.textPrimary }],
                 ]}
                 numberOfLines={1}
               >
@@ -109,9 +112,9 @@ export default function OrderDeliveryTimeline({ status = 'Pending', isRiderOnlin
 
       {/* ETA & Distance Metric Banner for Active Deliveries */}
       {activeIndex >= 2 && activeIndex < 4 && (etaMinutes !== null || distanceKm !== null) && (
-        <View style={styles.etaBanner}>
-          <Ionicons name="time" size={18} color="#0033A0" />
-          <Text style={styles.etaBannerText}>
+        <View style={[styles.etaBanner, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EFF6FF', borderColor: colors.border, borderWidth: isDarkMode ? 1 : 0 }]}>
+          <Ionicons name="time" size={18} color={colors.primary} />
+          <Text style={[styles.etaBannerText, { color: isDarkMode ? colors.textPrimary : '#1E40AF' }]}>
             Estimated Arrival: <Text style={styles.boldText}>{etaMinutes ? `${etaMinutes} mins` : 'Calculating...'}</Text>
             {distanceKm ? ` (${distanceKm} km away)` : ''}
           </Text>

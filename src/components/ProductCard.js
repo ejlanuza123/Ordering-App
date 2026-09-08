@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ProductCard({
   product,
@@ -10,6 +11,7 @@ export default function ProductCard({
   onToggleFavorite,
   showActionHint = true,
 }) {
+  const { colors, isDarkMode } = useTheme();
   const isFuel = product.category === 'Fuel';
   
   const getCategoryColor = () => {
@@ -34,7 +36,15 @@ export default function ProductCard({
 
   return (
     <TouchableOpacity 
-      style={styles.card}
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.surface,
+          shadowColor: colors.shadow,
+          borderColor: colors.border,
+          borderWidth: isDarkMode ? 1 : 0,
+        }
+      ]}
       onPress={onPress}
       activeOpacity={0.9}
     >
@@ -77,12 +87,12 @@ export default function ProductCard({
 
       {/* Product Info */}
       <View style={styles.infoContainer}>
-        <Text style={styles.productName} numberOfLines={2}>
+        <Text style={[styles.productName, { color: colors.textPrimary }]} numberOfLines={2}>
           {product.name}
         </Text>
         
         {product.description && (
-          <Text style={styles.productDescription} numberOfLines={2}>
+          <Text style={[styles.productDescription, { color: colors.textSecondary }]} numberOfLines={2}>
             {product.description}
           </Text>
         )}
@@ -97,7 +107,7 @@ export default function ProductCard({
               })}
             </Text>
           </View>
-          <Text style={styles.unit}>/{product.unit}</Text>
+          <Text style={[styles.unit, { color: colors.textSecondary }]}>/{product.unit}</Text>
         </View>
         
         {/* Stock Status */}
@@ -126,7 +136,7 @@ export default function ProductCard({
           style={[
             styles.actionButton,
             { 
-              backgroundColor: product.stock_quantity > 0 ? '#16A34A' : '#ccc',
+              backgroundColor: product.stock_quantity > 0 ? '#16A34A' : (isDarkMode ? colors.surfaceElevated : '#ccc'),
               opacity: product.stock_quantity > 0 ? 1 : 0.6
             }
           ]}
@@ -146,20 +156,23 @@ export default function ProductCard({
         </TouchableOpacity>
 
         {showActionHint && product.stock_quantity > 0 && (
-          <Text style={styles.actionHintText}>Tap card to choose custom amount</Text>
+          <Text style={[styles.actionHintText, { color: colors.textSecondary }]}>Tap card to choose custom amount</Text>
         )}
       </View>
       
       {/* Favorite Button */}
       <TouchableOpacity 
-        style={styles.favoriteButton}
+        style={[
+          styles.favoriteButton,
+          { backgroundColor: isDarkMode ? colors.surfaceElevated : 'rgba(255, 255, 255, 0.9)' }
+        ]}
         onPress={() => onToggleFavorite && onToggleFavorite(product)}
         activeOpacity={0.7}
       >
         <Ionicons 
           name={isFavorite ? 'heart' : 'heart-outline'}
           size={20} 
-          color={isFavorite ? '#ED2939' : '#666'}
+          color={isFavorite ? '#ED2939' : colors.textSecondary}
         />
       </TouchableOpacity>
     </TouchableOpacity>

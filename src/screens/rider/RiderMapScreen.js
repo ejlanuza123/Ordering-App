@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import * as Location from 'expo-location';
 import { requestLocationPermission, PUERTO_PRINCESA_LANDMARKS } from '../../utils/location';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -31,6 +32,7 @@ const devLog = (...args) => {
 };
 
 export default function RiderMapScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
@@ -43,7 +45,7 @@ export default function RiderMapScreen({ navigation, route }) {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [focusedDeliveryId, setFocusedDeliveryId] = useState(null);
   const [mapViewMode, setMapViewMode] = useState('all');
-  const [mapLayer, setMapLayer] = useState('street'); // 'street' | 'satellite' | 'dark'
+  const [mapLayer, setMapLayer] = useState(isDarkMode ? 'dark' : 'street'); // 'street' | 'satellite' | 'dark'
   const [showLandmarks, setShowLandmarks] = useState(true);
   const [routeEtaMinutes, setRouteEtaMinutes] = useState(null);
   const [routeDistanceKm, setRouteDistanceKm] = useState(null);
@@ -1605,21 +1607,24 @@ export default function RiderMapScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#0033A0" />
-        <Text style={styles.loadingText}>Loading map...</Text>
+      <View style={[styles.loadingContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading map...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rider GPS Cockpit</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Rider GPS Cockpit</Text>
         {/* tracking toggle button */}
         <TouchableOpacity
           onPress={() => setTracking(prev => !prev)}
@@ -1627,13 +1632,16 @@ export default function RiderMapScreen({ navigation, route }) {
         >
           <Ionicons name={tracking ? 'pause' : 'play'} size={20} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={fitAllMarkers} style={styles.fitButton}>
-          <Ionicons name="expand" size={24} color="#0033A0" />
+        <TouchableOpacity 
+          onPress={fitAllMarkers} 
+          style={[styles.fitButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+        >
+          <Ionicons name="expand" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Map View */}
-      <View style={styles.mapContainer}>
+      <View style={[styles.mapContainer, { borderColor: colors.border }]}>
         <WebView
           ref={webViewRef}
           source={{ html: mapHtml }}
@@ -1652,9 +1660,17 @@ export default function RiderMapScreen({ navigation, route }) {
 
         {/* Top Floating ETA Capsule */}
         {routeEtaMinutes !== null && (
-          <View style={styles.topEtaBadge}>
+          <View style={[
+            styles.topEtaBadge,
+            {
+              backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              borderColor: colors.border,
+              borderWidth: isDarkMode ? 1 : 0,
+              shadowColor: colors.shadow
+            }
+          ]}>
             <Ionicons name="navigate-circle" size={18} color="#10B981" />
-            <Text style={styles.topEtaText}>
+            <Text style={[styles.topEtaText, { color: colors.textPrimary }]}>
               {routeEtaMinutes} min • {routeDistanceKm} km Live Route
             </Text>
           </View>
@@ -1663,31 +1679,55 @@ export default function RiderMapScreen({ navigation, route }) {
         {/* Top-Right HUD Layer Controls */}
         <View style={styles.hudOverlay}>
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'satellite' && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              mapLayer === 'satellite' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={() => handleLayerChange(mapLayer === 'satellite' ? 'street' : 'satellite')}
           >
-            <Ionicons name={mapLayer === 'satellite' ? 'earth' : 'map-outline'} size={16} color={mapLayer === 'satellite' ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
+            <Ionicons name={mapLayer === 'satellite' ? 'earth' : 'map-outline'} size={16} color={mapLayer === 'satellite' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
               {mapLayer === 'satellite' ? 'Satellite' : 'Street'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'dark' && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              mapLayer === 'dark' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={() => handleLayerChange(mapLayer === 'dark' ? 'street' : 'dark')}
           >
-            <Ionicons name={mapLayer === 'dark' ? 'moon' : 'sunny-outline'} size={16} color={mapLayer === 'dark' ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, mapLayer === 'dark' && styles.hudButtonTextActive]}>
+            <Ionicons name={mapLayer === 'dark' ? 'moon' : 'sunny-outline'} size={16} color={mapLayer === 'dark' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, mapLayer === 'dark' && styles.hudButtonTextActive]}>
               {mapLayer === 'dark' ? 'Night' : 'Day'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.hudButton, showLandmarks && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              showLandmarks && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={handleToggleLandmarks}
           >
-            <Ionicons name="flag" size={16} color={showLandmarks ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, showLandmarks && styles.hudButtonTextActive]}>
+            <Ionicons name="flag" size={16} color={showLandmarks ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, showLandmarks && styles.hudButtonTextActive]}>
               Landmarks
             </Text>
           </TouchableOpacity>
@@ -1695,38 +1735,47 @@ export default function RiderMapScreen({ navigation, route }) {
 
         {/* Floating Bottom-Right My Location FAB */}
         <TouchableOpacity
-          style={styles.recenterFloatingBtn}
+          style={[
+            styles.recenterFloatingBtn,
+            {
+              backgroundColor: colors.surface,
+              shadowColor: colors.shadow,
+              borderColor: colors.border,
+              borderWidth: isDarkMode ? 1 : 0
+            }
+          ]}
           onPress={refreshLocation}
         >
-          <Ionicons name="locate" size={22} color="#0033A0" />
+          <Ionicons name="locate" size={22} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Bottom Panel - Active Deliveries List */}
-      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 20, paddingTop: 12 }]}>
+      <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + 20, paddingTop: 12, backgroundColor: colors.surface, borderTopColor: colors.border, shadowColor: colors.shadow }]}>
         <View style={styles.panelHeader}>
           <View>
-            <Text style={styles.panelTitle}>
+            <Text style={[styles.panelTitle, { color: colors.textPrimary }]}>
               Active Deliveries ({deliveries.length})
             </Text>
             {mapViewMode === 'focused' && routeEtaMinutes !== null && routeDistanceKm !== null && (
-              <Text style={styles.routeMetaText}>
+              <Text style={[styles.routeMetaText, { color: colors.primary }]}>
                 ETA {routeEtaMinutes} min • {routeDistanceKm} km
               </Text>
             )}
           </View>
           <View style={styles.panelActions}>
-            <View style={styles.modeSwitch}>
+            <View style={[styles.modeSwitch, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
               <TouchableOpacity
                 onPress={showAllDeliveriesOnMap}
                 style={[
                   styles.modeButton,
-                  mapViewMode === 'all' && styles.modeButtonActive
+                  mapViewMode === 'all' && [styles.modeButtonActive, { backgroundColor: colors.primary }]
                 ]}
               >
                 <Text
                   style={[
                     styles.modeButtonText,
+                    { color: colors.textSecondary },
                     mapViewMode === 'all' && styles.modeButtonTextActive
                   ]}
                 >
@@ -1739,13 +1788,14 @@ export default function RiderMapScreen({ navigation, route }) {
                 disabled={!selectedDelivery?.id}
                 style={[
                   styles.modeButton,
-                  mapViewMode === 'focused' && styles.modeButtonActive,
+                  mapViewMode === 'focused' && [styles.modeButtonActive, { backgroundColor: colors.primary }],
                   !selectedDelivery?.id && styles.modeButtonDisabled
                 ]}
               >
                 <Text
                   style={[
                     styles.modeButtonText,
+                    { color: colors.textSecondary },
                     mapViewMode === 'focused' && styles.modeButtonTextActive,
                     !selectedDelivery?.id && styles.modeButtonTextDisabled
                   ]}
@@ -1755,8 +1805,11 @@ export default function RiderMapScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity onPress={refreshLocation} style={styles.locateButton}>
-              <Ionicons name="locate" size={22} color="#0033A0" />
+            <TouchableOpacity 
+              onPress={refreshLocation} 
+              style={[styles.locateButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+            >
+              <Ionicons name="locate" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1769,8 +1822,8 @@ export default function RiderMapScreen({ navigation, route }) {
         >
           {deliveries.length === 0 ? (
             <View style={styles.emptyDeliveries}>
-              <Ionicons name="bicycle-outline" size={24} color="#ccc" />
-              <Text style={styles.emptyText}>No active deliveries</Text>
+              <Ionicons name="bicycle-outline" size={24} color={colors.textSecondary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No active deliveries</Text>
             </View>
           ) : (
             deliveries.map((delivery, index) => (
@@ -1778,7 +1831,8 @@ export default function RiderMapScreen({ navigation, route }) {
                 key={delivery.id}
                 style={[
                   styles.deliveryChip,
-                  selectedDelivery?.id === delivery.id && styles.deliveryChipSelected
+                  { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border },
+                  selectedDelivery?.id === delivery.id && [styles.deliveryChipSelected, { borderColor: colors.primary, backgroundColor: isDarkMode ? '#0033A025' : '#EBF4FF' }]
                 ]}
                 onPress={() => handleDeliveryPress(delivery)}
               >
@@ -1793,14 +1847,14 @@ export default function RiderMapScreen({ navigation, route }) {
                   { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
                 ]} />
                 <View style={styles.chipInfo}>
-                  <Text style={styles.chipOrder}>
+                  <Text style={[styles.chipOrder, { color: colors.textPrimary }]}>
                     #{delivery.orders?.order_number || delivery.order_id}
                   </Text>
-                  <Text style={styles.chipAddress} numberOfLines={1}>
+                  <Text style={[styles.chipAddress, { color: colors.textSecondary }]} numberOfLines={1}>
                     {delivery.orders?.customer_name?.full_name}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#999" />
+                <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             ))
           )}
@@ -1815,11 +1869,11 @@ export default function RiderMapScreen({ navigation, route }) {
         onRequestClose={() => setShowDeliveryModal(false)}
       >
         <View style={[styles.modalOverlay, { paddingTop: insets.top }]}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delivery Navigation</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Delivery Navigation</Text>
               <TouchableOpacity onPress={() => setShowDeliveryModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1837,13 +1891,13 @@ export default function RiderMapScreen({ navigation, route }) {
                 </View>
 
                 <View style={styles.modalInfo}>
-                  <Text style={styles.modalOrderNumber}>
+                  <Text style={[styles.modalOrderNumber, { color: colors.textPrimary }]}>
                     Order #{selectedDelivery.orders?.order_number || selectedDelivery.order_id}
                   </Text>
                   
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="person" size={18} color="#666" />
-                    <Text style={styles.modalInfoText}>
+                    <Ionicons name="person" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
                       {selectedDelivery.orders?.customer_name?.full_name}
                     </Text>
                   </View>
@@ -1858,16 +1912,16 @@ export default function RiderMapScreen({ navigation, route }) {
                   ) : null}
 
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="location" size={18} color="#666" />
-                    <Text style={styles.modalInfoText} numberOfLines={2}>
+                    <Ionicons name="location" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]} numberOfLines={2}>
                       {selectedDelivery.orders?.delivery_address}
                     </Text>
                   </View>
 
                   {selectedDelivery.orders?.special_instructions && (
                     <View style={styles.modalInfoRow}>
-                      <Ionicons name="document-text" size={18} color="#666" />
-                      <Text style={styles.modalInfoText} numberOfLines={2}>
+                      <Ionicons name="document-text" size={18} color={colors.textSecondary} />
+                      <Text style={[styles.modalInfoText, { color: colors.textSecondary }]} numberOfLines={2}>
                         {selectedDelivery.orders.special_instructions}
                       </Text>
                     </View>
@@ -1876,7 +1930,7 @@ export default function RiderMapScreen({ navigation, route }) {
 
                 {/* 1-Tap External GPS Launchers */}
                 <View style={styles.launcherSection}>
-                  <Text style={styles.launcherLabel}>Launch External GPS Navigation:</Text>
+                  <Text style={[styles.launcherLabel, { color: colors.textSecondary }]}>Launch External GPS Navigation:</Text>
                   <View style={styles.launcherRow}>
                     <TouchableOpacity
                       style={[styles.launcherBtn, { backgroundColor: '#1A73E8' }]}
@@ -1898,7 +1952,7 @@ export default function RiderMapScreen({ navigation, route }) {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={[styles.modalActionButton, styles.detailsButton]}
+                    style={[styles.modalActionButton, styles.detailsButton, { backgroundColor: colors.primary }]}
                     onPress={viewDeliveryDetails}
                   >
                     <Ionicons name="document-text" size={20} color="#fff" />

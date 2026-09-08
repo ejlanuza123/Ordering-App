@@ -25,8 +25,10 @@ import CustomAlertModal from '../../components/CustomAlertModal';
 import SuccessModal from '../../components/SuccessModal';
 import StorePauseBanner from '../../components/StorePauseBanner';
 import { storeSettingsService } from '../../services/storeSettingsService';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function CheckoutScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const { cartItems, getCartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -355,11 +357,11 @@ export default function CheckoutScreen({ navigation }) {
         onRequestClose={() => setShowAddressModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Saved Addresses</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Saved Addresses</Text>
               <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             
@@ -367,25 +369,25 @@ export default function CheckoutScreen({ navigation }) {
               {savedAddresses.map((savedAddress, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.addressItem}
+                  style={[styles.addressItem, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}
                   onPress={() => selectSavedAddress(savedAddress)}
                 >
-                  <Ionicons name="location" size={20} color="#0033A0" />
-                  <Text style={styles.addressText}>{savedAddress}</Text>
-                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                  <Ionicons name="location" size={20} color={colors.primary} />
+                  <Text style={[styles.addressText, { color: colors.textPrimary }]}>{savedAddress}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               ))}
             </ScrollView>
             
             <TouchableOpacity 
-              style={styles.addNewAddressButton}
+              style={[styles.addNewAddressButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.primary }]}
               onPress={() => {
                 setShowAddressModal(false);
                 setAddress('');
               }}
             >
-              <Ionicons name="add-circle" size={20} color="#0033A0" />
-              <Text style={styles.addNewAddressText}>Add New Address</Text>
+              <Ionicons name="add-circle" size={20} color={colors.primary} />
+              <Text style={[styles.addNewAddressText, { color: colors.primary }]}>Add New Address</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -437,11 +439,11 @@ export default function CheckoutScreen({ navigation }) {
       />
 
       {/* Main Content */}
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
         
         {/* Fixed Header Section - NOT SCROLLABLE */}
-        <View style={styles.fixedHeader}>
+        <View style={[styles.fixedHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           {/* Header with Back Button */}
           <View style={styles.header}>
             <TouchableOpacity 
@@ -449,37 +451,37 @@ export default function CheckoutScreen({ navigation }) {
               style={styles.backButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
+              <Ionicons name="arrow-back" size={24} color={colors.primary} />
             </TouchableOpacity>
-            <Text style={styles.title}>Checkout</Text>
+            <Text style={[styles.title, { color: isDarkMode ? colors.textPrimary : colors.primary }]}>Checkout</Text>
             <View style={{width: 40}} />
           </View>
 
           {/* Progress Steps - FIXED */}
           <View style={styles.progressContainer}>
             <View style={styles.progressStep}>
-              <View style={[styles.progressCircle, styles.progressCircleActive]}>
+              <View style={[styles.progressCircle, { backgroundColor: colors.primary }]}>
                 <Ionicons name="cart" size={20} color="#fff" />
               </View>
-              <Text style={styles.progressTextActive}>Cart</Text>
+              <Text style={[styles.progressTextActive, { color: colors.primary }]}>Cart</Text>
             </View>
             
-            <View style={styles.progressLine} />
+            <View style={[styles.progressLine, { backgroundColor: colors.border }]} />
             
             <View style={styles.progressStep}>
-              <View style={[styles.progressCircle, styles.progressCircleActive]}>
+              <View style={[styles.progressCircle, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.progressNumber, styles.progressNumberActive]}>2</Text>
               </View>
-              <Text style={styles.progressTextActive}>Checkout</Text>
+              <Text style={[styles.progressTextActive, { color: colors.primary }]}>Checkout</Text>
             </View>
             
-            <View style={styles.progressLine} />
+            <View style={[styles.progressLine, { backgroundColor: colors.border }]} />
             
             <View style={styles.progressStep}>
-              <View style={[styles.progressCircle, styles.progressCircle]}>
-                <Text style={styles.progressNumber}>3</Text>
+              <View style={[styles.progressCircle, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#e9ecef' }]}>
+                <Text style={[styles.progressNumber, { color: colors.textSecondary }]}>3</Text>
               </View>
-              <Text style={styles.progressText}>Complete</Text>
+              <Text style={[styles.progressText, { color: colors.textSecondary }]}>Complete</Text>
             </View>
           </View>
         </View>
@@ -499,12 +501,12 @@ export default function CheckoutScreen({ navigation }) {
             <StorePauseBanner />
 
             {/* Order Summary Card */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="receipt" size={24} color="#0033A0" />
-                <Text style={styles.cardTitle}>Order Summary</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+              <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+                <Ionicons name="receipt" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Order Summary</Text>
                 <TouchableOpacity onPress={() => navigation.navigate('Cart')}>
-                  <Text style={styles.editButton}>Edit</Text>
+                  <Text style={[styles.editButton, { color: colors.primary }]}>Edit</Text>
                 </TouchableOpacity>
               </View>
               
@@ -512,28 +514,29 @@ export default function CheckoutScreen({ navigation }) {
                 {cartItems.map((item, index) => (
                   <View key={index} style={styles.itemRow}>
                     <View style={styles.itemInfo}>
-                      <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                      <Text style={styles.itemDetails}>
+                      <Text style={[styles.itemName, { color: colors.textPrimary }]} numberOfLines={1}>{item.name}</Text>
+                      <Text style={[styles.itemDetails, { color: colors.textSecondary }]}>
                         {formatItemQuantity(item)} @ ₱{item.current_price.toFixed(2)}
                       </Text>
                     </View>
-                    <Text style={styles.itemPrice}>₱{item.totalItemPrice.toFixed(2)}</Text>
+                    <Text style={[styles.itemPrice, { color: colors.textPrimary }]}>₱{item.totalItemPrice.toFixed(2)}</Text>
                   </View>
                 ))}
               </View>
               
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
               
               <View style={styles.summarySection}>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Subtotal</Text>
-                  <Text style={styles.summaryValue}>₱{totalAmount.toFixed(2)}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+                  <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>₱{totalAmount.toFixed(2)}</Text>
                 </View>
                 
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Delivery Fee</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Delivery Fee</Text>
                   <Text style={[
                     styles.summaryValue,
+                    { color: colors.textPrimary },
                     deliveryFee === 0 && styles.freeDelivery
                   ]}>
                     {deliveryFee === 0 ? 'FREE' : `₱${deliveryFee.toFixed(2)}`}
@@ -547,39 +550,39 @@ export default function CheckoutScreen({ navigation }) {
                   </View>
                 )}
                 
-                <View style={styles.divider} />
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 
                 <View style={styles.totalRow}>
-                  <Text style={styles.totalLabel}>Total to Pay</Text>
-                  <Text style={styles.totalAmount}>₱{grandTotal.toFixed(2)}</Text>
+                  <Text style={[styles.totalLabel, { color: colors.textPrimary }]}>Total to Pay</Text>
+                  <Text style={[styles.totalAmount, { color: isDarkMode ? colors.textPrimary : colors.primary }]}>₱{grandTotal.toFixed(2)}</Text>
                 </View>
               </View>
             </View>
 
             {/* Delivery Address Section */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="location" size={24} color="#0033A0" />
-                <Text style={styles.cardTitle}>Delivery Address</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+              <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+                <Ionicons name="location" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Delivery Address</Text>
                 {savedAddresses.length > 0 && (
                   <TouchableOpacity onPress={() => setShowAddressModal(true)}>
-                    <Text style={styles.editButton}>Saved</Text>
+                    <Text style={[styles.editButton, { color: colors.primary }]}>Saved</Text>
                   </TouchableOpacity>
                 )}
               </View>
               
-              <Text style={styles.sectionSubtitle}>Where should we deliver your order?</Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Where should we deliver your order?</Text>
               
               {/* Address Input with Map Button */}
-              <View style={styles.addressInputContainer}>
+              <View style={[styles.addressInputContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}>
                 <TextInput
-                  style={styles.addressInput}
+                  style={[styles.addressInput, { color: colors.textPrimary }]}
                   placeholder="House No., Street, Barangay, City..."
                   value={address}
                   onChangeText={setAddress}
                   multiline
                   numberOfLines={2}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textSecondary}
                   textAlignVertical="top"
                 />
                 <TouchableOpacity 
@@ -587,72 +590,73 @@ export default function CheckoutScreen({ navigation }) {
                   onPress={() => setMapModalVisible(true)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="map-outline" size={24} color="#0033A0" />
+                  <Ionicons name="map-outline" size={24} color={colors.primary} />
                 </TouchableOpacity>
               </View>
 
               {/* Location Action Buttons */}
               <View style={styles.locationActions}>
                 <TouchableOpacity 
-                  style={styles.locationButton}
+                  style={[styles.locationButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.border }]}
                   onPress={useCurrentLocation}
                   disabled={isGettingLocation}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {isGettingLocation ? (
-                    <ActivityIndicator size="small" color="#0033A0" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <>
-                      <Ionicons name="locate" size={18} color="#0033A0" />
-                      <Text style={styles.locationButtonText}>Use My Location</Text>
+                      <Ionicons name="locate" size={18} color={colors.primary} />
+                      <Text style={[styles.locationButtonText, { color: colors.primary }]}>Use My Location</Text>
                     </>
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={[styles.locationButton, styles.mapButtonSmall]}
+                  style={[styles.locationButton, styles.mapButtonSmall, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.border }]}
                   onPress={() => setMapModalVisible(true)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="map" size={18} color="#0033A0" />
-                  <Text style={styles.locationButtonText}>Pick on Map</Text>
+                  <Ionicons name="map" size={18} color={colors.primary} />
+                  <Text style={[styles.locationButtonText, { color: colors.primary }]}>Pick on Map</Text>
                 </TouchableOpacity>
               </View>
               
               <TouchableOpacity 
-                style={styles.saveAddressButton}
+                style={[styles.saveAddressButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
                 onPress={saveAddressToProfile}
                 disabled={savingAddress || !address.trim() || addressLat == null || addressLng == null}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 {savingAddress ? (
-                  <ActivityIndicator size="small" color="#0033A0" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
                   <>
-                    <Ionicons name="bookmark" size={16} color="#0033A0" />
-                    <Text style={styles.saveAddressText}>Save to my addresses</Text>
+                    <Ionicons name="bookmark" size={16} color={colors.primary} />
+                    <Text style={[styles.saveAddressText, { color: colors.primary }]}>Save to my addresses</Text>
                   </>
                 )}
               </TouchableOpacity>
               { (addressLat == null || addressLng == null) && (
-                <Text style={{ color: '#666', marginTop: 8, fontSize: 13 }}>
+                <Text style={{ color: colors.textSecondary, marginTop: 8, fontSize: 13 }}>
                   Please pin your location on the map to enable saving the address.
                 </Text>
               )}
             </View>
 
             {/* Payment Method Section */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="card" size={24} color="#0033A0" />
-                <Text style={styles.cardTitle}>Payment Method</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+              <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+                <Ionicons name="card" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Payment Method</Text>
               </View>
               
               <View style={styles.paymentOptions}>
                 <TouchableOpacity 
                   style={[
                     styles.paymentOption,
-                    paymentMethod === 'Cash on Delivery' && styles.paymentOptionSelected
+                    { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border },
+                    paymentMethod === 'Cash on Delivery' && [styles.paymentOptionSelected, { backgroundColor: isDarkMode ? colors.surface : '#f0f4ff', borderColor: colors.primary }]
                   ]}
                   onPress={() => setPaymentMethod('Cash on Delivery')}
                   activeOpacity={0.7}
@@ -660,28 +664,30 @@ export default function CheckoutScreen({ navigation }) {
                   <Ionicons 
                     name="cash" 
                     size={24} 
-                    color={paymentMethod === 'Cash on Delivery' ? '#0033A0' : '#666'} 
+                    color={paymentMethod === 'Cash on Delivery' ? colors.primary : colors.textSecondary} 
                   />
                   <View style={styles.paymentOptionInfo}>
                     <Text style={[
                       styles.paymentOptionTitle,
-                      paymentMethod === 'Cash on Delivery' && styles.paymentOptionTitleSelected
+                      { color: colors.textPrimary },
+                      paymentMethod === 'Cash on Delivery' && [styles.paymentOptionTitleSelected, { color: colors.primary }]
                     ]}>
                       Cash on Delivery
                     </Text>
-                    <Text style={styles.paymentOptionDescription}>
+                    <Text style={[styles.paymentOptionDescription, { color: colors.textSecondary }]}>
                       Pay when you receive your order
                     </Text>
                   </View>
                   {paymentMethod === 'Cash on Delivery' && (
-                    <Ionicons name="checkmark-circle" size={24} color="#0033A0" />
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[
                     styles.paymentOption,
-                    styles.paymentOptionDisabled
+                    styles.paymentOptionDisabled,
+                    { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }
                   ]}
                   onPress={() => {
                     setAlertConfig({
@@ -694,17 +700,18 @@ export default function CheckoutScreen({ navigation }) {
                   activeOpacity={0.7}
                   disabled={true}
                 >
-                  <View style={[styles.gcashIcon, { backgroundColor: '#e0e0e0' }]}>
-                    <Text style={[styles.gcashText, { color: '#999' }]}>G</Text>
+                  <View style={[styles.gcashIcon, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#e0e0e0' }]}>
+                    <Text style={[styles.gcashText, { color: colors.textSecondary }]}>G</Text>
                   </View>
                   <View style={styles.paymentOptionInfo}>
                     <Text style={[
                       styles.paymentOptionTitle,
-                      styles.paymentOptionTitleDisabled
+                      styles.paymentOptionTitleDisabled,
+                      { color: colors.textSecondary }
                     ]}>
                       GCash
                     </Text>
-                    <Text style={styles.paymentOptionDescription}>
+                    <Text style={[styles.paymentOptionDescription, { color: colors.textSecondary }]}>
                       Pay via GCash (Coming Soon)
                     </Text>
                   </View>
@@ -713,27 +720,27 @@ export default function CheckoutScreen({ navigation }) {
             </View>
 
             {/* Special Instructions */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="document-text" size={24} color="#0033A0" />
-                <Text style={styles.cardTitle}>Special Instructions</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+              <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
+                <Ionicons name="document-text" size={24} color={colors.primary} />
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>Special Instructions</Text>
               </View>
               
               <TextInput
-                style={styles.specialInstructionsInput}
+                style={[styles.specialInstructionsInput, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 placeholder="Any special instructions for delivery? (Optional)"
                 value={specialInstructions}
                 onChangeText={setSpecialInstructions}
                 multiline
                 numberOfLines={2}
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
                 textAlignVertical="top"
               />
             </View>
 
             {/* Terms and Conditions */}
             <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
+              <Text style={[styles.termsText, { color: colors.textSecondary }]}>
                 By placing your order, you agree to our Terms of Service and Privacy Policy. Delivery time: 15-30 minutes.
               </Text>
             </View>
@@ -742,6 +749,7 @@ export default function CheckoutScreen({ navigation }) {
             <TouchableOpacity 
               style={[
                 styles.placeOrderButton,
+                { backgroundColor: colors.primary },
                 (loading || cartItems.length === 0 || addressLat == null || addressLng == null) && styles.placeOrderButtonDisabled
               ]}
               onPress={handlePlaceOrder}

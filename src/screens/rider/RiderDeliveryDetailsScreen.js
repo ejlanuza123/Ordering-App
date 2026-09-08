@@ -28,6 +28,7 @@ import GPSNavigationModal from '../../components/GPSNavigationModal';
 import * as ImagePicker from 'expo-image-picker';
 import { useDeliveryProof } from '../../context/DeliveryProofContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { RIDER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
 import { useFocusEffect } from '@react-navigation/native';
 import { riderPresenceService } from '../../services/riderPresenceService';
@@ -39,6 +40,7 @@ const devLog = (...args) => {
 };
 
 export default function RiderDeliveryDetailsScreen({ route, navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const { delivery } = route.params;
   const { profile } = useAuth(); // Get current rider profile
   const insets = useSafeAreaInsets();
@@ -736,36 +738,48 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
   if (fetchingData) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity 
+            onPress={() => navigation.goBack()} 
+            style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Delivery Details</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Delivery Details</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0033A0" />
-          <Text style={styles.loadingText}>Loading delivery details...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading delivery details...</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Delivery Details</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Delivery Details</Text>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={shareDelivery} style={styles.headerButton}>
-            <Ionicons name="share-outline" size={22} color="#0033A0" />
+          <TouchableOpacity 
+            onPress={shareDelivery} 
+            style={[styles.headerButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+          >
+            <Ionicons name="share-outline" size={22} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={fetchAllDeliveryData} style={styles.headerButton}>
-            <Ionicons name="refresh" size={22} color="#0033A0" />
+          <TouchableOpacity 
+            onPress={fetchAllDeliveryData} 
+            style={[styles.headerButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+          >
+            <Ionicons name="refresh" size={22} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -776,11 +790,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
       >
         {/* Timer Card for Active Deliveries */}
         {['accepted', 'picked_up', 'out_for_delivery'].includes(deliveryData.status) && (
-          <View style={styles.timerCard}>
-            <Ionicons name="time" size={24} color="#0033A0" />
+          <View style={[styles.timerCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+            <Ionicons name="time" size={24} color={colors.primary} />
             <View style={styles.timerInfo}>
-              <Text style={styles.timerLabel}>Time Elapsed</Text>
-              <Text style={styles.timerValue}>{formatTimeElapsed(timeElapsed)}</Text>
+              <Text style={[styles.timerLabel, { color: colors.textSecondary }]}>Time Elapsed</Text>
+              <Text style={[styles.timerValue, { color: colors.primary }]}>{formatTimeElapsed(timeElapsed)}</Text>
             </View>
             <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(deliveryData.status) }]}>
               <Text style={styles.statusIndicatorText}>{getStatusText(deliveryData.status)}</Text>
@@ -789,7 +803,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         )}
 
         {/* Status Card */}
-        <View style={styles.statusCard}>
+        <View style={[styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, shadowColor: colors.shadow }]}>
           <View style={styles.statusHeader}>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(deliveryData.status) + '20' }]}>
               <Ionicons 
@@ -801,18 +815,18 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                 {getStatusText(deliveryData.status)}
               </Text>
             </View>
-            <Text style={styles.orderNumber} numberOfLines={1}>
+            <Text style={[styles.orderNumber, { color: colors.textSecondary }]} numberOfLines={1}>
               Order {displayOrderNumber}
             </Text>
           </View>
 
           {deliveryData.delivered_at && (
-            <Text style={styles.deliveredTime}>
+            <Text style={[styles.deliveredTime, { color: colors.textSecondary }]}>
               Delivered: {new Date(deliveryData.delivered_at).toLocaleString()}
             </Text>
           )}
           {deliveryData.picked_up_at && (
-            <Text style={styles.deliveredTime}>
+            <Text style={[styles.deliveredTime, { color: colors.textSecondary }]}>
               Picked Up: {new Date(deliveryData.picked_up_at).toLocaleString()}
             </Text>
           )}
@@ -821,7 +835,7 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         {/* Action Buttons */}
         {getNextStatusOptions().length > 0 && (
           <View style={styles.actionSection}>
-            <Text style={styles.sectionTitle}>Update Status</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Update Status</Text>
             <View style={styles.actionButtons}>
               {getNextStatusOptions().map((option, index) => (
                 <TouchableOpacity
@@ -847,13 +861,13 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           </View>
         )}
 
-        <View style={styles.chatCard}>
+        <View style={[styles.chatCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
           <View style={styles.chatCardRow}>
-            <View style={styles.chatAvatarWrap}>
+            <View style={[styles.chatAvatarWrap, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EAF1FF' }]}>
               {customerData?.avatar_url ? (
                 <Image source={{ uri: customerData.avatar_url }} style={styles.chatAvatarImage} />
               ) : (
-                <View style={styles.chatAvatarFallback}>
+                <View style={[styles.chatAvatarFallback, { backgroundColor: colors.primary }]}>
                   <Text style={styles.chatAvatarFallbackText}>
                     {(customerData?.full_name || 'Customer')
                       .trim()
@@ -866,16 +880,16 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                   </Text>
                 </View>
               )}
-              <View style={styles.onlineDot} />
+              <View style={[styles.onlineDot, { borderColor: colors.surface }]} />
             </View>
             <View style={styles.chatCardCopy}>
-              <Text style={styles.chatCardTitle}>Message customer</Text>
-              <Text style={styles.chatCardSubtitle} numberOfLines={2}>
+              <Text style={[styles.chatCardTitle, { color: colors.textPrimary }]}>Message customer</Text>
+              <Text style={[styles.chatCardSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>
                 Open the live conversation for order updates, delivery notes, and quick replies.
               </Text>
             </View>
             <TouchableOpacity
-              style={[styles.chatCardButton, openingChat && styles.chatCardButtonDisabled]}
+              style={[styles.chatCardButton, { backgroundColor: colors.primary }, openingChat && styles.chatCardButtonDisabled]}
               onPress={handleChatCustomer}
               disabled={openingChat}
               activeOpacity={0.85}
@@ -889,10 +903,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity style={styles.quickAction} onPress={callCustomer}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A020' }]}>
-              <Ionicons name="call" size={24} color="#0033A0" />
+            <View style={[styles.quickActionIcon, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#0033A020' }]}>
+              <Ionicons name="call" size={24} color={colors.primary} />
             </View>
-            <Text style={styles.quickActionText}>Call</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>Call</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -900,24 +914,24 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             onPress={handleChatCustomer}
             disabled={openingChat}
           >
-            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A015' }]}>
-              <Ionicons name={openingChat ? 'hourglass' : 'chatbubble-ellipses'} size={24} color="#0033A0" />
+            <View style={[styles.quickActionIcon, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#0033A015' }]}>
+              <Ionicons name={openingChat ? 'hourglass' : 'chatbubble-ellipses'} size={24} color={colors.primary} />
             </View>
-            <Text style={styles.quickActionText}>{openingChat ? 'Opening' : 'Chat'}</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>{openingChat ? 'Opening' : 'Chat'}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickAction} onPress={messageCustomer}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#10B98120' }]}>
+            <View style={[styles.quickActionIcon, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#10B98120' }]}>
               <Ionicons name="chatbubble" size={24} color="#10B981" />
             </View>
-            <Text style={styles.quickActionText}>SMS</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>SMS</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.quickAction} onPress={whatsappCustomer}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#25D36620' }]}>
+            <View style={[styles.quickActionIcon, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#25D36620' }]}>
               <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
             </View>
-            <Text style={styles.quickActionText}>WhatsApp</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>WhatsApp</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
@@ -926,10 +940,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             disabled={isRouteInactive}
             activeOpacity={isRouteInactive ? 1 : 0.7}
           >
-            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? '#F1F5F9' : '#0033A020' }]}>
-              <Ionicons name="map" size={24} color={isRouteInactive ? '#94A3B8' : '#0033A0'} />
+            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? (isDarkMode ? colors.surfaceElevated : '#F1F5F9') : (isDarkMode ? colors.surfaceElevated : '#0033A020') }]}>
+              <Ionicons name="map" size={24} color={isRouteInactive ? (isDarkMode ? colors.border : '#94A3B8') : colors.primary} />
             </View>
-            <Text style={[styles.quickActionText, isRouteInactive && styles.quickActionTextDisabled]}>Live Map</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }, isRouteInactive && styles.quickActionTextDisabled]}>Live Map</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -938,10 +952,10 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
             disabled={isRouteInactive}
             activeOpacity={isRouteInactive ? 1 : 0.7}
           >
-            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? '#F1F5F9' : '#F59E0B20' }]}>
-              <Ionicons name="navigate" size={24} color={isRouteInactive ? '#94A3B8' : '#F59E0B'} />
+            <View style={[styles.quickActionIcon, { backgroundColor: isRouteInactive ? (isDarkMode ? colors.surfaceElevated : '#F1F5F9') : (isDarkMode ? colors.surfaceElevated : '#F59E0B20') }]}>
+              <Ionicons name="navigate" size={24} color={isRouteInactive ? (isDarkMode ? colors.border : '#94A3B8') : '#F59E0B'} />
             </View>
-            <Text style={[styles.quickActionText, isRouteInactive && styles.quickActionTextDisabled]}>GPS App</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }, isRouteInactive && styles.quickActionTextDisabled]}>GPS App</Text>
           </TouchableOpacity>
         </View>
 
@@ -970,61 +984,67 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
           </View>
         ) : (
           <TouchableOpacity
-            style={styles.openMapBanner}
+            style={[styles.openMapBanner, { backgroundColor: isDarkMode ? colors.surface : '#EEF4FF', borderColor: isDarkMode ? colors.border : '#C7D9FE' }]}
             onPress={navigateToRiderMap}
             activeOpacity={0.85}
           >
-            <View style={styles.openMapBannerIcon}>
+            <View style={[styles.openMapBannerIcon, { backgroundColor: colors.primary }]}>
               <Ionicons name="navigate" size={20} color="#fff" />
             </View>
             <View style={styles.openMapBannerTextWrap}>
-              <Text style={styles.openMapBannerTitle}>View on Live GPS Map</Text>
-              <Text style={styles.openMapBannerSubtitle}>Live route, turn-by-turn navigation & landmarks</Text>
+              <Text style={[styles.openMapBannerTitle, { color: colors.textPrimary }]}>View on Live GPS Map</Text>
+              <Text style={[styles.openMapBannerSubtitle, { color: colors.textSecondary }]}>Live route, turn-by-turn navigation & landmarks</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#0033A0" />
+            <Ionicons name="chevron-forward" size={20} color={colors.primary} />
           </TouchableOpacity>
         )}
 
         {/* Additional Actions Row */}
         <View style={styles.additionalActions}>
-          <TouchableOpacity style={styles.additionalAction} onPress={copyAddress}>
-            <Ionicons name="copy-outline" size={20} color="#666" />
-            <Text style={styles.additionalActionText}>Copy Address</Text>
+          <TouchableOpacity 
+            style={[styles.additionalAction, { backgroundColor: colors.surface, borderColor: colors.border }]} 
+            onPress={copyAddress}
+          >
+            <Ionicons name="copy-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.additionalActionText, { color: colors.textSecondary }]}>Copy Address</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.additionalAction} onPress={() => setShowNotesModal(true)}>
-            <Ionicons name="document-text-outline" size={20} color="#666" />
-            <Text style={styles.additionalActionText}>Add Notes</Text>
+          <TouchableOpacity 
+            style={[styles.additionalAction, { backgroundColor: colors.surface, borderColor: colors.border }]} 
+            onPress={() => setShowNotesModal(true)}
+          >
+            <Ionicons name="document-text-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.additionalActionText, { color: colors.textSecondary }]}>Add Notes</Text>
           </TouchableOpacity>
         </View>
 
         {/* Customer Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Information</Text>
-          <View style={styles.infoCard}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Customer Information</Text>
+          <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.infoRow}>
-              <Ionicons name="person" size={18} color="#666" />
+              <Ionicons name="person" size={18} color={colors.textSecondary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Name</Text>
-                <Text style={styles.infoValue}>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Name</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
                   {customerData?.full_name || 'Customer'}
                 </Text>
               </View>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="call" size={18} color="#666" />
+              <Ionicons name="call" size={18} color={colors.textSecondary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone</Text>
-                <Text style={styles.infoValue}>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>
                   {customerData?.phone_number || 'Not provided'}
                 </Text>
               </View>
             </View>
             <View style={styles.infoRow}>
-              <Ionicons name="location" size={18} color="#666" />
+              <Ionicons name="location" size={18} color={colors.textSecondary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue}>{orderData?.delivery_address || 'Address not available'}</Text>
+                <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Address</Text>
+                <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{orderData?.delivery_address || 'Address not available'}</Text>
               </View>
             </View>
           </View>
@@ -1032,8 +1052,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
         {/* Order Items */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Order Items</Text>
-          <View style={styles.itemsCard}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Order Items</Text>
+          <View style={[styles.itemsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {orderData?.order_items && orderData.order_items.length > 0 ? (
               (() => {
                 let subtotal = 0;
@@ -1046,14 +1066,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                       subtotal += itemTotal;
                       
                       return (
-                        <View key={index} style={styles.itemRow}>
+                        <View key={index} style={[styles.itemRow, { borderBottomColor: colors.border }]}>
                           <View style={styles.itemInfo}>
-                            <Text style={styles.itemName}>{item.products?.name || 'Product'}</Text>
-                            <Text style={styles.itemQuantity}>
+                            <Text style={[styles.itemName, { color: colors.textPrimary }]}>{item.products?.name || 'Product'}</Text>
+                            <Text style={[styles.itemQuantity, { color: colors.textSecondary }]}>
                               {quantity} {item.products?.unit || 'unit'} × ₱{price.toFixed(2)}
                             </Text>
                           </View>
-                          <Text style={styles.itemTotal}>
+                          <Text style={[styles.itemTotal, { color: colors.primary }]}>
                             ₱{itemTotal.toFixed(2)}
                           </Text>
                         </View>
@@ -1061,25 +1081,25 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     })}
 
                     {/* subtotal line to explain total */}
-                    <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#f0f4ff', paddingTop: 8, marginTop: 8 }]}> 
-                      <Text style={styles.totalLabel}>Items Subtotal</Text>
-                      <Text style={styles.totalValue}>₱{subtotal.toFixed(2)}</Text>
+                    <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, marginTop: 8 }]}> 
+                      <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Items Subtotal</Text>
+                      <Text style={[styles.totalValue, { color: colors.textPrimary }]}>₱{subtotal.toFixed(2)}</Text>
                     </View>
                     {orderData?.delivery_fee != null && (
                       <View style={[styles.totalRow, { marginTop: 4 }]}> 
-                        <Text style={styles.totalLabel}>Delivery Fee</Text>
-                        <Text style={styles.totalValue}>₱{parseFloat(orderData.delivery_fee).toFixed(2)}</Text>
+                        <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Delivery Fee</Text>
+                        <Text style={[styles.totalValue, { color: colors.textPrimary }]}>₱{parseFloat(orderData.delivery_fee).toFixed(2)}</Text>
                       </View>
                     )}
                   </>
                 );
               })()
             ) : (
-              <Text style={styles.emptyText}>No items found</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No items found</Text>
             )}
             
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={[styles.totalLabel, { color: colors.textPrimary, fontWeight: '700' }]}>Total Amount</Text>
               <Text style={styles.totalValue}>
                 ₱{parseFloat(orderData?.total_amount || 0).toFixed(2)}
               </Text>
@@ -1089,25 +1109,25 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
         {/* Payment Information */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Payment</Text>
-          <View style={styles.paymentCard}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Payment</Text>
+          <View style={[styles.paymentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.paymentRow}>
-              <Ionicons name="card" size={18} color="#666" />
-              <Text style={styles.paymentLabel}>Method:</Text>
-              <Text style={styles.paymentValue}>{orderData?.payment_method || 'Cash on Delivery'}</Text>
+              <Ionicons name="card" size={18} color={colors.textSecondary} />
+              <Text style={[styles.paymentLabel, { color: colors.textSecondary }]}>Method:</Text>
+              <Text style={[styles.paymentValue, { color: colors.textPrimary }]}>{orderData?.payment_method || 'Cash on Delivery'}</Text>
             </View>
             <View style={styles.paymentRow}>
-              <Ionicons name="cash" size={18} color="#666" />
-              <Text style={styles.paymentLabel}>Order Total:</Text>
-              <Text style={styles.paymentValue}>
+              <Ionicons name="cash" size={18} color={colors.textSecondary} />
+              <Text style={[styles.paymentLabel, { color: colors.textSecondary }]}>Order Total:</Text>
+              <Text style={[styles.paymentValue, { color: colors.textPrimary }]}>
                 ₱{parseFloat(orderData?.total_amount || 0).toFixed(2)}
               </Text>
             </View>
           
             {orderData?.special_instructions && (
-              <View style={styles.instructions}>
-                <Ionicons name="document-text" size={18} color="#666" />
-                <Text style={styles.instructionsText}>{orderData.special_instructions}</Text>
+              <View style={[styles.instructions, { borderTopColor: colors.border }]}>
+                <Ionicons name="document-text" size={18} color={colors.textSecondary} />
+                <Text style={[styles.instructionsText, { color: colors.textSecondary }]}>{orderData.special_instructions}</Text>
               </View>
             )}
           </View>
@@ -1116,9 +1136,9 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         {/* Delivery Notes */}
         {deliveryNotes ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Delivery Notes</Text>
-            <View style={styles.notesCard}>
-              <Text style={styles.notesText}>{deliveryNotes}</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Delivery Notes</Text>
+            <View style={[styles.notesCard, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f7ff', borderColor: colors.primary }]}>
+              <Text style={[styles.notesText, { color: colors.textPrimary }]}>{deliveryNotes}</Text>
             </View>
           </View>
         ) : null}
@@ -1163,18 +1183,19 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setShowNotesModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delivery Notes</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Delivery Notes</Text>
               <TouchableOpacity onPress={() => setShowNotesModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
               <TextInput
-                style={styles.notesInput}
+                style={[styles.notesInput, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                 placeholder="Add notes about this delivery (e.g., gate code, special instructions)"
+                placeholderTextColor={colors.textSecondary}
                 value={deliveryNotes}
                 onChangeText={setDeliveryNotes}
                 multiline
@@ -1184,14 +1205,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelModalButton]}
+                  style={[styles.modalButton, styles.cancelModalButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f1f5f9', borderColor: colors.border }]}
                   onPress={() => setShowNotesModal(false)}
                 >
-                  <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                  <Text style={[styles.cancelModalButtonText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.saveModalButton]}
+                  style={[styles.modalButton, styles.saveModalButton, { backgroundColor: colors.primary }]}
                   onPress={async () => {
                     await supabase
                       .from('deliveries')
@@ -1217,17 +1238,17 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setProofModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}> 
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Capture Delivery Proof</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}> 
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Capture Delivery Proof</Text>
               <TouchableOpacity onPress={() => setProofModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
               {!proofImageUri ? (
                 <TouchableOpacity
-                  style={styles.captureButton}
+                  style={[styles.captureButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.primary }]}
                   onPress={async () => {
                     const { status } = await ImagePicker.requestCameraPermissionsAsync();
                     if (status !== 'granted') {
@@ -1243,8 +1264,8 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     }
                   }}
                 >
-                  <Ionicons name="camera" size={48} color="#0033A0" />
-                  <Text style={styles.captureText}>Take Photo</Text>
+                  <Ionicons name="camera" size={48} color={colors.primary} />
+                  <Text style={[styles.captureText, { color: colors.primary }]}>Take Photo</Text>
                 </TouchableOpacity>
               ) : (
                 <View style={{ alignItems: 'center' }}>
@@ -1260,13 +1281,13 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
               {uploadingProof ? (
                 <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="large" color="#0033A0" />
-                  <Text style={styles.uploadingText}>Uploading proof...</Text>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={[styles.uploadingText, { color: colors.textSecondary }]}>Uploading proof...</Text>
                 </View>
               ) : proofImageUri ? (
                 <View style={styles.proofModalActions}>
                   <TouchableOpacity
-                    style={[styles.modalButton, styles.saveModalButton, styles.fullWidthModalButton]}
+                    style={[styles.modalButton, styles.saveModalButton, styles.fullWidthModalButton, { backgroundColor: colors.primary }]}
                     onPress={async () => {
                       setUploadingProof(true);
                       try {
@@ -1314,16 +1335,16 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         onRequestClose={() => setShowIssueModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Report Issue</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Report Issue</Text>
               <TouchableOpacity onPress={() => setShowIssueModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Reason for issue *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Reason for issue *</Text>
               <View style={styles.issueOptions}>
                 {[
                   'Customer not available',
@@ -1338,12 +1359,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                     key={reason}
                     style={[
                       styles.issueOption,
-                      issueReason === reason && styles.issueOptionSelected
+                      { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                      issueReason === reason && [styles.issueOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }]
                     ]}
                     onPress={() => setIssueReason(reason)}
                   >
                     <Text style={[
                       styles.issueOptionText,
+                      { color: colors.textSecondary },
                       issueReason === reason && styles.issueOptionTextSelected
                     ]}>
                       {reason}
@@ -1352,10 +1375,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
                 ))}
               </View>
 
-              <Text style={styles.inputLabel}>Description (Optional)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Description (Optional)</Text>
               <TextInput
-                style={styles.issueDescriptionInput}
+                style={[styles.issueDescriptionInput, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                 placeholder="Provide more details about the issue..."
+                placeholderTextColor={colors.textSecondary}
                 value={issueDescription}
                 onChangeText={setIssueDescription}
                 multiline
@@ -1365,14 +1389,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelModalButton]}
+                  style={[styles.modalButton, styles.cancelModalButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f1f5f9', borderColor: colors.border }]}
                   onPress={() => {
                     setShowIssueModal(false);
                     setIssueReason('');
                     setIssueDescription('');
                   }}
                 >
-                  <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                  <Text style={[styles.cancelModalButtonText, { color: colors.textSecondary }]}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1404,32 +1428,34 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cancel Order</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Cancel Order</Text>
               <TouchableOpacity onPress={() => {
                 setShowCancelModal(false);
                 setCancelReason(RIDER_CANCELLATION_REASONS[0]);
                 setCancelCustomReason('');
               }}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Reason for cancellation *</Text>
+              <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Reason for cancellation *</Text>
               <View style={styles.issueOptions}>
                 {RIDER_CANCELLATION_REASONS.map((reason) => (
                   <TouchableOpacity
                     key={reason}
                     style={[
                       styles.issueOption,
-                      cancelReason === reason && styles.issueOptionSelected
+                      { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                      cancelReason === reason && [styles.issueOptionSelected, { backgroundColor: colors.primary, borderColor: colors.primary }]
                     ]}
                     onPress={() => setCancelReason(reason)}
                   >
                     <Text style={[
                       styles.issueOptionText,
+                      { color: colors.textSecondary },
                       cancelReason === reason && styles.issueOptionTextSelected
                     ]}>
                       {reason}
@@ -1440,10 +1466,11 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
               {cancelReason === CANCEL_REASON_OTHER && (
                 <>
-                  <Text style={styles.inputLabel}>Write your reason *</Text>
+                  <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Write your reason *</Text>
                   <TextInput
-                    style={styles.issueDescriptionInput}
+                    style={[styles.issueDescriptionInput, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, color: colors.textPrimary }]}
                     placeholder="Add a custom reason"
+                    placeholderTextColor={colors.textSecondary}
                     value={cancelCustomReason}
                     onChangeText={setCancelCustomReason}
                     multiline
@@ -1455,14 +1482,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelModalButton]}
+                  style={[styles.modalButton, styles.cancelModalButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f1f5f9', borderColor: colors.border }]}
                   onPress={() => {
                     setShowCancelModal(false);
                     setCancelReason(RIDER_CANCELLATION_REASONS[0]);
                     setCancelCustomReason('');
                   }}
                 >
-                  <Text style={styles.cancelModalButtonText}>Back</Text>
+                  <Text style={[styles.cancelModalButtonText, { color: colors.textSecondary }]}>Back</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity

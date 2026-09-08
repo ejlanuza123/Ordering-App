@@ -26,6 +26,7 @@ import { useProducts } from '../../context/ProductContext';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import StorePauseBanner from '../../components/StorePauseBanner';
 import { storeSettingsService } from '../../services/storeSettingsService';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -43,6 +44,7 @@ const debounce = (func, wait) => {
 };
 
 export default function SelectionScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
   const { products, loading, refreshProducts, getProductsByCategory, hasRealtimeUpdates } = useProducts();
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -239,23 +241,23 @@ export default function SelectionScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaWrapper backgroundColor="#f8f9fa" barStyle="dark-content">
-      <View style={styles.container}>
+    <SafeAreaWrapper backgroundColor={colors.surface} barStyle={isDarkMode ? 'light-content' : 'dark-content'}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Custom Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <View style={styles.headerTop}>
               <TouchableOpacity 
                 onPress={() => navigation.navigate('Home')}
                 style={styles.backButton}
               >
-                <Ionicons name="arrow-back" size={24} color="#0033A0" />
+                <Ionicons name="arrow-back" size={24} color={colors.primary} />
               </TouchableOpacity>
               
               <View style={styles.headerTitleContainer}>
-                <Text style={styles.headerTitle}>
+                <Text style={[styles.headerTitle, { color: isDarkMode ? colors.textPrimary : colors.primary }]}>
                   {selectedCategory === 'Fuel' ? 'Fuel Products' : 'Lubricants'}
                 </Text>
-                <Text style={styles.headerSubtitle}>
+                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                   {selectedCategory === 'Fuel' 
                     ? 'Premium fuels delivered to you' 
                     : 'High-quality lubricants'
@@ -270,7 +272,7 @@ export default function SelectionScreen({ navigation, route }) {
                   onPress={() => navigation.navigate('Cart')}
                   style={styles.cartButton}
                 >
-                  <Ionicons name="cart" size={24} color="#0033A0" />
+                  <Ionicons name="cart" size={24} color={colors.primary} />
                   {cartItems.length > 0 && (
                     <View style={styles.cartBadge}>
                       <Text style={styles.cartBadgeText}>
@@ -285,7 +287,7 @@ export default function SelectionScreen({ navigation, route }) {
 
           {/* Category Tabs */}
           <View
-            style={styles.categoryTabs}
+            style={[styles.categoryTabs, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
             onLayout={(event) => setTabContainerWidth(event.nativeEvent.layout.width)}
           >
             {!!tabContainerWidth && (
@@ -293,6 +295,7 @@ export default function SelectionScreen({ navigation, route }) {
                 style={[
                   styles.categoryTabIndicator,
                   {
+                    backgroundColor: colors.primary,
                     width: tabContainerWidth / 2 - 4,
                     transform: [{ translateX: tabTranslateX }],
                   },
@@ -309,11 +312,12 @@ export default function SelectionScreen({ navigation, route }) {
               <Ionicons 
                 name="water" 
                 size={20} 
-                color={selectedCategory === 'Fuel' ? '#fff' : '#0033A0'} 
+                color={selectedCategory === 'Fuel' ? '#fff' : colors.textSecondary} 
               />
               <Text style={[
                 styles.categoryTabText,
-                selectedCategory === 'Fuel' && styles.activeCategoryTabText
+                { color: colors.textSecondary },
+                selectedCategory === 'Fuel' && [styles.activeCategoryTabText, { color: '#fff' }]
               ]}>
                 Fuel
               </Text>
@@ -329,11 +333,12 @@ export default function SelectionScreen({ navigation, route }) {
               <Ionicons 
                 name="water" 
                 size={20} 
-                color={selectedCategory !== 'Fuel' ? '#fff' : '#ED2939'} 
+                color={selectedCategory !== 'Fuel' ? '#fff' : colors.textSecondary} 
               />
               <Text style={[
                 styles.categoryTabText,
-                selectedCategory !== 'Fuel' && styles.activeCategoryTabText
+                { color: colors.textSecondary },
+                selectedCategory !== 'Fuel' && [styles.activeCategoryTabText, { color: '#fff' }]
               ]}>
                 Lubricants
               </Text>
@@ -341,14 +346,14 @@ export default function SelectionScreen({ navigation, route }) {
           </View>
 
           {/* Search Bar */}
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#999" />
+          <View style={[styles.searchBar, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border }]}>
+            <Ionicons name="search" size={20} color={colors.textSecondary} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: colors.textPrimary }]}
               placeholder="Search products by name or description..."
               value={searchQuery}
               onChangeText={handleSearchChange}
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textSecondary}
               clearButtonMode="while-editing"
             />
             {searchQuery.length > 0 && (
@@ -356,7 +361,7 @@ export default function SelectionScreen({ navigation, route }) {
                 onPress={() => handleSearchChange('')}
                 style={styles.clearButton}
               >
-                <Ionicons name="close-circle" size={20} color="#999" />
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             )}
           </View>
@@ -379,22 +384,22 @@ export default function SelectionScreen({ navigation, route }) {
         ) : (
           <View style={styles.productsContainer}>
             <View style={styles.productsHeader}>
-              <Text style={styles.productsCount}>
+              <Text style={[styles.productsCount, { color: colors.textSecondary }]}>
                 {filteredProducts.length} {filteredProducts.length === 1 ? 'Product' : 'Products'} Found
               </Text>
               <TouchableOpacity 
-                style={styles.filterButton}
+                style={[styles.filterButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
                 onPress={() => setSortModalVisible(true)}
               >
-                <Text style={styles.filterText}>{getSortLabel()}</Text>
-                <Ionicons name="chevron-down" size={16} color="#0033A0" />
+                <Text style={[styles.filterText, { color: colors.primary }]}>{getSortLabel()}</Text>
+                <Ionicons name="chevron-down" size={16} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
             {showUsageHints ? (
-              <View style={styles.actionHintBanner}>
-                <Ionicons name="information-circle" size={16} color="#0033A0" />
-                <Text style={styles.actionHintBannerText}>
+              <View style={[styles.actionHintBanner, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EEF4FF', borderColor: colors.border }]}>
+                <Ionicons name="information-circle" size={16} color={colors.primary} />
+                <Text style={[styles.actionHintBannerText, { color: colors.textPrimary }]}>
                   Tap product card for custom quantity. Use Quick Add to add default amount.
                 </Text>
                 <TouchableOpacity
@@ -402,16 +407,16 @@ export default function SelectionScreen({ navigation, route }) {
                   onPress={() => setShowUsageHints(false)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Ionicons name="close" size={18} color="#5B6B85" />
+                  <Ionicons name="close" size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.showTipsButton}
+                style={[styles.showTipsButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EEF4FF' }]}
                 onPress={() => setShowUsageHints(true)}
               >
-                <Ionicons name="information-circle-outline" size={16} color="#0033A0" />
-                <Text style={styles.showTipsButtonText}>Show Tips</Text>
+                <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+                <Text style={[styles.showTipsButtonText, { color: colors.primary }]}>Show Tips</Text>
               </TouchableOpacity>
             )}
 
@@ -446,8 +451,8 @@ export default function SelectionScreen({ navigation, route }) {
                 <RefreshControl 
                   refreshing={refreshing} 
                   onRefresh={onRefresh}
-                  colors={['#0033A0']}
-                  tintColor="#0033A0"
+                  colors={[colors.primary]}
+                  tintColor={colors.primary}
                 />
               }
               showsVerticalScrollIndicator={false}
@@ -456,12 +461,12 @@ export default function SelectionScreen({ navigation, route }) {
                   <Ionicons 
                     name={selectedCategory === 'Fuel' ? "water-outline" : "oil-outline"} 
                     size={80} 
-                    color="#ccc" 
+                    color={colors.border} 
                   />
-                  <Text style={styles.emptyTitle}>
+                  <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                     {searchQuery ? 'No matching products found' : `No ${selectedCategory === 'Fuel' ? 'fuel' : 'lubricant'} products available`}
                   </Text>
-                  <Text style={styles.emptySubtitle}>
+                  <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                     {searchQuery 
                       ? 'Try searching with different keywords' 
                       : 'Check back soon for new products'
@@ -469,14 +474,14 @@ export default function SelectionScreen({ navigation, route }) {
                   </Text>
                   {searchQuery && (
                     <TouchableOpacity 
-                      style={styles.emptyButton}
+                      style={[styles.emptyButton, { backgroundColor: colors.primary }]}
                       onPress={() => handleSearchChange('')}
                     >
                       <Text style={styles.emptyButtonText}>Clear Search</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity 
-                    style={styles.emptyButton}
+                    style={[styles.emptyButton, { backgroundColor: colors.primary }]}
                     onPress={() => navigation.navigate('Selection')}
                   >
                     <Text style={styles.emptyButtonText}>Browse Categories</Text>
@@ -499,14 +504,14 @@ export default function SelectionScreen({ navigation, route }) {
             activeOpacity={1}
             onPress={() => setSortModalVisible(false)}
           >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Sort Products</Text>
+            <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Sort Products</Text>
                 <TouchableOpacity 
                   onPress={() => setSortModalVisible(false)}
                   style={styles.modalCloseButton}
                 >
-                  <Ionicons name="close" size={24} color="#666" />
+                  <Ionicons name="close" size={24} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
               
@@ -514,92 +519,100 @@ export default function SelectionScreen({ navigation, route }) {
                 <TouchableOpacity 
                   style={[
                     styles.sortOption,
-                    sortBy === 'name_asc' && styles.sortOptionSelected
+                    { borderBottomColor: colors.border },
+                    sortBy === 'name_asc' && [styles.sortOptionSelected, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]
                   ]}
                   onPress={() => handleSortSelect('name_asc')}
                 >
                   <Ionicons 
                     name="text" 
                     size={20} 
-                    color={sortBy === 'name_asc' ? '#0033A0' : '#666'} 
+                    color={sortBy === 'name_asc' ? colors.primary : colors.textSecondary} 
                   />
                   <Text style={[
                     styles.sortOptionText,
-                    sortBy === 'name_asc' && styles.sortOptionTextSelected
+                    { color: colors.textPrimary },
+                    sortBy === 'name_asc' && [styles.sortOptionTextSelected, { color: colors.primary }]
                   ]}>
                     Name: A to Z
                   </Text>
                   {sortBy === 'name_asc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[
                     styles.sortOption,
-                    sortBy === 'name_desc' && styles.sortOptionSelected
+                    { borderBottomColor: colors.border },
+                    sortBy === 'name_desc' && [styles.sortOptionSelected, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]
                   ]}
                   onPress={() => handleSortSelect('name_desc')}
                 >
                   <Ionicons 
                     name="text" 
                     size={20} 
-                    color={sortBy === 'name_desc' ? '#0033A0' : '#666'} 
+                    color={sortBy === 'name_desc' ? colors.primary : colors.textSecondary} 
                   />
                   <Text style={[
                     styles.sortOptionText,
-                    sortBy === 'name_desc' && styles.sortOptionTextSelected
+                    { color: colors.textPrimary },
+                    sortBy === 'name_desc' && [styles.sortOptionTextSelected, { color: colors.primary }]
                   ]}>
                     Name: Z to A
                   </Text>
                   {sortBy === 'name_desc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[
                     styles.sortOption,
-                    sortBy === 'price_asc' && styles.sortOptionSelected
+                    { borderBottomColor: colors.border },
+                    sortBy === 'price_asc' && [styles.sortOptionSelected, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]
                   ]}
                   onPress={() => handleSortSelect('price_asc')}
                 >
                   <Ionicons 
                     name="arrow-up" 
                     size={20} 
-                    color={sortBy === 'price_asc' ? '#0033A0' : '#666'} 
+                    color={sortBy === 'price_asc' ? colors.primary : colors.textSecondary} 
                   />
                   <Text style={[
                     styles.sortOptionText,
-                    sortBy === 'price_asc' && styles.sortOptionTextSelected
+                    { color: colors.textPrimary },
+                    sortBy === 'price_asc' && [styles.sortOptionTextSelected, { color: colors.primary }]
                   ]}>
                     Price: Low to High
                   </Text>
                   {sortBy === 'price_asc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
                   style={[
                     styles.sortOption,
-                    sortBy === 'price_desc' && styles.sortOptionSelected
+                    { borderBottomColor: colors.border },
+                    sortBy === 'price_desc' && [styles.sortOptionSelected, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]
                   ]}
                   onPress={() => handleSortSelect('price_desc')}
                 >
                   <Ionicons 
                     name="arrow-down" 
                     size={20} 
-                    color={sortBy === 'price_desc' ? '#0033A0' : '#666'} 
+                    color={sortBy === 'price_desc' ? colors.primary : colors.textSecondary} 
                   />
                   <Text style={[
                     styles.sortOptionText,
-                    sortBy === 'price_desc' && styles.sortOptionTextSelected
+                    { color: colors.textPrimary },
+                    sortBy === 'price_desc' && [styles.sortOptionTextSelected, { color: colors.primary }]
                   ]}>
                     Price: High to Low
                   </Text>
                   {sortBy === 'price_desc' && (
-                    <Ionicons name="checkmark" size={20} color="#0033A0" />
+                    <Ionicons name="checkmark" size={20} color={colors.primary} />
                   )}
                 </TouchableOpacity>
               </ScrollView>

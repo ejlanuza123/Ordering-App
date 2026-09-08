@@ -19,10 +19,12 @@ import { useAuth } from '../../context/AuthContext';
 import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
 import { PUERTO_PRINCESA_LANDMARKS, detectNearestLandmark } from '../../utils/location';
 import { getStoreToCustomerFallback } from '../../utils/riderLocation';
+import { useTheme } from '../../context/ThemeContext';
 
 const ROUTE_REFRESH_MIN_MS = 10000;
 
 export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const webViewRef = useRef(null);
   const lastRouteCalcRef = useRef(0);
@@ -59,7 +61,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
   const [isLiveRoute, setIsLiveRoute] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
-  const [mapLayer, setMapLayer] = useState('street'); // 'street' | 'satellite' | 'dark'
+  const [mapLayer, setMapLayer] = useState(isDarkMode ? 'dark' : 'street'); // 'street' | 'satellite' | 'dark'
   const [showLandmarks, setShowLandmarks] = useState(true);
 
   // Compute static store-to-customer distance and ETA fallback
@@ -612,32 +614,38 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Live Delivery Tracking</Text>
-        <TouchableOpacity onPress={handleFitBounds} style={styles.fitHeaderBtn}>
-          <Ionicons name="expand" size={20} color="#0033A0" />
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Live Delivery Tracking</Text>
+        <TouchableOpacity 
+          onPress={handleFitBounds} 
+          style={[styles.fitHeaderBtn, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
+        >
+          <Ionicons name="expand" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Info & Status Timeline Card */}
-      <View style={styles.infoCard}>
+      <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
         <View style={styles.infoHeadRow}>
-          <Text style={styles.orderText}>{orderNumber || `Order #${orderId || '-'}`}</Text>
-          <View style={[styles.onlineBadge, { backgroundColor: activeRiderId ? (isOnline ? '#10B98120' : '#F59E0B20') : '#0033A015' }]}>
-            <View style={[styles.onlineDot, { backgroundColor: activeRiderId ? (isOnline ? '#10B981' : '#F59E0B') : '#0033A0' }]} />
-            <Text style={[styles.onlineBadgeText, { color: activeRiderId ? (isOnline ? '#065F46' : '#92400E') : '#0033A0' }]}>
+          <Text style={[styles.orderText, { color: colors.textPrimary }]}>{orderNumber || `Order #${orderId || '-'}`}</Text>
+          <View style={[styles.onlineBadge, { backgroundColor: activeRiderId ? (isOnline ? '#10B98120' : '#F59E0B20') : (isDarkMode ? '#0033A030' : '#0033A015') }]}>
+            <View style={[styles.onlineDot, { backgroundColor: activeRiderId ? (isOnline ? '#10B981' : '#F59E0B') : colors.primary }]} />
+            <Text style={[styles.onlineBadgeText, { color: activeRiderId ? (isOnline ? '#10B981' : '#F59E0B') : colors.primary }]}>
               {activeRiderId ? (isOnline ? 'Rider Online' : 'Rider Offline') : 'Order Active'}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.riderText}>🏍️ {activeRiderName || 'Awaiting Rider Assignment'}</Text>
-        <Text style={styles.metaText} numberOfLines={1}>📍 {deliveryAddress || 'Delivery destination'}</Text>
+        <Text style={[styles.riderText, { color: colors.primary }]}>🏍️ {activeRiderName || 'Awaiting Rider Assignment'}</Text>
+        <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>📍 {deliveryAddress || 'Delivery destination'}</Text>
 
         {/* 5-Step Order Status Progress Timeline */}
         <OrderDeliveryTimeline
@@ -647,26 +655,26 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
           distanceKm={distanceKm ?? fallbackEta.distanceKm}
         />
 
-        <View style={styles.metricsRow}>
+        <View style={[styles.metricsRow, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc', borderColor: colors.border }]}>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>ESTIMATED ARRIVAL</Text>
-            <Text style={styles.metricValue}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>ESTIMATED ARRIVAL</Text>
+            <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
               {etaMinutes !== null
                 ? `${etaMinutes} mins${isLiveRoute ? '' : ' (Est.)'}`
                 : `${fallbackEta.etaMinutes} mins (Est.)`}
             </Text>
           </View>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>DISTANCE</Text>
-            <Text style={styles.metricValue}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>DISTANCE</Text>
+            <Text style={[styles.metricValue, { color: colors.textPrimary }]}>
               {distanceKm !== null
                 ? `${distanceKm} km`
                 : `${fallbackEta.distanceKm} km`}
             </Text>
           </View>
           <View style={styles.metricItem}>
-            <Text style={styles.metricLabel}>WAYPOINT</Text>
-            <Text style={styles.metricValue} numberOfLines={1}>
+            <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>WAYPOINT</Text>
+            <Text style={[styles.metricValue, { color: colors.textPrimary }]} numberOfLines={1}>
               {nearestLandmark ? nearestLandmark.name : (isLiveRoute ? 'En Route' : 'Store Dispatch')}
             </Text>
           </View>
@@ -682,7 +690,7 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
 
           {!!activeRiderId && (
             <TouchableOpacity 
-              style={[styles.actionBtn, styles.chatBtn]} 
+              style={[styles.actionBtn, styles.chatBtn, { backgroundColor: colors.primary }]} 
               onPress={handleChatRider}
               disabled={openingChat}
             >
@@ -693,12 +701,12 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         </View>
 
         {lastSeen && (
-          <Text style={styles.lastSeenText}>GPS synchronized: {new Date(lastSeen).toLocaleTimeString()}</Text>
+          <Text style={[styles.lastSeenText, { color: colors.textSecondary }]}>GPS synchronized: {new Date(lastSeen).toLocaleTimeString()}</Text>
         )}
       </View>
 
       {/* Map View */}
-      <View style={styles.mapContainer}>
+      <View style={[styles.mapContainer, { borderColor: colors.border }]}>
         <WebView
           ref={webViewRef}
           source={{ html: buildMapHtml() }}
@@ -710,9 +718,17 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
 
         {/* Top Floating Live Route HUD */}
         {etaMinutes !== null && (
-          <View style={styles.topHudBadge}>
+          <View style={[
+            styles.topHudBadge, 
+            { 
+              backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              borderColor: colors.border,
+              borderWidth: isDarkMode ? 1 : 0,
+              shadowColor: colors.shadow
+            }
+          ]}>
             <Ionicons name="bicycle" size={18} color="#10B981" />
-            <Text style={styles.topHudText}>
+            <Text style={[styles.topHudText, { color: colors.textPrimary }]}>
               {etaMinutes} min • {distanceKm} km away {nearestLandmark ? `(near ${nearestLandmark.name})` : ''}
             </Text>
           </View>
@@ -721,55 +737,98 @@ export default function CustomerDeliveryTrackingScreen({ navigation, route }) {
         {/* Top-Right HUD Layer Controls */}
         <View style={styles.hudOverlay}>
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'street' && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              mapLayer === 'street' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={() => handleLayerChange('street')}
           >
-            <Ionicons name="map" size={14} color={mapLayer === 'street' ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, mapLayer === 'street' && styles.hudButtonTextActive]}>
+            <Ionicons name="map" size={14} color={mapLayer === 'street' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, mapLayer === 'street' && styles.hudButtonTextActive]}>
               Street
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'satellite' && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              mapLayer === 'satellite' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={() => handleLayerChange('satellite')}
           >
-            <Ionicons name="earth" size={14} color={mapLayer === 'satellite' ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
+            <Ionicons name="earth" size={14} color={mapLayer === 'satellite' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, mapLayer === 'satellite' && styles.hudButtonTextActive]}>
               Satellite
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.hudButton, mapLayer === 'dark' && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              mapLayer === 'dark' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={() => handleLayerChange('dark')}
           >
-            <Ionicons name="moon" size={14} color={mapLayer === 'dark' ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, mapLayer === 'dark' && styles.hudButtonTextActive]}>
+            <Ionicons name="moon" size={14} color={mapLayer === 'dark' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, mapLayer === 'dark' && styles.hudButtonTextActive]}>
               Night
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.hudButton, showLandmarks && styles.hudButtonActive]}
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              showLandmarks && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
             onPress={handleToggleLandmarks}
           >
-            <Ionicons name="flag" size={14} color={showLandmarks ? '#fff' : '#0033A0'} />
-            <Text style={[styles.hudButtonText, showLandmarks && styles.hudButtonTextActive]}>
+            <Ionicons name="flag" size={14} color={showLandmarks ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, showLandmarks && styles.hudButtonTextActive]}>
               Landmarks
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Floating Bottom-Right Recenter FAB */}
-        <TouchableOpacity style={styles.recenterFab} onPress={handleFitBounds}>
-          <Ionicons name="locate" size={22} color="#0033A0" />
+        <TouchableOpacity 
+          style={[
+            styles.recenterFab, 
+            { 
+              backgroundColor: colors.surface, 
+              shadowColor: colors.shadow,
+              borderColor: colors.border,
+              borderWidth: isDarkMode ? 1 : 0
+            }
+          ]} 
+          onPress={handleFitBounds}
+        >
+          <Ionicons name="locate" size={22} color={colors.primary} />
         </TouchableOpacity>
 
         {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#0033A0" />
-            <Text style={styles.loadingText}>Connecting to rider live GPS...</Text>
+          <View style={[styles.loadingOverlay, { backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255,255,255,0.85)' }]}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Connecting to rider live GPS...</Text>
           </View>
         )}
       </View>
