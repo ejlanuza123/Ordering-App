@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useTheme } from '../context/ThemeContext';
+
 const { width } = Dimensions.get('window');
 
 const CustomAlertModal = ({
@@ -26,6 +28,7 @@ const CustomAlertModal = ({
   iconName,
   iconColor,
 }) => {
+  const { colors, isDarkMode } = useTheme();
   
   const getIconByType = () => {
     switch (type) {
@@ -36,12 +39,12 @@ const CustomAlertModal = ({
       case 'warning':
         return { name: 'warning', color: '#F59E0B' };
       case 'info':
-        return { name: 'information-circle', color: '#0033A0' };
+        return { name: 'information-circle', color: colors.primary };
       case 'confirm':
         // For confirmation dialogs (like removing an item), show a warning-style appearance
         return { name: 'help-circle', color: '#F59E0B' };
       default:
-        return { name: iconName || 'information-circle', color: iconColor || '#0033A0' };
+        return { name: iconName || 'information-circle', color: iconColor || colors.primary };
     }
   };
 
@@ -63,28 +66,32 @@ const CustomAlertModal = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
           {/* Icon */}
           <View style={[styles.iconContainer, { backgroundColor: `${icon.color}15` }]}>
             <Ionicons name={icon.name} size={50} color={icon.color} />
           </View>
 
           {/* Title */}
-          {title && <Text style={styles.title}>{title}</Text>}
+          {title && <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>}
 
           {/* Message */}
-          {message && <Text style={styles.message}>{message}</Text>}
+          {message && <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>}
 
           {/* Buttons */}
           <View style={styles.buttonContainer}>
             {showCancelButton && (
               <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
+                style={[
+                  styles.button, 
+                  styles.cancelButton,
+                  { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }
+                ]}
                 onPress={onClose}
                 disabled={loading}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>{cancelText}</Text>
               </TouchableOpacity>
             )}
 
@@ -95,7 +102,7 @@ const CustomAlertModal = ({
                 type === 'error' && { backgroundColor: '#EF4444' },
                 type === 'warning' && { backgroundColor: '#F59E0B' },
                 type === 'success' && { backgroundColor: '#10B981' },
-                type === 'info' && { backgroundColor: '#0033A0' },
+                type === 'info' && { backgroundColor: colors.primary },
                 // Confirm dialogs (remove item, etc.) should use warning color
                 type === 'confirm' && { backgroundColor: '#F59E0B' },
                 showCancelButton && styles.flexButton,

@@ -13,10 +13,13 @@ import { View, Animated, StyleSheet } from 'react-native';
  *   <SkeletonLoader variant="delivery-card" count={3} />
  */
 
+import { useTheme } from '../context/ThemeContext';
+
 const SHIMMER_DURATION = 1200;
 
 function ShimmerBlock({ style }) {
   const opacity = useRef(new Animated.Value(0.3)).current;
+  const { isDarkMode } = useTheme();
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -37,12 +40,13 @@ function ShimmerBlock({ style }) {
     return () => animation.stop();
   }, [opacity]);
 
-  return <Animated.View style={[styles.shimmerBase, style, { opacity }]} />;
+  return <Animated.View style={[styles.shimmerBase, isDarkMode && { backgroundColor: '#374151' }, style, { opacity }]} />;
 }
 
 function ProductCardSkeleton() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.productCard}>
+    <View style={[styles.productCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <ShimmerBlock style={styles.productImage} />
       <View style={styles.productInfo}>
         <ShimmerBlock style={styles.productTitle} />
@@ -57,8 +61,9 @@ function ProductCardSkeleton() {
 }
 
 function OrderCardSkeleton() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.orderCard}>
+    <View style={[styles.orderCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.orderHeader}>
         <View style={{ flex: 1 }}>
           <ShimmerBlock style={styles.orderNumber} />
@@ -77,12 +82,13 @@ function OrderCardSkeleton() {
 }
 
 function DashboardStatsSkeleton() {
+  const { colors } = useTheme();
   return (
     <View>
       {/* KPI Cards Row */}
       <View style={styles.statsRow}>
         {[1, 2, 3].map((i) => (
-          <View key={i} style={styles.statCard}>
+          <View key={i} style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <ShimmerBlock style={styles.statIcon} />
             <ShimmerBlock style={styles.statValue} />
             <ShimmerBlock style={styles.statLabel} />
@@ -90,14 +96,14 @@ function DashboardStatsSkeleton() {
         ))}
       </View>
       {/* Earnings Card */}
-      <View style={styles.earningsCard}>
+      <View style={[styles.earningsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <ShimmerBlock style={{ width: 120, height: 14, borderRadius: 4 }} />
         <ShimmerBlock style={{ width: 180, height: 28, borderRadius: 6, marginTop: 8 }} />
         <ShimmerBlock style={{ width: '100%', height: 8, borderRadius: 4, marginTop: 16 }} />
       </View>
       {/* Activity List */}
       {[1, 2, 3].map((i) => (
-        <View key={i} style={styles.activityItem}>
+        <View key={i} style={[styles.activityItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <ShimmerBlock style={styles.activityIcon} />
           <View style={{ flex: 1 }}>
             <ShimmerBlock style={{ width: '70%', height: 14, borderRadius: 4 }} />
@@ -110,8 +116,9 @@ function DashboardStatsSkeleton() {
 }
 
 function DeliveryCardSkeleton() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.deliveryCard}>
+    <View style={[styles.deliveryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.deliveryHeader}>
         <ShimmerBlock style={{ width: 120, height: 16, borderRadius: 4 }} />
         <ShimmerBlock style={{ width: 80, height: 22, borderRadius: 12 }} />

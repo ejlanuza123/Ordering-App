@@ -20,8 +20,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { riderPresenceService } from '../../services/riderPresenceService';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import GPSNavigationModal from '../../components/GPSNavigationModal';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RiderDeliveriesScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const [deliveries, setDeliveries] = useState([]);
@@ -188,15 +190,15 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
 
   const renderDeliveryItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.deliveryCard}
+      style={[styles.deliveryCard, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
       onPress={() => navigation.navigate('RiderDeliveryDetails', { delivery: item })}
     >
-      <View style={styles.cardHeader}>
+      <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={styles.orderNumber}>
+          <Text style={[styles.orderNumber, { color: colors.textPrimary }]}>
             Order {formatOrderNumber(item.orders?.order_number, item.order_id)}
           </Text>
-          <Text style={styles.orderTime}>
+          <Text style={[styles.orderTime, { color: colors.textSecondary }]}>
             {new Date(item.assigned_at).toLocaleString()}
           </Text>
         </View>
@@ -210,26 +212,26 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
 
       <View style={styles.customerInfo}>
         <View style={styles.infoRow}>
-          <Ionicons name="person" size={16} color="#666" />
-          <Text style={styles.infoText}>{item.orders?.customer_name?.full_name}</Text>
+          <Ionicons name="person" size={16} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{item.orders?.customer_name?.full_name}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Ionicons name="call" size={16} color="#666" />
-          <Text style={styles.infoText}>{item.orders?.customer_name?.phone_number || 'No phone'}</Text>
+          <Ionicons name="call" size={16} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{item.orders?.customer_name?.phone_number || 'No phone'}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Ionicons name="location" size={16} color="#666" />
-          <Text style={styles.infoText} numberOfLines={2}>{item.orders?.delivery_address}</Text>
+          <Ionicons name="location" size={16} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]} numberOfLines={2}>{item.orders?.delivery_address}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Ionicons name="cash" size={16} color="#666" />
-          <Text style={styles.infoText}>{formatCurrency(item.orders?.total_amount)}</Text>
+          <Ionicons name="cash" size={16} color={colors.textSecondary} />
+          <Text style={[styles.infoText, { color: colors.textSecondary }]}>{formatCurrency(item.orders?.total_amount)}</Text>
         </View>
       </View>
 
-      <View style={styles.cardFooter}>
+      <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={styles.gpsNavButton}
+          style={[styles.gpsNavButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : (colors.primary + '15') }]}
           onPress={() => setNavDestination({
             lat: item.orders?.delivery_lat,
             lng: item.orders?.delivery_lng,
@@ -239,12 +241,12 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
           })}
           activeOpacity={0.8}
         >
-          <Ionicons name="navigate" size={16} color="#0033A0" />
-          <Text style={styles.gpsNavButtonText}>GPS</Text>
+          <Ionicons name="navigate" size={16} color={colors.primary} />
+          <Text style={[styles.gpsNavButtonText, { color: colors.primary }]}>GPS</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.viewButton}
+          style={[styles.viewButton, { backgroundColor: colors.primary }]}
           onPress={() => navigation.navigate('RiderDeliveryDetails', { delivery: item })}
         >
           <Text style={styles.viewButtonText}>View Details</Text>
@@ -254,32 +256,51 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
     </TouchableOpacity>
   );
 
-  const FilterButton = ({ title, value }) => (
-    <TouchableOpacity
-      style={[styles.filterButton, filter === value && styles.filterButtonActive]}
-      onPress={() => setFilter(value)}
-    >
-      <Text style={[styles.filterText, filter === value && styles.filterTextActive]}>
-        {title}
-      </Text>
-    </TouchableOpacity>
-  );
+  const FilterButton = ({ title, value }) => {
+    const isActive = filter === value;
+    return (
+      <TouchableOpacity
+        style={[
+          styles.filterButton,
+          {
+            backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa',
+            borderColor: colors.border,
+          },
+          isActive && {
+            backgroundColor: colors.primary,
+            borderColor: colors.primary,
+          },
+        ]}
+        onPress={() => setFilter(value)}
+      >
+        <Text
+          style={[
+            styles.filterText,
+            { color: colors.textSecondary },
+            isActive && { color: '#fff' },
+          ]}
+        >
+          {title}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border, shadowColor: colors.shadow }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : (colors.primary + '15') }]}>
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Deliveries</Text>
+        <Text style={[styles.headerTitle, { color: isDarkMode ? colors.textPrimary : colors.primary }]}>My Deliveries</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <FilterButton title="All" value="all" />
           <FilterButton title="Ready" value="assigned" />
@@ -299,13 +320,13 @@ export default function RiderDeliveriesScreen({ navigation, route }) {
           renderItem={renderDeliveryItem}
           contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 20 }]}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0033A0']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="bicycle-outline" size={80} color="#ccc" />
-              <Text style={styles.emptyTitle}>No deliveries found</Text>
-              <Text style={styles.emptySubtitle}>
+              <Ionicons name="bicycle-outline" size={80} color={colors.border} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No deliveries found</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                 {filter === 'all' 
                   ? "You don't have any deliveries yet"
                   : `No ${filter} deliveries at the moment`}

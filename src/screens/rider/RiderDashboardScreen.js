@@ -28,6 +28,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 import { riderPresenceService } from '../../services/riderPresenceService';
 import SkeletonLoader from '../../components/SkeletonLoader';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const devLog = (...args) => {
@@ -37,6 +38,7 @@ const devLog = (...args) => {
 };
 
 export default function RiderDashboardScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const { profile } = useAuth();
   const { unreadCount } = useNotifications();
   const { getRiderStats } = useRiderRatings();
@@ -474,19 +476,19 @@ export default function RiderDashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
         <SkeletonLoader variant="dashboard-stats" />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
         <View style={styles.headerTop}>
           <View style={styles.riderIdentity}>
             <View style={styles.riderLogoWrap}>
@@ -497,8 +499,8 @@ export default function RiderDashboardScreen({ navigation }) {
               />
             </View>
             <View>
-              <Text style={styles.greeting}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'},</Text>
-              <Text style={styles.userName}>{profile?.full_name?.split(' ')[0] || 'Rider'}</Text>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'},</Text>
+              <Text style={[styles.userName, { color: colors.textPrimary }]}>{profile?.full_name?.split(' ')[0] || 'Rider'}</Text>
             </View>
           </View>
           
@@ -513,10 +515,10 @@ export default function RiderDashboardScreen({ navigation }) {
             </View>
 
             <TouchableOpacity 
-              style={styles.iconButton}
+              style={[styles.iconButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
               onPress={() => navigation.navigate('Notifications')}
             >
-              <Ionicons name="notifications-outline" size={22} color="#0033A0" />
+              <Ionicons name="notifications-outline" size={22} color={colors.primary} />
               {/* Unread badge - displays only when there are unread notifications */}
               {unreadCount > 0 && <View style={styles.badge} />}
             </TouchableOpacity>
@@ -536,27 +538,27 @@ export default function RiderDashboardScreen({ navigation }) {
         </View>
 
         {/* Quick Stats Row */}
-        <View style={styles.quickStatsRow}>
+        <View style={[styles.quickStatsRow, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa' }]}>
           <View style={styles.quickStat}>
-            <Ionicons name="bicycle" size={20} color="#0033A0" />
-            <Text style={styles.quickStatValue}>{stats.todayDeliveries}</Text>
-            <Text style={styles.quickStatLabel}>Today</Text>
+            <Ionicons name="bicycle" size={20} color={colors.primary} />
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>{stats.todayDeliveries}</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Today</Text>
           </View>
           
-          <View style={styles.quickStatDivider} />
+          <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           
           <View style={styles.quickStat}>
             <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-            <Text style={styles.quickStatValue}>{stats.completedToday}</Text>
-            <Text style={styles.quickStatLabel}>Completed</Text>
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>{stats.completedToday}</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Completed</Text>
           </View>
           
-          <View style={styles.quickStatDivider} />
+          <View style={[styles.quickStatDivider, { backgroundColor: colors.border }]} />
           
           <View style={styles.quickStat}>
             <Ionicons name="time" size={20} color="#F59E0B" />
-            <Text style={styles.quickStatValue}>{stats.pendingDeliveries}</Text>
-            <Text style={styles.quickStatLabel}>Pending</Text>
+            <Text style={[styles.quickStatValue, { color: colors.textPrimary }]}>{stats.pendingDeliveries}</Text>
+            <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Pending</Text>
           </View>
         </View>
 
@@ -566,10 +568,10 @@ export default function RiderDashboardScreen({ navigation }) {
             style={styles.quickActionItem}
             onPress={() => navigation.navigate('RiderDeliveries')}
           >
-            <View style={[styles.quickActionIcon, { backgroundColor: '#0033A015' }]}>
-              <Ionicons name="list" size={22} color="#0033A0" />
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primary + '15' }]}>
+              <Ionicons name="list" size={22} color={colors.primary} />
             </View>
-            <Text style={styles.quickActionText}>All</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>All</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -579,7 +581,7 @@ export default function RiderDashboardScreen({ navigation }) {
             <View style={[styles.quickActionIcon, { backgroundColor: '#10B98115' }]}>
               <Ionicons name="map" size={22} color="#10B981" />
             </View>
-            <Text style={styles.quickActionText}>Map</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>Map</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -589,7 +591,7 @@ export default function RiderDashboardScreen({ navigation }) {
             <View style={[styles.quickActionIcon, { backgroundColor: '#F59E0B15' }]}>
               <Ionicons name="person" size={22} color="#F59E0B" />
             </View>
-            <Text style={styles.quickActionText}>Profile</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>Profile</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -599,7 +601,7 @@ export default function RiderDashboardScreen({ navigation }) {
             <View style={[styles.quickActionIcon, { backgroundColor: '#ED293915' }]}>
               <Ionicons name="headset" size={22} color="#ED2939" />
             </View>
-            <Text style={styles.quickActionText}>Support</Text>
+            <Text style={[styles.quickActionText, { color: colors.textSecondary }]}>Support</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -608,62 +610,62 @@ export default function RiderDashboardScreen({ navigation }) {
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0033A0']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
       >
         {/* Earnings Card */}
         <TouchableOpacity 
-          style={styles.earningsCard}
+          style={[styles.earningsCard, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
           onPress={() => setShowEarningsModal(true)}
           activeOpacity={0.7}
         >
           <View style={styles.earningsHeader}>
             <View>
-              <Text style={styles.earningsTitle}>Total Earnings</Text>
-              <Text style={styles.earningsAmount}>{formatCurrency(stats.totalEarnings)}</Text>
+              <Text style={[styles.earningsTitle, { color: colors.textSecondary }]}>Total Earnings</Text>
+              <Text style={[styles.earningsAmount, { color: colors.primary }]}>{formatCurrency(stats.totalEarnings)}</Text>
             </View>
             <View style={styles.earningsBadge}>
               <Text style={styles.earningsBadgeText}>Default fee: {formatCurrency(defaultDeliveryFee)}</Text>
             </View>
           </View>
           
-          <View style={styles.earningsProgress}>
+          <View style={[styles.earningsProgress, { borderTopColor: colors.border }]}>
             <View style={styles.earningsProgressItem}>
-              <Text style={styles.earningsProgressLabel}>Today</Text>
-              <Text style={styles.earningsProgressValue}>{formatCurrency(stats.todayEarnings)}</Text>
+              <Text style={[styles.earningsProgressLabel, { color: colors.textSecondary }]}>Today</Text>
+              <Text style={[styles.earningsProgressValue, { color: colors.textPrimary }]}>{formatCurrency(stats.todayEarnings)}</Text>
             </View>
             <View style={styles.earningsProgressItem}>
-              <Text style={styles.earningsProgressLabel}>This Week</Text>
-              <Text style={styles.earningsProgressValue}>{formatCurrency(earningsBreakdown.weekly)}</Text>
+              <Text style={[styles.earningsProgressLabel, { color: colors.textSecondary }]}>This Week</Text>
+              <Text style={[styles.earningsProgressValue, { color: colors.textPrimary }]}>{formatCurrency(earningsBreakdown.weekly)}</Text>
             </View>
             <View style={styles.earningsProgressItem}>
-              <Text style={styles.earningsProgressLabel}>This Month</Text>
-              <Text style={styles.earningsProgressValue}>{formatCurrency(earningsBreakdown.monthly)}</Text>
+              <Text style={[styles.earningsProgressLabel, { color: colors.textSecondary }]}>This Month</Text>
+              <Text style={[styles.earningsProgressValue, { color: colors.textPrimary }]}>{formatCurrency(earningsBreakdown.monthly)}</Text>
             </View>
           </View>
         </TouchableOpacity>
 
         {/* Performance Metrics */}
-        <View style={styles.performanceCard}>
-          <Text style={styles.sectionTitle}>Performance</Text>
+        <View style={[styles.performanceCard, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Performance</Text>
           <View style={styles.performanceGrid}>
             <View style={styles.performanceItem}>
-              <Ionicons name="stats-chart" size={20} color="#0033A0" />
-              <Text style={styles.performanceValue}>{stats.acceptanceRate}%</Text>
-              <Text style={styles.performanceLabel}>Acceptance</Text>
+              <Ionicons name="stats-chart" size={20} color={colors.primary} />
+              <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>{stats.acceptanceRate}%</Text>
+              <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>Acceptance</Text>
             </View>
             
             <View style={styles.performanceItem}>
               <Ionicons name="time" size={20} color="#10B981" />
-              <Text style={styles.performanceValue}>{stats.onTimeRate}%</Text>
-              <Text style={styles.performanceLabel}>On-Time</Text>
+              <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>{stats.onTimeRate}%</Text>
+              <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>On-Time</Text>
             </View>
             
             <View style={styles.performanceItem}>
               <Ionicons name="star" size={20} color="#F59E0B" />
-              <Text style={styles.performanceValue}>{stats.rating}</Text>
-              <Text style={styles.performanceLabel}>Rating</Text>
+              <Text style={[styles.performanceValue, { color: colors.textPrimary }]}>{stats.rating}</Text>
+              <Text style={[styles.performanceLabel, { color: colors.textSecondary }]}>Rating</Text>
             </View>
           </View>
         </View>
@@ -672,22 +674,22 @@ export default function RiderDashboardScreen({ navigation }) {
         {activeDeliveries.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Active Deliveries</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Active Deliveries</Text>
               <TouchableOpacity onPress={() => navigation.navigate('RiderDeliveries')}>
-                <Text style={styles.viewAllText}>View All ({activeDeliveries.length})</Text>
+                <Text style={[styles.viewAllText, { color: colors.primary }]}>View All ({activeDeliveries.length})</Text>
               </TouchableOpacity>
             </View>
             
             {activeDeliveries.map((delivery) => (
               <TouchableOpacity
                 key={delivery.id}
-                style={styles.deliveryCard}
+                style={[styles.deliveryCard, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
                 onPress={() => navigation.navigate('RiderDeliveryDetails', { delivery })}
                 activeOpacity={0.7}
               >
                 <View style={styles.deliveryHeader}>
                   <View>
-                    <Text style={styles.deliveryOrderNumber}>
+                    <Text style={[styles.deliveryOrderNumber, { color: colors.textPrimary }]}>
                       Order {formatOrderNumber(delivery.orders?.order_number, delivery.order_id)}
                     </Text>
                     <View style={styles.deliveryStatus}>
@@ -697,25 +699,25 @@ export default function RiderDashboardScreen({ navigation }) {
                       </Text>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                 </View>
                 
                 <View style={styles.deliveryInfo}>
                   <View style={styles.deliveryInfoRow}>
-                    <Ionicons name="location-outline" size={16} color="#666" />
-                    <Text style={styles.deliveryInfoText} numberOfLines={1}>
+                    <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.deliveryInfoText, { color: colors.textSecondary }]} numberOfLines={1}>
                       {delivery.orders?.delivery_address}
                     </Text>
                   </View>
                   <View style={styles.deliveryInfoRow}>
-                    <Ionicons name="person-outline" size={16} color="#666" />
-                    <Text style={styles.deliveryInfoText}>
+                    <Ionicons name="person-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.deliveryInfoText, { color: colors.textSecondary }]}>
                       {delivery.orders?.profiles?.full_name || 'Customer'}
                     </Text>
                   </View>
                   <View style={styles.deliveryInfoRow}>
-                    <Ionicons name="time-outline" size={16} color="#666" />
-                    <Text style={styles.deliveryInfoText}>
+                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                    <Text style={[styles.deliveryInfoText, { color: colors.textSecondary }]}>
                       {delivery.timeSinceAssignment} ago
                     </Text>
                   </View>
@@ -740,17 +742,17 @@ export default function RiderDashboardScreen({ navigation }) {
         {/* Recent Deliveries */}
         {recentDeliveries.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Deliveries</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Deliveries</Text>
             {recentDeliveries.map((delivery) => (
-              <View key={delivery.id} style={styles.recentItem}>
+              <View key={delivery.id} style={[styles.recentItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <View style={styles.recentIcon}>
                   <Ionicons name="checkmark-circle" size={24} color="#10B981" />
                 </View>
                 <View style={styles.recentInfo}>
-                  <Text style={styles.recentOrder}>
+                  <Text style={[styles.recentOrder, { color: colors.textPrimary }]}>
                     Order {formatOrderNumber(delivery.orders?.order_number, delivery.order_id)}
                   </Text>
-                  <Text style={styles.recentTime}>
+                  <Text style={[styles.recentTime, { color: colors.textSecondary }]}>
                     {formatTimeAgo(delivery.delivered_at)}
                   </Text>
                 </View>
@@ -769,38 +771,38 @@ export default function RiderDashboardScreen({ navigation }) {
         onRequestClose={() => setShowAcceptModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Accept Delivery?</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Accept Delivery?</Text>
               <TouchableOpacity onPress={() => setShowAcceptModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             {selectedDelivery && (
               <View style={styles.modalBody}>
-                <View style={styles.modalDeliveryInfo}>
-                  <Text style={styles.modalOrderNumber}>
+                <View style={[styles.modalDeliveryInfo, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa' }]}>
+                  <Text style={[styles.modalOrderNumber, { color: colors.primary }]}>
                     Order {formatOrderNumber(selectedDelivery.orders?.order_number, selectedDelivery.order_id)}
                   </Text>
                   
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="location-outline" size={18} color="#666" />
-                    <Text style={styles.modalInfoText}>
+                    <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
                       {selectedDelivery.orders?.delivery_address}
                     </Text>
                   </View>
 
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="person-outline" size={18} color="#666" />
-                    <Text style={styles.modalInfoText}>
+                    <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
                       {selectedDelivery.orders?.profiles?.full_name || 'Customer'}
                     </Text>
                   </View>
 
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="cash-outline" size={18} color="#666" />
-                    <Text style={styles.modalInfoText}>
+                    <Ionicons name="cash-outline" size={18} color={colors.textSecondary} />
+                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
                       {formatCurrency(selectedDelivery.orders?.total_amount || 0)}
                     </Text>
                   </View>
@@ -808,7 +810,7 @@ export default function RiderDashboardScreen({ navigation }) {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={[styles.modalButton, styles.declineButton]}
+                    style={[styles.modalButton, styles.declineButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa' }]}
                     onPress={declineDelivery}
                   >
                     <Text style={styles.declineButtonText}>Decline</Text>
@@ -835,55 +837,55 @@ export default function RiderDashboardScreen({ navigation }) {
         onRequestClose={() => setShowEarningsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Earnings Breakdown</Text>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Earnings Breakdown</Text>
               <TouchableOpacity onPress={() => setShowEarningsModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
-              <View style={styles.earningsBreakdownCard}>
+              <View style={[styles.earningsBreakdownCard, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa' }]}>
                 <View style={styles.earningsBreakdownItem}>
-                  <Text style={styles.earningsBreakdownLabel}>Today</Text>
-                  <Text style={styles.earningsBreakdownValue}>
+                  <Text style={[styles.earningsBreakdownLabel, { color: colors.textSecondary }]}>Today</Text>
+                  <Text style={[styles.earningsBreakdownValue, { color: colors.textPrimary }]}>
                     {formatCurrency(stats.todayEarnings)}
                   </Text>
                 </View>
                 
                 <View style={styles.earningsBreakdownItem}>
-                  <Text style={styles.earningsBreakdownLabel}>This Week</Text>
-                  <Text style={styles.earningsBreakdownValue}>
+                  <Text style={[styles.earningsBreakdownLabel, { color: colors.textSecondary }]}>This Week</Text>
+                  <Text style={[styles.earningsBreakdownValue, { color: colors.textPrimary }]}>
                     {formatCurrency(earningsBreakdown.weekly)}
                   </Text>
                 </View>
                 
                 <View style={styles.earningsBreakdownItem}>
-                  <Text style={styles.earningsBreakdownLabel}>This Month</Text>
-                  <Text style={styles.earningsBreakdownValue}>
+                  <Text style={[styles.earningsBreakdownLabel, { color: colors.textSecondary }]}>This Month</Text>
+                  <Text style={[styles.earningsBreakdownValue, { color: colors.textPrimary }]}>
                     {formatCurrency(earningsBreakdown.monthly)}
                   </Text>
                 </View>
                 
-                <View style={styles.earningsDivider} />
+                <View style={[styles.earningsDivider, { backgroundColor: colors.border }]} />
                 
                 <View style={styles.earningsBreakdownItem}>
-                  <Text style={styles.earningsBreakdownLabel}>Pending</Text>
+                  <Text style={[styles.earningsBreakdownLabel, { color: colors.textSecondary }]}>Pending</Text>
                   <Text style={[styles.earningsBreakdownValue, { color: '#F59E0B' }]}>
                     {formatCurrency(earningsBreakdown.pending)}
                   </Text>
                 </View>
                 
                 <View style={styles.earningsBreakdownTotal}>
-                  <Text style={styles.earningsTotalLabel}>Total Earnings</Text>
-                  <Text style={styles.earningsTotalValue}>
+                  <Text style={[styles.earningsTotalLabel, { color: colors.textPrimary }]}>Total Earnings</Text>
+                  <Text style={[styles.earningsTotalValue, { color: colors.primary }]}>
                     {formatCurrency(stats.totalEarnings)}
                   </Text>
                 </View>
               </View>
 
-              <Text style={styles.earningsNote}>
+              <Text style={[styles.earningsNote, { color: colors.textSecondary }]}>
                 * Earnings are based on each order's delivery fee.
               </Text>
             </View>

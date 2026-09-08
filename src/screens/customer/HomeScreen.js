@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import NotificationIcon from '../../components/NotificationIcon';
 import { useNotifications } from '../../context/NotificationContext';
 import { useCart } from '../../context/CartContext';
@@ -59,6 +60,7 @@ export default function HomeScreen({ navigation, route }) {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const { cartItems } = useCart();
+  const { colors, isDarkMode } = useTheme();
   const [currentAvatarUrl, setCurrentAvatarUrl] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -251,11 +253,9 @@ export default function HomeScreen({ navigation, route }) {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Fixed Header - Modern Design */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerTop}>
           <View style={styles.brandContainerHeader}>
             <View style={styles.logoWrapperHeader}>
@@ -266,15 +266,15 @@ export default function HomeScreen({ navigation, route }) {
               />
             </View>
             <View style={styles.brandTextContainer}>
-              <Text style={styles.brandTitleHeader}>Petron San Pedro</Text>
-              <Text style={styles.brandSubtitleHeader}>Fuel & Lubricants Delivery</Text>
+              <Text style={[styles.brandTitleHeader, { color: colors.textPrimary }]}>Petron San Pedro</Text>
+              <Text style={[styles.brandSubtitleHeader, { color: colors.textSecondary }]}>Fuel & Lubricants Delivery</Text>
             </View>
           </View>
 
           <View style={styles.headerActions}>
             <NotificationIcon 
               onPress={() => navigation.navigate('Notifications')}
-              color="#0033A0"
+              color={colors.primary}
               size={22}
             />
             
@@ -293,10 +293,10 @@ export default function HomeScreen({ navigation, route }) {
         </View>
 
         <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>{getGreeting()},</Text>
+          <Text style={[styles.greeting, { color: colors.textSecondary }]}>{getGreeting()},</Text>
           <View style={styles.userNameContainer}>
-            <Text style={styles.userName}>{getUserFirstName()}</Text>
-            <View style={styles.greetingEmoji}>
+            <Text style={[styles.userName, { color: colors.primary }]}>{getUserFirstName()}</Text>
+            <View style={[styles.greetingEmoji, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
               <Text style={styles.greetingEmojiText}>👋</Text>
             </View>
           </View>
@@ -320,7 +320,7 @@ export default function HomeScreen({ navigation, route }) {
               )}
             </View>
             <Text
-              style={styles.headerActionText}
+              style={[styles.headerActionText, { color: colors.textSecondary }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -338,7 +338,7 @@ export default function HomeScreen({ navigation, route }) {
               <Ionicons name="time" size={20} color="#fff" />
             </View>
             <Text
-              style={styles.headerActionText}
+              style={[styles.headerActionText, { color: colors.textSecondary }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -356,7 +356,7 @@ export default function HomeScreen({ navigation, route }) {
               <Ionicons name="heart" size={20} color="#fff" />
             </View>
             <Text
-              style={styles.headerActionText}
+              style={[styles.headerActionText, { color: colors.textSecondary }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -365,7 +365,7 @@ export default function HomeScreen({ navigation, route }) {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          <TouchableOpacity 
             style={styles.headerActionButton}
             onPress={() => navigation.navigate('Reservation', { openNotice: true })}
             activeOpacity={0.7}
@@ -374,7 +374,7 @@ export default function HomeScreen({ navigation, route }) {
               <Ionicons name="calendar" size={20} color="#fff" />
             </View>
             <Text
-              style={styles.headerActionText}
+              style={[styles.headerActionText, { color: colors.textSecondary }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -392,7 +392,7 @@ export default function HomeScreen({ navigation, route }) {
               <Ionicons name="star" size={20} color="#fff" />
             </View>
             <Text
-              style={styles.headerActionText}
+              style={[styles.headerActionText, { color: colors.textSecondary }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.8}
@@ -406,7 +406,7 @@ export default function HomeScreen({ navigation, route }) {
 
       {/* Scrollable Content */}
       <ScrollView 
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
         bounces={true}
@@ -417,7 +417,7 @@ export default function HomeScreen({ navigation, route }) {
         {/* Main Action Section - Enhanced Order Now Button */}
         <View style={styles.mainSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>What would you like today?</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>What would you like today?</Text>
           </View>
           
           <TouchableOpacity 
@@ -443,84 +443,84 @@ export default function HomeScreen({ navigation, route }) {
         </View>
 
         {/* Quick Stats - Enhanced Design */}
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.statItem}>
             <View style={[styles.statIcon, { backgroundColor: '#0033A0' }]}>
               <Ionicons name="flash" size={20} color="#fff" />
             </View>
             <View style={styles.statInfo}>
-              <Text style={styles.statValue}>15-30</Text>
-              <Text style={styles.statLabel}>Minutes</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>15-30</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Minutes</Text>
             </View>
           </View>
           
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           
           <View style={styles.statItem}>
             <View style={[styles.statIcon, { backgroundColor: '#ED2939' }]}>
               <Ionicons name="shield-checkmark" size={20} color="#fff" />
             </View>
             <View style={styles.statInfo}>
-              <Text style={styles.statValue}>100%</Text>
-              <Text style={styles.statLabel}>Authentic</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>100%</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Authentic</Text>
             </View>
           </View>
           
-          <View style={styles.statDivider} />
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           
           <View style={styles.statItem}>
             <View style={[styles.statIcon, { backgroundColor: '#10B981' }]}>
               <Ionicons name="location" size={20} color="#fff" />
             </View>
             <View style={styles.statInfo}>
-              <Text style={styles.statValue}>San Pedro</Text>
-              <Text style={styles.statLabel}>Coverage</Text>
+              <Text style={[styles.statValue, { color: colors.textPrimary }]}>San Pedro</Text>
+              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Coverage</Text>
             </View>
           </View>
         </View>
 
         {/* Why Choose Us Section */}
         <View style={styles.whyChooseSection}>
-          <Text style={styles.sectionTitle}>Why Choose Us</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Why Choose Us</Text>
           
           <View style={styles.featuresGrid}>
-            <View style={styles.featureCard}>
+            <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.featureIconContainer}>
                 <Ionicons name="rocket" size={24} color="#0033A0" />
               </View>
-              <Text style={styles.featureTitle}>Lightning Fast</Text>
-              <Text style={styles.featureDescription}>15-30 min delivery</Text>
+              <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>Lightning Fast</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>15-30 min delivery</Text>
             </View>
 
-            <View style={styles.featureCard}>
+            <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.featureIconContainer}>
                 <Ionicons name="shield" size={24} color="#ED2939" />
               </View>
-              <Text style={styles.featureTitle}>100% Authentic</Text>
-              <Text style={styles.featureDescription}>Petron quality assured</Text>
+              <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>100% Authentic</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Petron quality assured</Text>
             </View>
 
-            <View style={styles.featureCard}>
+            <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.featureIconContainer}>
                 <Ionicons name="headset" size={24} color="#10B981" />
               </View>
-              <Text style={styles.featureTitle}>24/7 Support</Text>
-              <Text style={styles.featureDescription}>Always here to help</Text>
+              <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>24/7 Support</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Always here to help</Text>
             </View>
 
-            <View style={styles.featureCard}>
+            <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.featureIconContainer}>
                 <Ionicons name="wallet" size={24} color="#F59E0B" />
               </View>
-              <Text style={styles.featureTitle}>Best Prices</Text>
-              <Text style={styles.featureDescription}>Competitive rates</Text>
+              <Text style={[styles.featureTitle, { color: colors.textPrimary }]}>Best Prices</Text>
+              <Text style={[styles.featureDescription, { color: colors.textSecondary }]}>Competitive rates</Text>
             </View>
           </View>
         </View>
 
 
         {/* Footer Info */}
-        <View style={styles.footerCard}>
+        <View style={[styles.footerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.footerHeader}>
             <Image 
               source={require('../../../assets/petron-logo.jpg')} 
@@ -528,33 +528,33 @@ export default function HomeScreen({ navigation, route }) {
               resizeMode="contain"
             />
             <View>
-              <Text style={styles.footerTitle}>Petron San Pedro</Text>
-              <Text style={styles.footerSubtitle}>Since 1980</Text>
+              <Text style={[styles.footerTitle, { color: colors.textPrimary }]}>Petron San Pedro</Text>
+              <Text style={[styles.footerSubtitle, { color: colors.textSecondary }]}>Since 1980</Text>
             </View>
           </View>
-          <Text style={styles.footerText}>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             Premium quality fuel and lubricants delivered to your doorstep in San Pedro area. 
             Available 24/7 for your convenience.
           </Text>
           <View style={styles.footerContact}>
             <View style={styles.footerContactItem}>
-              <Ionicons name="call" size={16} color="#0033A0" />
-              <Text style={styles.footerContactText}> (02) 8888-9999</Text>
+              <Ionicons name="call" size={16} color={colors.primary} />
+              <Text style={[styles.footerContactText, { color: colors.textSecondary }]}> (02) 8888-9999</Text>
             </View>
             <View style={styles.footerContactItem}>
-              <Ionicons name="mail" size={16} color="#0033A0" />
-              <Text style={styles.footerContactText}> support@petronsanpedro.com</Text>
+              <Ionicons name="mail" size={16} color={colors.primary} />
+              <Text style={[styles.footerContactText, { color: colors.textSecondary }]}> support@petronsanpedro.com</Text>
             </View>
           </View>
           <View style={styles.footerSocial}>
-            <TouchableOpacity style={styles.socialIcon}>
-              <Ionicons name="logo-facebook" size={20} color="#0033A0" />
+            <TouchableOpacity style={[styles.socialIcon, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
+              <Ionicons name="logo-facebook" size={20} color={colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialIcon}>
-              <Ionicons name="logo-instagram" size={20} color="#0033A0" />
+            <TouchableOpacity style={[styles.socialIcon, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
+              <Ionicons name="logo-instagram" size={20} color={colors.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialIcon}>
-              <Ionicons name="logo-twitter" size={20} color="#0033A0" />
+            <TouchableOpacity style={[styles.socialIcon, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
+              <Ionicons name="logo-twitter" size={20} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -578,21 +578,21 @@ export default function HomeScreen({ navigation, route }) {
         onRequestClose={() => setShowReviewModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>What would you like to review?</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>What would you like to review?</Text>
               <TouchableOpacity 
                 onPress={() => setShowReviewModal(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={28} color="#1F2937" />
+                <Ionicons name="close" size={28} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalChoices}>
               {/* Rate Rider Option */}
-              <TouchableOpacity
-                style={styles.choiceCard}
+              <TouchableOpacity 
+                style={[styles.choiceCard, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F9FAFB', borderColor: colors.border }]}
                 onPress={() => {
                   setShowReviewModal(false);
                   navigation.navigate('RiderReviews');
@@ -603,17 +603,17 @@ export default function HomeScreen({ navigation, route }) {
                   <Ionicons name="person" size={32} color="#DC2626" />
                 </View>
                 <View style={styles.choiceTextContainer}>
-                  <Text style={styles.choiceTitle}>Rate a Rider</Text>
-                  <Text style={styles.choiceSubtitle}>
+                  <Text style={[styles.choiceTitle, { color: colors.textPrimary }]}>Rate a Rider</Text>
+                  <Text style={[styles.choiceSubtitle, { color: colors.textSecondary }]}>
                     Share your experience with the delivery rider
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
+                <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
 
               {/* Rate Product Option */}
-              <TouchableOpacity
-                style={styles.choiceCard}
+              <TouchableOpacity 
+                style={[styles.choiceCard, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F9FAFB', borderColor: colors.border }]}
                 onPress={() => {
                   setShowReviewModal(false);
                   navigation.navigate('ProductReviews');
@@ -624,12 +624,12 @@ export default function HomeScreen({ navigation, route }) {
                   <Ionicons name="cube" size={32} color="#D97706" />
                 </View>
                 <View style={styles.choiceTextContainer}>
-                  <Text style={styles.choiceTitle}>Rate a Product</Text>
-                  <Text style={styles.choiceSubtitle}>
+                  <Text style={[styles.choiceTitle, { color: colors.textPrimary }]}>Rate a Product</Text>
+                  <Text style={[styles.choiceSubtitle, { color: colors.textSecondary }]}>
                     Share your feedback about the fuel or lubricants
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={24} color="#9CA3AF" />
+                <Ionicons name="chevron-forward" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -643,16 +643,16 @@ export default function HomeScreen({ navigation, route }) {
         onRequestClose={completeWelcomeFlow}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.welcomeModalContent}>
+          <View style={[styles.welcomeModalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.welcomeModalHeader}>
-              <Text style={styles.welcomeModalLabel}>Getting Started</Text>
+              <Text style={[styles.welcomeModalLabel, { color: colors.textSecondary }]}>Getting Started</Text>
               <TouchableOpacity
                 onPress={completeWelcomeFlow}
                 style={styles.modalCloseButton}
                 accessibilityRole="button"
                 accessibilityLabel="Close welcome guide"
               >
-                <Ionicons name="close" size={24} color="#1F2937" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -678,8 +678,8 @@ export default function HomeScreen({ navigation, route }) {
                 },
               ]}
             >
-              <Text style={styles.welcomeStepTitle}>{currentWelcomeStep.title}</Text>
-              <Text style={styles.welcomeStepDescription}>{currentWelcomeStep.description}</Text>
+              <Text style={[styles.welcomeStepTitle, { color: colors.textPrimary }]}>{currentWelcomeStep.title}</Text>
+              <Text style={[styles.welcomeStepDescription, { color: colors.textSecondary }]}>{currentWelcomeStep.description}</Text>
             </Animated.View>
 
             <View style={styles.welcomeProgressRow}>

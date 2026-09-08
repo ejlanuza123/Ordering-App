@@ -13,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { formatDistanceToNow } from '../../utils/dateFormatter';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 export default function NotificationsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { role } = useAuth();
+  const { colors, isDarkMode } = useTheme();
   const {
     notifications,
     unreadCount,
@@ -61,52 +63,44 @@ export default function NotificationsScreen({ navigation }) {
       'chat',
       'chat_message',
       'message',
-      'order_chat'
-    ].includes(notification?.type) || Boolean(payloadConversationId) || (notification?.title || '').toLowerCase().includes('chat') || (notification?.title || '').toLowerCase().includes('message');
+      'order_chat',
+    ].includes(notification?.type);
 
     if (isChatNotification) {
-      if (payloadConversationId) {
-        navigation.push('ChatThread', { conversationId: payloadConversationId });
+      if (role === 'rider') {
+        if (payloadConversationId) {
+          navigation.navigate('ChatThread', { conversationId: payloadConversationId });
+        } else {
+          navigation.navigate('ChatList');
+        }
       } else {
-        navigation.push('ChatList');
+        if (payloadConversationId) {
+          navigation.navigate('ChatThread', { conversationId: payloadConversationId });
+        } else {
+          navigation.navigate('ChatList');
+        }
       }
       return;
     }
 
-    // Use push() for deep-links so Back returns to Notifications.
+    if (payloadOrderId) {
+      if (role === 'rider') {
+        navigation.navigate('RiderDeliveries');
+      } else {
+        navigation.navigate('OrderHistory');
+      }
+      return;
+    }
+
+    if (payloadDeliveryId && role === 'rider') {
+      navigation.navigate('RiderDeliveries');
+      return;
+    }
+
     if (role === 'rider') {
-      switch (notification.type) {
-        case 'order_status':
-        case 'order_delivered':
-        case 'order_cancelled':
-          navigation.push('RiderDeliveries', {
-            focusDeliveryId: payloadDeliveryId,
-            focusOrderId: payloadOrderId,
-            fromNotification: true,
-            nonce: Date.now(),
-          });
-          break;
-        default:
-          navigation.navigate('RiderDashboard');
-          break;
-      }
+      navigation.navigate('RiderDashboard');
     } else {
-      switch (notification.type) {
-        case 'order_status':
-        case 'order_delivered':
-        case 'order_cancelled':
-          navigation.push('OrderHistory', {
-            focusOrderId: payloadOrderId,
-            fromNotification: true,
-            nonce: Date.now(),
-          });
-          break;
-        case 'promo':
-          navigation.navigate('Selection');
-          break;
-        default:
-          break;
-      }
+      navigation.navigate('Home');
     }
   };
 
@@ -124,7 +118,6 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleClearAllPress = () => {
-    if (notifications.length === 0) return;
     setShowClearAllModal(true);
   };
 
@@ -145,9 +138,9 @@ export default function NotificationsScreen({ navigation }) {
       case 'chat_message':
       case 'message':
       case 'order_chat':
-        return { name: 'chatbubbles', color: '#0033A0' };
+        return { name: 'chatbubbles', color: colors.primary };
       case 'order_status':
-        return { name: 'sync', color: '#0033A0' };
+        return { name: 'sync', color: colors.primary };
       case 'order_delivered':
         return { name: 'checkmark-circle', color: '#10B981' };
       case 'order_cancelled':
@@ -155,7 +148,7 @@ export default function NotificationsScreen({ navigation }) {
       case 'promo':
         return { name: 'pricetag', color: '#F59E0B' };
       default:
-        return { name: 'notifications', color: '#666' };
+        return { name: 'notifications', color: colors.textSecondary };
     }
   };
 
@@ -172,7 +165,11 @@ export default function NotificationsScreen({ navigation }) {
 
     return (
       <TouchableOpacity
-        style={[styles.notificationItem, !item.is_read && styles.unreadNotification]}
+        style={[
+          styles.notificationItem,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+          !item.is_read && { backgroundColor: isDarkMode ? '#1E293B' : '#F0F7FF' }
+        ]}
         onPress={() => handleNotificationPress(item)}
         activeOpacity={0.7}
       >
@@ -182,13 +179,13 @@ export default function NotificationsScreen({ navigation }) {
 
         <View style={styles.notificationContent}>
           <View style={styles.notificationHeader}>
-            <Text style={[styles.notificationTitle, !item.is_read && styles.unreadTitle]}>
+            <Text style={[styles.notificationTitle, { color: colors.textPrimary }, !item.is_read && { color: colors.primary }]}>
               {item.title}
             </Text>
-            <Text style={styles.notificationTime}>{formatTime(item.created_at)}</Text>
+            <Text style={[styles.notificationTime, { color: colors.textMuted }]}>{formatTime(item.created_at)}</Text>
           </View>
 
-          <Text style={styles.notificationMessage} numberOfLines={2}>
+          <Text style={[styles.notificationMessage, { color: colors.textSecondary }]} numberOfLines={2}>
             {item.message}
           </Text>
         </View>
@@ -198,26 +195,26 @@ export default function NotificationsScreen({ navigation }) {
           style={styles.deleteButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="close" size={18} color="#999" />
+          <Ionicons name="close" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Notifications</Text>
+            <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Notifications</Text>
             {unreadCount > 0 && (
               <Text style={styles.unreadBadge}>{unreadCount} unread</Text>
             )}
@@ -228,7 +225,7 @@ export default function NotificationsScreen({ navigation }) {
               onPress={handleClearAllPress}
               style={styles.clearButton}
             >
-              <Ionicons name="trash-outline" size={22} color="#666" />
+              <Ionicons name="trash-outline" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -236,17 +233,20 @@ export default function NotificationsScreen({ navigation }) {
 
       {/* Mark All as Read Button (if there are unread) */}
       {unreadCount > 0 && (
-        <TouchableOpacity style={styles.markAllButton} onPress={markAllAsRead}>
-          <Ionicons name="checkmark-done" size={18} color="#0033A0" />
-          <Text style={styles.markAllText}>Mark all as read</Text>
+        <TouchableOpacity 
+          style={[styles.markAllButton, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]} 
+          onPress={markAllAsRead}
+        >
+          <Ionicons name="checkmark-done" size={18} color={colors.primary} />
+          <Text style={[styles.markAllText, { color: colors.primary }]}>Mark all as read</Text>
         </TouchableOpacity>
       )}
 
       {/* Notifications List */}
       {loading && notifications.length === 0 ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#0033A0" />
-          <Text style={styles.loadingText}>Loading notifications...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading notifications...</Text>
         </View>
       ) : (
         <FlatList
@@ -261,15 +261,15 @@ export default function NotificationsScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#0033A0']}
-              tintColor="#0033A0"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="notifications-off-outline" size={80} color="#ccc" />
-              <Text style={styles.emptyTitle}>No notifications yet</Text>
-              <Text style={styles.emptySubtitle}>
+              <Ionicons name="notifications-off-outline" size={80} color={colors.textMuted} />
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No notifications yet</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                 We'll notify you when there are updates about your orders
               </Text>
             </View>

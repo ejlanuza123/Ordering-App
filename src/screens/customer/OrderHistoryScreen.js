@@ -32,12 +32,14 @@ import ReceiptModal from '../../components/ReceiptModal';
 import OrderDeliveryTimeline from '../../components/OrderDeliveryTimeline';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import { CUSTOMER_CANCELLATION_REASONS, CANCEL_REASON_OTHER } from '../../constants/cancellationReasons';
+import { useTheme } from '../../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 const PAGE_SIZE = 20;
 
 export default function OrderHistoryScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
   const { user } = useAuth();
   const { rateRider, hasUserRated, getUserRating } = useRiderRatings();
   const { reorderItems } = useCart();
@@ -898,18 +900,18 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
     return (
       <TouchableOpacity 
-        style={styles.orderCard}
+        style={[styles.orderCard, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}
         onPress={() => fetchOrderDetails(item.id)}
         activeOpacity={0.8}
       >
         <View style={styles.orderHeader}>
           <View style={styles.orderInfo}>
-            <Text style={styles.orderNumber}>
+            <Text style={[styles.orderNumber, { color: colors.textPrimary }]}>
               {formatOrderNumber(item.order_number) || `Order #${item.id}`}
             </Text>
-            <Text style={styles.orderDate}>{formatTimeAgo(item.created_at)}</Text>
+            <Text style={[styles.orderDate, { color: colors.textSecondary }]}>{formatTimeAgo(item.created_at)}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: isOffline ? '#FEF3C7' : statusColor + '20' }]}>
+          <View style={[styles.statusBadge, { backgroundColor: isOffline ? (isDarkMode ? '#78350F' : '#FEF3C7') : statusColor + '20' }]}>
             <Ionicons 
               name={statusIcon} 
               size={14} 
@@ -923,20 +925,20 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
         <View style={styles.orderItemsPreview}>
           {item.order_items && item.order_items.slice(0, 2).map((orderItem, index) => (
-            <Text key={index} style={styles.previewItem} numberOfLines={1}>
+            <Text key={index} style={[styles.previewItem, { color: colors.textSecondary }]} numberOfLines={1}>
               • {orderItem.products?.name || 'Product'} ({orderItem.quantity} {orderItem.products?.unit || 'unit'})
             </Text>
           ))}
           {item.order_items && item.order_items.length > 2 && (
-            <Text style={styles.moreItems}>+{item.order_items.length - 2} more items</Text>
+            <Text style={[styles.moreItems, { color: colors.textSecondary }]}>+{item.order_items.length - 2} more items</Text>
           )}
         </View>
 
         {isOffline ? (
           <View style={styles.deliveryIndicatorsRow}>
-            <View style={[styles.deliveryIndicatorChip, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}>
-              <Ionicons name="cloud-offline-outline" size={12} color="#B45309" />
-              <Text style={[styles.deliveryIndicatorText, { color: '#B45309' }]}>
+            <View style={[styles.deliveryIndicatorChip, { backgroundColor: isDarkMode ? '#78350F' : '#FEF3C7', borderColor: isDarkMode ? '#92400E' : '#FDE68A' }]}>
+              <Ionicons name="cloud-offline-outline" size={12} color={isDarkMode ? '#FCD34D' : '#B45309'} />
+              <Text style={[styles.deliveryIndicatorText, { color: isDarkMode ? '#FCD34D' : '#B45309' }]}>
                 ⚡ Pending Upload (Offline) • Saved locally
               </Text>
             </View>
@@ -958,9 +960,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
           </View>
         ) : null}
 
-        <View style={styles.orderFooter}>
+        <View style={[styles.orderFooter, { borderTopColor: colors.border }]}>
           <View style={styles.orderTotal}>
-            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Total</Text>
             <Text style={styles.totalAmount}>₱{parseFloat(item.total_amount).toFixed(2)}</Text>
           </View>
           <View style={styles.orderActions}>
@@ -1033,16 +1035,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
         visible={orderDetailsModal}
         onRequestClose={() => setOrderDetailsModal(false)}
       >
-        <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-          <View style={styles.modalHeader}>
+        <View style={[styles.modalContainer, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <TouchableOpacity 
               onPress={() => setOrderDetailsModal(false)}
-              style={styles.modalBackButton}
+              style={[styles.modalBackButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="arrow-back" size={24} color="#0033A0" />
+              <Ionicons name="arrow-back" size={24} color={colors.primary} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Order Details</Text>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Order Details</Text>
             <View style={{width: 40}} />
           </View>
 
@@ -1055,12 +1057,12 @@ export default function OrderHistoryScreen({ navigation, route }) {
             ]}
           >
             {/* Order Header */}
-            <View style={styles.detailsHeader}>
+            <View style={[styles.detailsHeader, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
               <View style={styles.detailsHeaderLeft}>
-                <Text style={styles.detailsOrderNumber}>
+                <Text style={[styles.detailsOrderNumber, { color: colors.textPrimary }]}>
                   {formatOrderNumber(selectedOrder.order_number) || `Order #${selectedOrder.id}`}
                 </Text>
-                <Text style={styles.detailsDate}>{formatDate(selectedOrder.created_at)}</Text>
+                <Text style={[styles.detailsDate, { color: colors.textSecondary }]}>{formatDate(selectedOrder.created_at)}</Text>
               </View>
               <View style={[styles.detailsStatus, { backgroundColor: getStatusColor(statusKey) + '20' }]}>
                 <Ionicons 
@@ -1193,17 +1195,17 @@ export default function OrderHistoryScreen({ navigation, route }) {
             />
 
             {/* Order Items */}
-            <View style={styles.detailsSection}>
-              <Text style={styles.sectionTitle}>Order Items</Text>
+            <View style={[styles.detailsSection, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Order Items</Text>
               {selectedOrder.order_items && selectedOrder.order_items.map((item, index) => (
-                <View key={index} style={styles.detailItem}>
+                <View key={index} style={[styles.detailItem, { borderBottomColor: colors.border }]}>
                   <View style={styles.itemInfo}>
-                    <Text style={styles.itemName}>{item.products?.name || 'Product'}</Text>
-                    <Text style={styles.itemDetails}>
+                    <Text style={[styles.itemName, { color: colors.textPrimary }]}>{item.products?.name || 'Product'}</Text>
+                    <Text style={[styles.itemDetails, { color: colors.textSecondary }]}>
                       {item.quantity} {item.products?.unit || 'unit'} × ₱{parseFloat(item.price_at_order).toFixed(2)}
                     </Text>
                   </View>
-                  <Text style={styles.itemTotal}>
+                  <Text style={[styles.itemTotal, { color: colors.textPrimary }]}>
                     ₱{calculateItemTotal(item.quantity, item.price_at_order).toFixed(2)}
                   </Text>
                 </View>
@@ -1211,8 +1213,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
             </View>
 
             {/* Order Summary */}
-            <View style={styles.detailsSection}>
-              <Text style={styles.sectionTitle}>Order Summary</Text>
+            <View style={[styles.detailsSection, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Order Summary</Text>
               {// compute using delivery_fee if available
                 (() => {
                   const fee = parseFloat(selectedOrder.delivery_fee || 0);
@@ -1221,16 +1223,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   return (
                     <>
                       <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Subtotal</Text>
-                        <Text style={styles.summaryValue}>₱{subtotal.toFixed(2)}</Text>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Subtotal</Text>
+                        <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>₱{subtotal.toFixed(2)}</Text>
                       </View>
                       <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Delivery Fee</Text>
-                        <Text style={styles.summaryValue}>₱{fee.toFixed(2)}</Text>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Delivery Fee</Text>
+                        <Text style={[styles.summaryValue, { color: colors.textPrimary }]}>₱{fee.toFixed(2)}</Text>
                       </View>
-                      <View style={styles.divider} />
+                      <View style={[styles.divider, { backgroundColor: colors.border }]} />
                       <View style={styles.summaryRow}>
-                        <Text style={styles.totalLabel}>Total Paid</Text>
+                        <Text style={[styles.totalLabel, { color: colors.textPrimary }]}>Total Paid</Text>
                         <Text style={styles.totalValue}>₱{total.toFixed(2)}</Text>
                       </View>
                     </>
@@ -1240,8 +1242,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
             </View>
 
             {/* Delivery Information */}
-            <View style={styles.detailsSection}>
-              <Text style={styles.sectionTitle}>Delivery Information</Text>
+            <View style={[styles.detailsSection, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Delivery Information</Text>
               {!selectedOrder.isOfflineQueued && (
                 <View style={styles.detailsIndicatorsRow}>
                   <View style={[styles.deliveryIndicatorChip, isAssigned ? styles.deliveryIndicatorAssigned : styles.deliveryIndicatorPending]}>
@@ -1260,15 +1262,15 @@ export default function OrderHistoryScreen({ navigation, route }) {
               )}
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="location" size={18} color="#666" />
+                  <Ionicons name="location" size={18} color={colors.textSecondary} />
                 </View>
-                <Text style={styles.infoText}>{selectedOrder.delivery_address}</Text>
+                <Text style={[styles.infoText, { color: colors.textPrimary }]}>{selectedOrder.delivery_address}</Text>
               </View>
               <View style={styles.infoRow}>
                 <View style={styles.infoIcon}>
-                  <Ionicons name="card" size={18} color="#666" />
+                  <Ionicons name="card" size={18} color={colors.textSecondary} />
                 </View>
-                <Text style={styles.infoText}>Payment: {selectedOrder.payment_method}</Text>
+                <Text style={[styles.infoText, { color: colors.textPrimary }]}>Payment: {selectedOrder.payment_method}</Text>
               </View>
             </View>
             
@@ -1306,14 +1308,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
             {/* Delivery Milestones & Timestamps */}
             {!selectedOrder.isOfflineQueued && (
-              <View style={[styles.detailsSection, styles.lastSection]}>
-                <Text style={styles.sectionTitle}>Order Milestones</Text>
+              <View style={[styles.detailsSection, styles.lastSection, { backgroundColor: colors.surface, shadowColor: colors.shadow }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Order Milestones</Text>
                 <View style={styles.timeline}>
                   <View style={styles.timelineItem}>
                     <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
                     <View style={styles.timelineContent}>
-                      <Text style={styles.timelineTitle}>Order Placed</Text>
-                      <Text style={styles.timelineTime}>{formatDate(selectedOrder.created_at)}</Text>
+                      <Text style={[styles.timelineTitle, { color: colors.textPrimary }]}>Order Placed</Text>
+                      <Text style={[styles.timelineTime, { color: colors.textSecondary }]}>{formatDate(selectedOrder.created_at)}</Text>
                     </View>
                   </View>
 
@@ -1321,8 +1323,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
                     <View style={styles.timelineItem}>
                       <View style={[styles.timelineDot, { backgroundColor: '#2563EB' }]} />
                       <View style={styles.timelineContent}>
-                        <Text style={styles.timelineTitle}>Rider Accepted</Text>
-                        <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].accepted_at)}</Text>
+                        <Text style={[styles.timelineTitle, { color: colors.textPrimary }]}>Rider Accepted</Text>
+                        <Text style={[styles.timelineTime, { color: colors.textSecondary }]}>{formatDate(selectedOrder.deliveries[0].accepted_at)}</Text>
                       </View>
                     </View>
                   )}
@@ -1331,8 +1333,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
                     <View style={styles.timelineItem}>
                       <View style={[styles.timelineDot, { backgroundColor: '#7e0083' }]} />
                       <View style={styles.timelineContent}>
-                        <Text style={styles.timelineTitle}>Picked Up / In Transit</Text>
-                        <Text style={styles.timelineTime}>{formatDate(selectedOrder.deliveries[0].picked_up_at)}</Text>
+                        <Text style={[styles.timelineTitle, { color: colors.textPrimary }]}>Picked Up / In Transit</Text>
+                        <Text style={[styles.timelineTime, { color: colors.textSecondary }]}>{formatDate(selectedOrder.deliveries[0].picked_up_at)}</Text>
                       </View>
                     </View>
                   )}
@@ -1343,10 +1345,10 @@ export default function OrderHistoryScreen({ navigation, route }) {
                                      (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? '#EF4444' : '#94A3B8' 
                     }]} />
                     <View style={styles.timelineContent}>
-                      <Text style={styles.timelineTitle}>
+                      <Text style={[styles.timelineTitle, { color: colors.textPrimary }]}>
                         {(selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? 'Order Cancelled' : 'Order Delivered'}
                       </Text>
-                      <Text style={styles.timelineTime}>
+                      <Text style={[styles.timelineTime, { color: colors.textSecondary }]}>
                         {(selectedOrder.status === 'Completed' || selectedOrder.status === 'delivered') ? formatDate(selectedOrder.deliveries?.[0]?.delivered_at || selectedOrder.created_at) : 
                          (selectedOrder.status === 'Cancelled' || selectedOrder.status === 'cancelled') ? formatDate(selectedOrder.created_at) : 'In Progress'}
                       </Text>
@@ -1363,35 +1365,36 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
   if (loading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
         <SkeletonLoader variant="order-card" count={4} />
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity 
             onPress={handleBackPress}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             accessibilityLabel={isArchivedView ? "Back to Orders" : "Go Back"}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
+          <Text style={[styles.headerTitle, { color: colors.primary }]}>
             {isArchivedView ? 'Archived Orders' : 'My Orders'}
           </Text>
           <TouchableOpacity
             style={[
               styles.archiveHeaderButton,
-              isArchivedView && styles.archiveHeaderButtonActive,
+              { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' },
+              isArchivedView && { backgroundColor: colors.primary },
             ]}
             onPress={() => setSelectedFilter(isArchivedView ? 'all' : 'archived')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -1401,7 +1404,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
             <Ionicons
               name={isArchivedView ? 'receipt-outline' : 'archive-outline'}
               size={22}
-              color={isArchivedView ? '#fff' : '#0033A0'}
+              color={isArchivedView ? '#fff' : colors.primary}
             />
           </TouchableOpacity>
         </View>
@@ -1409,7 +1412,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
       {/* Filter Tabs */}
       {!isArchivedView && (
-        <View style={styles.filterWrapper}>
+        <View style={[styles.filterWrapper, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -1420,14 +1423,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 key={filter.id}
                 style={[
                   styles.filterTab,
-                  selectedFilter === filter.id && styles.filterTabActive
+                  { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border },
+                  selectedFilter === filter.id && { backgroundColor: colors.primary, borderColor: colors.primary }
                 ]}
                 onPress={() => setSelectedFilter(filter.id)}
                 activeOpacity={0.7}
               >
                 <Text style={[
                   styles.filterText,
-                  selectedFilter === filter.id && styles.filterTextActive
+                  { color: colors.textSecondary },
+                  selectedFilter === filter.id && { color: '#fff' }
                 ]}>
                   {filter.label}
                 </Text>
@@ -1453,8 +1458,8 @@ export default function OrderHistoryScreen({ navigation, route }) {
             <RefreshControl 
               refreshing={refreshing} 
               onRefresh={onRefresh}
-              colors={['#0033A0']}
-              tintColor="#0033A0"
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -1463,16 +1468,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
               <Ionicons 
                 name={isArchivedView ? "archive-outline" : "receipt-outline"} 
                 size={80} 
-                color="#ccc" 
+                color={colors.textSecondary} 
               />
-              <Text style={styles.emptyTitle}>
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                 {isArchivedView 
                   ? 'No archived orders' 
                   : selectedFilter === 'all' 
                     ? 'No orders yet' 
                     : `No ${selectedFilter} orders`}
               </Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                 {isArchivedView
                   ? 'Orders you archive will appear here.'
                   : selectedFilter === 'all' 
@@ -1481,7 +1486,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 }
               </Text>
               <TouchableOpacity 
-                style={styles.orderNowButton}
+                style={[styles.orderNowButton, { backgroundColor: colors.primary }]}
                 onPress={() => isArchivedView ? setSelectedFilter('all') : navigation.navigate('Selection')}
                 activeOpacity={0.8}
               >
@@ -1494,7 +1499,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
           ListHeaderComponent={
             filteredOrders.length > 0 ? (
               <View style={styles.listHeader}>
-                <Text style={styles.listHeaderText}>
+                <Text style={[styles.listHeaderText, { color: colors.textSecondary }]}>
                   {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'} found
                 </Text>
               </View>
@@ -1518,9 +1523,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
         }}
       >
         <View style={styles.cancelModalOverlay}>
-          <View style={[styles.cancelModalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.cancelModalHeader}>
-              <Text style={styles.cancelModalTitle}>Cancel Order</Text>
+          <View style={[styles.cancelModalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.cancelModalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.cancelModalTitle, { color: colors.textPrimary }]}>Cancel Order</Text>
               <TouchableOpacity
                 onPress={() => {
                   setShowCancelModal(false);
@@ -1529,12 +1534,12 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   setCancelCustomReason('');
                 }}
               >
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.cancelModalBody} showsVerticalScrollIndicator={false}>
-              <Text style={styles.cancelModalMessage}>
+              <Text style={[styles.cancelModalMessage, { color: colors.textSecondary }]}>
                 Select a reason or write your own reason for cancelling {orderToCancel?.order_number || `#${orderToCancel?.id}`}. This action cannot be undone.
               </Text>
 
@@ -1544,11 +1549,19 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   return (
                     <TouchableOpacity
                       key={reason}
-                      style={[styles.cancelReasonChip, isSelected && styles.cancelReasonChipSelected]}
+                      style={[
+                        styles.cancelReasonChip,
+                        { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F9FAFB', borderColor: colors.border },
+                        isSelected && [styles.cancelReasonChipSelected, { backgroundColor: isDarkMode ? '#1E293B' : '#E5EEFF', borderColor: colors.primary }]
+                      ]}
                       onPress={() => setCancelReason(reason)}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.cancelReasonChipText, isSelected && styles.cancelReasonChipTextSelected]}>
+                      <Text style={[
+                        styles.cancelReasonChipText,
+                        { color: colors.textPrimary },
+                        isSelected && [styles.cancelReasonChipTextSelected, { color: colors.primary }]
+                      ]}>
                         {reason}
                       </Text>
                     </TouchableOpacity>
@@ -1558,13 +1571,16 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
               {cancelReason === CANCEL_REASON_OTHER && (
                 <View style={styles.cancelCustomReasonSection}>
-                  <Text style={styles.cancelCustomReasonLabel}>Write your reason *</Text>
+                  <Text style={[styles.cancelCustomReasonLabel, { color: colors.textPrimary }]}>Write your reason *</Text>
                   <TextInput
-                    style={styles.cancelCustomReasonInput}
+                    style={[
+                      styles.cancelCustomReasonInput,
+                      { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border, color: colors.textPrimary }
+                    ]}
                     value={cancelCustomReason}
                     onChangeText={setCancelCustomReason}
                     placeholder="Add a custom reason"
-                    placeholderTextColor="#999"
+                    placeholderTextColor={colors.textSecondary}
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
@@ -1573,9 +1589,9 @@ export default function OrderHistoryScreen({ navigation, route }) {
               )}
             </ScrollView>
 
-            <View style={styles.cancelModalActions}>
+            <View style={[styles.cancelModalActions, { borderTopColor: colors.border }]}>
               <TouchableOpacity
-                style={[styles.cancelModalButton, styles.cancelModalSecondaryButton]}
+                style={[styles.cancelModalButton, styles.cancelModalSecondaryButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F3F4F6' }]}
                 onPress={() => {
                   setShowCancelModal(false);
                   setOrderToCancel(null);
@@ -1584,7 +1600,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 }}
                 disabled={cancelling}
               >
-                <Text style={styles.cancelModalSecondaryButtonText}>Back</Text>
+                <Text style={[styles.cancelModalSecondaryButtonText, { color: colors.textPrimary }]}>Back</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1635,19 +1651,19 @@ export default function OrderHistoryScreen({ navigation, route }) {
         onRequestClose={() => setShowRatingModal(false)}
       >
         <View style={styles.ratingModalOverlay}>
-          <View style={styles.ratingModalContent}>
+          <View style={[styles.ratingModalContent, { backgroundColor: colors.surface }]}>
             <View style={styles.ratingModalHeader}>
-              <Text style={styles.ratingModalTitle}>Rate Your Rider</Text>
+              <Text style={[styles.ratingModalTitle, { color: colors.textPrimary }]}>Rate Your Rider</Text>
               <TouchableOpacity
                 onPress={() => setShowRatingModal(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color="#0033A0" />
+                <Ionicons name="close" size={24} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
             {ratingOrder?.deliveries && ratingOrder.deliveries[0].rider && (
-              <Text style={styles.ratingRiderName}>
+              <Text style={[styles.ratingRiderName, { color: colors.textSecondary }]}>
                 {ratingOrder.deliveries[0].rider.full_name}
               </Text>
             )}
@@ -1663,7 +1679,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                   <Ionicons
                     name={star <= selectedRating ? 'star' : 'star-outline'}
                     size={40}
-                    color={star <= selectedRating ? '#F59E0B' : '#ccc'}
+                    color={star <= selectedRating ? '#F59E0B' : (isDarkMode ? '#4B5563' : '#ccc')}
                   />
                 </TouchableOpacity>
               ))}
@@ -1682,11 +1698,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
 
             {/* Comment Input */}
             <View style={styles.commentInputContainer}>
-              <Text style={styles.commentLabel}>Additional comments (optional)</Text>
+              <Text style={[styles.commentLabel, { color: colors.textPrimary }]}>Additional comments (optional)</Text>
               <TextInput
-                style={styles.commentInput}
+                style={[
+                  styles.commentInput,
+                  { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border, color: colors.textPrimary }
+                ]}
                 placeholder="Share your experience with this rider..."
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={4}
                 maxLength={500}
@@ -1694,7 +1713,7 @@ export default function OrderHistoryScreen({ navigation, route }) {
                 onChangeText={setRatingComment}
                 editable={!submittingRating}
               />
-              <Text style={styles.commentLength}>
+              <Text style={[styles.commentLength, { color: colors.textSecondary }]}>
                 {ratingComment.length}/500
               </Text>
             </View>
@@ -1702,14 +1721,14 @@ export default function OrderHistoryScreen({ navigation, route }) {
             {/* Action Buttons */}
             <View style={styles.ratingModalActions}>
               <TouchableOpacity
-                style={[styles.ratingButton, styles.cancelRatingButton]}
+                style={[styles.ratingButton, styles.cancelRatingButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.primary }]}
                 onPress={() => setShowRatingModal(false)}
                 disabled={submittingRating}
               >
-                <Text style={styles.cancelRatingButtonText}>Cancel</Text>
+                <Text style={[styles.cancelRatingButtonText, { color: colors.primary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.ratingButton, styles.submitRatingButton]}
+                style={[styles.ratingButton, styles.submitRatingButton, { backgroundColor: colors.primary }]}
                 onPress={submitRating}
                 disabled={submittingRating || selectedRating === 0}
               >

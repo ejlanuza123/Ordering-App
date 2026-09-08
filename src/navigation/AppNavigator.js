@@ -190,10 +190,12 @@ export default function AppNavigator() {
     }
   };
 
+  const { isDarkMode, colors } = useTheme();
+
   if ((loading && !user) || introLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
-        <ActivityIndicator size="large" color="#0033A0" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -215,8 +217,6 @@ export default function AppNavigator() {
 
   const hideRoutes = ['Login', 'Register', 'ChatList', 'ChatThread'];
   const isChatHeadVisible = Boolean(user) && ['customer', 'rider'].includes(role) && !hideRoutes.includes(currentRouteName);
-
-  const { isDarkMode, colors } = useTheme();
 
   const navigationTheme = {
     dark: isDarkMode,
