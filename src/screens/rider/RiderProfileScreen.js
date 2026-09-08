@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
 import { formatCurrency } from '../../utils/formatters';
 import CustomAlertModal from '../../components/CustomAlertModal';
@@ -25,6 +26,7 @@ import { locationTrackingService } from '../../services/locationTrackingService'
 
 export default function RiderProfileScreen({ navigation }) {
   const { profile, signOut } = useAuth();
+  const { isDarkMode, themeMode, toggleTheme, colors } = useTheme();
   const { getRiderStats } = useRiderRatings();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
@@ -541,6 +543,32 @@ export default function RiderProfileScreen({ navigation }) {
               onValueChange={handleBatterySaverToggle}
               disabled={togglingBatterySaver}
               trackColor={{ false: '#d1d5db', true: '#10B981' }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          <View style={styles.preferenceItem}>
+            <View style={styles.preferenceInfo}>
+              <View style={[styles.preferenceIconWrap, isDarkMode ? styles.preferenceIconOnline : null]}>
+                <Ionicons
+                  name={isDarkMode ? "moon" : "sunny"}
+                  size={18}
+                  color={isDarkMode ? "#60A5FA" : "#F59E0B"}
+                />
+              </View>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.preferenceText}>Dark Mode</Text>
+                <Text style={styles.preferenceSubtext}>
+                  {themeMode === 'system'
+                    ? `System auto (${isDarkMode ? 'Dark' : 'Light'})`
+                    : isDarkMode ? 'Dark theme active' : 'Light theme active'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#d1d5db', true: colors.primary }}
               thumbColor="#fff"
             />
           </View>

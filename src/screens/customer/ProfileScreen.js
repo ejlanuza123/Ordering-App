@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import OpenStreetMapPicker from '../../components/OpenStreetMapPicker';
@@ -27,6 +28,7 @@ const getHomeWelcomeReplayStorageKey = (userId) => `home_welcome_replay_${userId
 
 export default function ProfileScreen({ navigation }) {
   const { user, signOut } = useAuth();
+  const { isDarkMode, themeMode, toggleTheme, colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -491,6 +493,26 @@ export default function ProfileScreen({ navigation }) {
                 onValueChange={handleNotificationsToggle}
                 disabled={savingNotifications}
                 trackColor={{ false: '#e9ecef', true: '#0033A0' }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            <View style={styles.preferenceItem}>
+              <View style={styles.preferenceInfo}>
+                <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={isDarkMode ? "#60A5FA" : "#0033A0"} />
+                <View style={styles.preferenceText}>
+                  <Text style={styles.preferenceTitle}>Dark Mode</Text>
+                  <Text style={styles.preferenceDescription}>
+                    {themeMode === 'system'
+                      ? `System auto (${isDarkMode ? 'Dark' : 'Light'})`
+                      : isDarkMode ? 'Dark theme active' : 'Light theme active'}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={isDarkMode}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#e9ecef', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>

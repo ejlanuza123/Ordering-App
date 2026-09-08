@@ -2,11 +2,11 @@
   "expo": {
     "name": "Petron San Pedro",
     "slug": "petron-san-pedro-app",
-    "version": "1.25.1",
+    "version": "1.26.0",
     "scheme": "petronapp",
     "orientation": "portrait",
     "icon": "./assets/petron-logo.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/petron-logo.png",

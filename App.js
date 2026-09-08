@@ -17,6 +17,18 @@ import { setupGlobalErrorHandlers } from './src/services/errorHandlerService';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import OfflineBanner from './src/components/OfflineBanner';
 import SyncStatusToast from './src/components/SyncStatusToast';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+
+function ThemedStatusBar() {
+  const { colors } = useTheme();
+  return (
+    <StatusBar 
+      barStyle={colors.statusBarStyle} 
+      backgroundColor={colors.statusBarBg} 
+      translucent={false}
+    />
+  );
+}
 
 function AppContent() {
   // Initialize error handling and network monitoring on app launch
@@ -57,12 +69,10 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#0033A0" 
-        translucent={false}
-      />
-      <AppContent />
+      <ThemeProvider>
+        <ThemedStatusBar />
+        <AppContent />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

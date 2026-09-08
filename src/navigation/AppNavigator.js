@@ -1,8 +1,8 @@
-// src/navigation/AppNavigator.js (updated)
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { ActivityIndicator, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FloatingChatHead from '../components/FloatingChatHead';
@@ -216,10 +216,26 @@ export default function AppNavigator() {
   const hideRoutes = ['Login', 'Register', 'ChatList', 'ChatThread'];
   const isChatHeadVisible = Boolean(user) && ['customer', 'rider'].includes(role) && !hideRoutes.includes(currentRouteName);
 
+  const { isDarkMode, colors } = useTheme();
+
+  const navigationTheme = {
+    dark: isDarkMode,
+    colors: {
+      ...(isDarkMode ? DarkTheme.colors : DefaultTheme.colors),
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.textPrimary,
+      border: colors.border,
+      notification: colors.secondary,
+    },
+  };
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <NavigationContainer
         ref={navigationRef}
+        theme={navigationTheme}
         onReady={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
         onStateChange={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
       >
