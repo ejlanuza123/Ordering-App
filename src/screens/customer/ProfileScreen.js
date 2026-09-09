@@ -319,190 +319,190 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0033A0" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
     <>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+        <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.statusBarBg} />
         
         {/* Fixed Header - NOT SCROLLABLE */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity 
             onPress={() => navigation.goBack()}
-            style={styles.backButton}
+            style={[styles.backButton, isDarkMode && { backgroundColor: colors.surfaceElevated }]}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Profile</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>My Profile</Text>
           <TouchableOpacity 
             onPress={() => setShowSettingsModal(true)}
-            style={styles.settingsButton}
+            style={[styles.settingsButton, isDarkMode && { backgroundColor: colors.surfaceElevated }]}
           >
-            <Ionicons name="settings-outline" size={24} color="#0033A0" />
+            <Ionicons name="settings-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Scrollable Content */}
         <ScrollView 
-          style={styles.scrollView}
+          style={[styles.scrollView, { backgroundColor: colors.background }]}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
           showsVerticalScrollIndicator={false}
         >
           {/* Profile Card */}
-          <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <Avatar 
-              size={80}
-              avatarUrl={avatarUrl}
-              onUploadSuccess={async (url) => {
-                setAvatarUrl(url);
-                await fetchProfileData();
-              }}
-            />
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{fullName || 'User'}</Text>
-              <Text style={styles.profileEmail}>{user.email}</Text>
+          <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+            <View style={styles.profileHeader}>
+              <Avatar 
+                size={80}
+                avatarUrl={avatarUrl}
+                onUploadSuccess={async (url) => {
+                  setAvatarUrl(url);
+                  await fetchProfileData();
+                }}
+              />
+              <View style={styles.profileInfo}>
+                <Text style={[styles.profileName, { color: colors.textPrimary }]}>{fullName || 'User'}</Text>
+                <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>{user.email}</Text>
+              </View>
             </View>
-          </View>
 
             {/* User Stats */}
-            <View style={styles.statsContainer}>
+            <View style={[styles.statsContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{orderCount}</Text>
-                <Text style={styles.statLabel}>Orders</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]}>{orderCount}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Orders</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>₱{totalSpent.toFixed(0)}</Text>
-                <Text style={styles.statLabel}>Total Spent</Text>
+                <Text style={[styles.statValue, { color: colors.primary }]}>₱{totalSpent.toFixed(0)}</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total Spent</Text>
               </View>
-              <View style={styles.statDivider} />
+              <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
               <View style={styles.statItem}>
                 <Ionicons name="star" size={20} color="#F59E0B" />
-                <Text style={styles.statLabel}>Loyal Customer</Text>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Loyal Customer</Text>
               </View>
             </View>
           </View>
 
           {/* Personal Information Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Personal Information</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Personal Information</Text>
             
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Full Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={fullName}
                 onChangeText={setFullName}
                 placeholder="Enter your full name"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textMuted}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Phone Number</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="0912 345 6789"
                 keyboardType="phone-pad"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textMuted}
               />
-              <Text style={styles.inputHint}>Used for delivery updates</Text>
+              <Text style={[styles.inputHint, { color: colors.textSecondary }]}>Used for delivery updates</Text>
             </View>
 
             {/* Delivery Address with Map Integration */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Delivery Address</Text>
+              <Text style={[styles.label, { color: colors.textPrimary }]}>Delivery Address</Text>
               
               {/* Address Input with Map Button */}
               <View style={styles.addressInputContainer}>
                 <TextInput
-                  style={styles.addressInput}
+                  style={[styles.addressInput, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                   value={address}
                   onChangeText={setAddress}
                   placeholder="House No., Street, Barangay, City..."
                   multiline
                   numberOfLines={2}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={colors.textMuted}
                   textAlignVertical="top"
                 />
                 <TouchableOpacity 
-                  style={styles.mapButton}
+                  style={[styles.mapButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.border }]}
                   onPress={() => setMapModalVisible(true)}
                 >
-                  <Ionicons name="map-outline" size={24} color="#0033A0" />
+                  <Ionicons name="map-outline" size={24} color={colors.primary} />
                 </TouchableOpacity>
               </View>
 
               {/* Location Action Buttons */}
               <View style={styles.locationActions}>
                 <TouchableOpacity 
-                  style={styles.locationButton}
+                  style={[styles.locationButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.border }]}
                   onPress={useCurrentLocation}
                   disabled={isGettingLocation}
                 >
                   {isGettingLocation ? (
-                    <ActivityIndicator size="small" color="#0033A0" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   ) : (
                     <>
-                      <Ionicons name="locate" size={18} color="#0033A0" />
-                      <Text style={styles.locationButtonText}>Use My Location</Text>
+                      <Ionicons name="locate" size={18} color={colors.primary} />
+                      <Text style={[styles.locationButtonText, { color: colors.primary }]}>Use My Location</Text>
                     </>
                   )}
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
-                  style={[styles.locationButton, styles.mapButtonSmall]}
+                  style={[styles.locationButton, styles.mapButtonSmall, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff', borderColor: colors.border }]}
                   onPress={() => setMapModalVisible(true)}
                 >
-                  <Ionicons name="map" size={18} color="#0033A0" />
-                  <Text style={styles.locationButtonText}>Pick on Map</Text>
+                  <Ionicons name="map" size={18} color={colors.primary} />
+                  <Text style={[styles.locationButtonText, { color: colors.primary }]}>Pick on Map</Text>
                 </TouchableOpacity>
               </View>
               
-              <Text style={styles.inputHint}>We'll deliver to this address by default</Text>
+              <Text style={[styles.inputHint, { color: colors.textSecondary }]}>We'll deliver to this address by default</Text>
 
-              <Text style={[styles.inputHint, { marginTop: 8, color: '#8a5b00' }]}>
+              <Text style={[styles.inputHint, { marginTop: 8, color: isDarkMode ? '#FBBF24' : '#8a5b00' }]}>
                 Tip: After using “Use My Location”, please edit the address if the barangay/name is not correct.
               </Text>
             </View>
           </View>
 
           {/* Preferences Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Preferences</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Preferences</Text>
             
-            <View style={styles.preferenceItem}>
+            <View style={[styles.preferenceItem, { borderBottomColor: colors.border }]}>
               <View style={styles.preferenceInfo}>
-                <Ionicons name="notifications" size={22} color="#0033A0" />
+                <Ionicons name="notifications" size={22} color={colors.primary} />
                 <View style={styles.preferenceText}>
-                  <Text style={styles.preferenceTitle}>Push Notifications</Text>
-                  <Text style={styles.preferenceDescription}>Order and delivery status updates</Text>
+                  <Text style={[styles.preferenceTitle, { color: colors.textPrimary }]}>Push Notifications</Text>
+                  <Text style={[styles.preferenceDescription, { color: colors.textSecondary }]}>Order and delivery status updates</Text>
                 </View>
               </View>
               <Switch
                 value={notifications}
                 onValueChange={handleNotificationsToggle}
                 disabled={savingNotifications}
-                trackColor={{ false: '#e9ecef', true: '#0033A0' }}
+                trackColor={{ false: isDarkMode ? '#334155' : '#e9ecef', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
 
-            <View style={styles.preferenceItem}>
+            <View style={[styles.preferenceItem, { borderBottomColor: 'transparent' }]}>
               <View style={styles.preferenceInfo}>
-                <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={isDarkMode ? "#60A5FA" : "#0033A0"} />
+                <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={isDarkMode ? "#60A5FA" : colors.primary} />
                 <View style={styles.preferenceText}>
-                  <Text style={styles.preferenceTitle}>Dark Mode</Text>
-                  <Text style={styles.preferenceDescription}>
+                  <Text style={[styles.preferenceTitle, { color: colors.textPrimary }]}>Dark Mode</Text>
+                  <Text style={[styles.preferenceDescription, { color: colors.textSecondary }]}>
                     {themeMode === 'system'
                       ? `System auto (${isDarkMode ? 'Dark' : 'Light'})`
                       : isDarkMode ? 'Dark theme active' : 'Light theme active'}
@@ -512,51 +512,51 @@ export default function ProfileScreen({ navigation }) {
               <Switch
                 value={isDarkMode}
                 onValueChange={toggleTheme}
-                trackColor={{ false: '#e9ecef', true: colors.primary }}
+                trackColor={{ false: isDarkMode ? '#334155' : '#e9ecef', true: colors.primary }}
                 thumbColor="#fff"
               />
             </View>
           </View>
 
           {/* Account Actions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Account</Text>
             
             <TouchableOpacity 
-              style={styles.actionItem}
+              style={[styles.actionItem, { borderBottomColor: colors.border }]}
               onPress={() => navigation.navigate('OrderHistory')}
             >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="time" size={22} color="#0033A0" />
+              <View style={[styles.actionIconContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
+                <Ionicons name="time" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.actionText}>Order History</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Order History</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.actionItem}
+              style={[styles.actionItem, { borderBottomColor: colors.border }]}
               onPress={() => navigation.navigate('HelpCenter', { role: 'customer' })}
             >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="help-circle" size={22} color="#0033A0" />
+              <View style={[styles.actionIconContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
+                <Ionicons name="help-circle" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.actionText}>Help & User Manual</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Help & User Manual</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={styles.actionItem}
+              style={[styles.actionItem, { borderBottomColor: colors.border }]}
               onPress={() => navigation.navigate('TermsPrivacy')}
             >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="document-text" size={22} color="#0033A0" />
+              <View style={[styles.actionIconContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
+                <Ionicons name="document-text" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.actionText}>Terms & Privacy</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Terms & Privacy</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.actionItem}
+              style={[styles.actionItem, { borderBottomColor: 'transparent' }]}
               onPress={async () => {
                 const replayToken = String(Date.now());
 
@@ -571,17 +571,17 @@ export default function ProfileScreen({ navigation }) {
                 navigation.navigate('Home', { replayWelcomeGuideAt: replayToken });
               }}
             >
-              <View style={styles.actionIconContainer}>
-                <Ionicons name="play-circle" size={22} color="#0033A0" />
+              <View style={[styles.actionIconContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
+                <Ionicons name="play-circle" size={22} color={colors.primary} />
               </View>
-              <Text style={styles.actionText}>Replay Welcome Guide</Text>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
+              <Text style={[styles.actionText, { color: colors.textPrimary }]}>Replay Welcome Guide</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {/* Save Changes Button */}
           <TouchableOpacity 
-            style={[styles.saveButton, (!hasUnsavedChanges() || saving) ? styles.saveButtonDisabled : null]}
+            style={[styles.saveButton, { backgroundColor: colors.primary }, (!hasUnsavedChanges() || saving) ? styles.saveButtonDisabled : null]}
             onPress={() => {
               if (!saving && hasUnsavedChanges()) {
                 handleSave();
@@ -602,7 +602,7 @@ export default function ProfileScreen({ navigation }) {
 
           {/* Sign Out Button */}
           <TouchableOpacity 
-            style={styles.signOutButton}
+            style={[styles.signOutButton, { backgroundColor: colors.surface, borderColor: '#ED2939' }]}
             onPress={handleLogoutPress}
             activeOpacity={0.7}
           >
@@ -612,8 +612,8 @@ export default function ProfileScreen({ navigation }) {
 
           {/* App Info */}
           <View style={styles.appInfo}>
-            <Text style={styles.appVersion}>MKC Foods App v2.0.0</Text>
-            <Text style={styles.appCopyright}>© 2026 MKC Foods Corporation</Text>
+            <Text style={[styles.appVersion, { color: colors.textMuted }]}>Petron San Pedro App v1.26.6</Text>
+            <Text style={[styles.appCopyright, { color: colors.textMuted }]}>© 2026 Petron San Pedro</Text>
           </View>
         </ScrollView>
 
@@ -657,41 +657,41 @@ export default function ProfileScreen({ navigation }) {
         onRequestClose={() => setShowSettingsModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Account Settings</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Account Settings</Text>
               <TouchableOpacity 
                 onPress={() => setShowSettingsModal(false)}
                 style={styles.modalCloseButton}
               >
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody}>
               {/* Delete Account Option */}
               <TouchableOpacity 
-                style={styles.deleteOption}
+                style={[styles.deleteOption, { borderBottomColor: colors.border }]}
                 onPress={() => {
                   setShowSettingsModal(false);
                   setShowDeleteModal(true);
                 }}
                 activeOpacity={0.7}
               >
-                <View style={styles.deleteIconContainer}>
+                <View style={[styles.deleteIconContainer, isDarkMode && { backgroundColor: 'rgba(239,68,68,0.2)' }]}>
                   <Ionicons name="trash" size={24} color="#EF4444" />
                 </View>
                 <View style={styles.deleteTextContainer}>
                   <Text style={styles.deleteTitle}>Delete Account</Text>
-                  <Text style={styles.deleteDescription}>
+                  <Text style={[styles.deleteDescription, { color: colors.textSecondary }]}>
                     Permanently delete your account and all data
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#999" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
 
               <View style={styles.modalFooter}>
-                <Text style={styles.modalFooterText}>
+                <Text style={[styles.modalFooterText, { color: colors.textMuted }]}>
                   This action cannot be undone. All your order history and personal information will be permanently removed.
                 </Text>
               </View>

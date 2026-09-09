@@ -302,31 +302,31 @@ export default function RiderProfileScreen({ navigation }) {
   };
 
   const StatCard = ({ label, value, icon, color }) => (
-    <View style={[styles.statCard, { backgroundColor: color + '10' }]}>
+    <View style={[styles.statCard, { backgroundColor: isDarkMode ? colors.surface : (color + '10'), borderColor: colors.border }]}>
       <Ionicons name={icon} size={24} color={color} />
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color: isDarkMode ? colors.textPrimary : color }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{label}</Text>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity onPress={() => setEditing(!editing)} style={styles.editButton}>
-          <Ionicons name={editing ? 'close' : 'create-outline'} size={24} color="#0033A0" />
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>My Profile</Text>
+        <TouchableOpacity onPress={() => setEditing(!editing)} style={[styles.editButton, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
+          <Ionicons name={editing ? 'close' : 'create-outline'} size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]} style={{ backgroundColor: colors.background }}>
         
         {/* Profile Header */}
-        <View style={styles.profileHeader}>
-  <Avatar 
+        <View style={[styles.profileHeader, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.shadow }]}>
+          <Avatar 
             size={70}
             avatarUrl={avatarUrl}
             onUploadSuccess={async (url) => {
@@ -354,15 +354,15 @@ export default function RiderProfileScreen({ navigation }) {
           />
           {!editing ? (
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{formData.full_name || 'Rider'}</Text>
-              <Text style={styles.profileRole}>Delivery Rider</Text>
+              <Text style={[styles.profileName, { color: colors.textPrimary }]}>{formData.full_name || 'Rider'}</Text>
+              <Text style={[styles.profileRole, { color: colors.textSecondary }]}>Delivery Rider</Text>
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.ratingText}>{stats.rating}</Text>
+                <Text style={[styles.ratingText, { color: colors.textSecondary }]}>{stats.rating}</Text>
               </View>
             </View>
           ) : (
-            <Text style={styles.editModeText}>Edit Mode</Text>
+            <Text style={[styles.editModeText, { color: colors.primary }]}>Edit Mode</Text>
           )}
         </View>
 
@@ -395,134 +395,146 @@ export default function RiderProfileScreen({ navigation }) {
         </View>
 
         {/* Personal Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Personal Information</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Full Name</Text>
             {editing ? (
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={formData.full_name}
                 onChangeText={(text) => setFormData({ ...formData, full_name: text })}
                 placeholder="Enter your full name"
+                placeholderTextColor={colors.textMuted}
               />
             ) : (
-              <Text style={styles.value}>{formData.full_name || 'Not set'}</Text>
+              <Text style={[styles.value, { color: colors.textPrimary }]}>{formData.full_name || 'Not set'}</Text>
             )}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Phone Number</Text>
             {editing ? (
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={formData.phone_number}
                 onChangeText={(text) => setFormData({ ...formData, phone_number: text })}
                 placeholder="Enter phone number"
                 keyboardType="phone-pad"
+                placeholderTextColor={colors.textMuted}
               />
             ) : (
-              <Text style={styles.value}>{formData.phone_number || 'Not set'}</Text>
+              <Text style={[styles.value, { color: colors.textPrimary }]}>{formData.phone_number || 'Not set'}</Text>
             )}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Address</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Address</Text>
             {editing ? (
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={formData.address}
                 onChangeText={(text) => setFormData({ ...formData, address: text })}
                 placeholder="Enter your address"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={2}
               />
             ) : (
-              <Text style={styles.value}>{formData.address || 'Not set'}</Text>
+              <Text style={[styles.value, { color: colors.textPrimary }]}>{formData.address || 'Not set'}</Text>
             )}
           </View>
         </View>
 
         {/* Vehicle Information */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Vehicle Information</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Vehicle Information</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Vehicle Type</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Vehicle Type</Text>
             {editing ? (
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={formData.vehicle_type}
                 onChangeText={(text) => setFormData({ ...formData, vehicle_type: text })}
                 placeholder="e.g. Motorcycle, Scooter"
+                placeholderTextColor={colors.textMuted}
               />
             ) : (
-              <Text style={styles.value}>{formData.vehicle_type || 'Not set'}</Text>
+              <Text style={[styles.value, { color: colors.textPrimary }]}>{formData.vehicle_type || 'Not set'}</Text>
             )}
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Plate Number</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Plate Number</Text>
             {editing ? (
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border, color: colors.textPrimary }]}
                 value={formData.vehicle_plate}
                 onChangeText={(text) => setFormData({ ...formData, vehicle_plate: text })}
                 placeholder="Enter plate number"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="characters"
               />
             ) : (
-              <Text style={styles.value}>{formData.vehicle_plate || 'Not set'}</Text>
+              <Text style={[styles.value, { color: colors.textPrimary }]}>{formData.vehicle_plate || 'Not set'}</Text>
             )}
           </View>
         </View>
 
         {/* Preferences */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Preferences</Text>
           
-          <View style={[styles.preferenceItem, styles.onlinePreferenceItem]}>
+          <View style={[
+            styles.preferenceItem,
+            styles.onlinePreferenceItem,
+            isDarkMode && {
+              backgroundColor: onlineStatus ? 'rgba(16, 185, 129, 0.15)' : colors.surfaceElevated,
+              borderColor: onlineStatus ? 'rgba(16, 185, 129, 0.4)' : colors.border,
+            }
+          ]}>
             <View style={styles.preferenceInfo}>
-              <View style={[styles.preferenceIconWrap, onlineStatus ? styles.preferenceIconOnline : styles.preferenceIconOffline]}>
+              <View style={[styles.preferenceIconWrap, onlineStatus ? styles.preferenceIconOnline : styles.preferenceIconOffline, isDarkMode && { backgroundColor: onlineStatus ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)', borderColor: onlineStatus ? '#10B981' : '#EF4444' }]}>
                 <Ionicons name="radio-button-on" size={18} color={onlineStatus ? '#10B981' : '#EF4444'} />
               </View>
               <View>
-                <Text style={styles.preferenceText}>Online Status</Text>
-                <Text style={styles.preferenceSubtext}>Allow dispatch to mark you as available for deliveries</Text>
+                <Text style={[styles.preferenceText, { color: colors.textPrimary }]}>Online Status</Text>
+                <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>Allow dispatch to mark you as available for deliveries</Text>
               </View>
             </View>
             <Switch
               value={onlineStatus}
               onValueChange={handleOnlineStatusToggle}
               disabled={togglingOnlineStatus}
-              trackColor={{ false: '#d1d5db', true: '#10B981' }}
+              trackColor={{ false: isDarkMode ? '#334155' : '#d1d5db', true: '#10B981' }}
               thumbColor="#fff"
             />
           </View>
 
-          <View style={styles.preferenceItem}>
+          <View style={[styles.preferenceItem, isDarkMode && { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <View style={styles.preferenceInfo}>
-              <View style={styles.preferenceIconWrap}>
-                <Ionicons name="notifications" size={18} color="#0033A0" />
+              <View style={[styles.preferenceIconWrap, isDarkMode && { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Ionicons name="notifications" size={18} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.preferenceText}>Push Notifications</Text>
-                <Text style={styles.preferenceSubtext}>Receive delivery and app alerts</Text>
+                <Text style={[styles.preferenceText, { color: colors.textPrimary }]}>Push Notifications</Text>
+                <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>Receive delivery and app alerts</Text>
               </View>
             </View>
             <Switch
               value={notificationsEnabled}
               onValueChange={handleNotificationsToggle}
               disabled={togglingNotifications}
-              trackColor={{ false: '#d1d5db', true: '#0033A0' }}
+              trackColor={{ false: isDarkMode ? '#334155' : '#d1d5db', true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
 
-          <View style={styles.preferenceItem}>
+          <View style={[styles.preferenceItem, isDarkMode && { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <View style={styles.preferenceInfo}>
-              <View style={[styles.preferenceIconWrap, batterySaverEnabled ? styles.preferenceIconOnline : null]}>
+              <View style={[styles.preferenceIconWrap, batterySaverEnabled ? styles.preferenceIconOnline : null, isDarkMode && { backgroundColor: batterySaverEnabled ? 'rgba(16, 185, 129, 0.2)' : colors.surface, borderColor: batterySaverEnabled ? '#10B981' : colors.border }]}>
                 <Ionicons
                   name={batterySaverEnabled ? "battery-charging" : "battery-half"}
                   size={18}
@@ -530,8 +542,8 @@ export default function RiderProfileScreen({ navigation }) {
                 />
               </View>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.preferenceText}>Battery Saver (Adaptive GPS)</Text>
-                <Text style={styles.preferenceSubtext}>
+                <Text style={[styles.preferenceText, { color: colors.textPrimary }]}>Battery Saver (Adaptive GPS)</Text>
+                <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>
                   {batterySaverEnabled
                     ? 'Throttles stationary GPS updates and caches active delivery queries to save battery'
                     : 'Continuous mode: Sends location on every reading (original high battery drain)'}
@@ -542,14 +554,14 @@ export default function RiderProfileScreen({ navigation }) {
               value={batterySaverEnabled}
               onValueChange={handleBatterySaverToggle}
               disabled={togglingBatterySaver}
-              trackColor={{ false: '#d1d5db', true: '#10B981' }}
+              trackColor={{ false: isDarkMode ? '#334155' : '#d1d5db', true: '#10B981' }}
               thumbColor="#fff"
             />
           </View>
 
-          <View style={styles.preferenceItem}>
+          <View style={[styles.preferenceItem, isDarkMode && { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <View style={styles.preferenceInfo}>
-              <View style={[styles.preferenceIconWrap, isDarkMode ? styles.preferenceIconOnline : null]}>
+              <View style={[styles.preferenceIconWrap, isDarkMode ? styles.preferenceIconOnline : null, isDarkMode && { backgroundColor: 'rgba(96, 165, 250, 0.2)', borderColor: '#60A5FA' }]}>
                 <Ionicons
                   name={isDarkMode ? "moon" : "sunny"}
                   size={18}
@@ -557,8 +569,8 @@ export default function RiderProfileScreen({ navigation }) {
                 />
               </View>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={styles.preferenceText}>Dark Mode</Text>
-                <Text style={styles.preferenceSubtext}>
+                <Text style={[styles.preferenceText, { color: colors.textPrimary }]}>Dark Mode</Text>
+                <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>
                   {themeMode === 'system'
                     ? `System auto (${isDarkMode ? 'Dark' : 'Light'})`
                     : isDarkMode ? 'Dark theme active' : 'Light theme active'}
@@ -568,53 +580,53 @@ export default function RiderProfileScreen({ navigation }) {
             <Switch
               value={isDarkMode}
               onValueChange={toggleTheme}
-              trackColor={{ false: '#d1d5db', true: colors.primary }}
+              trackColor={{ false: isDarkMode ? '#334155' : '#d1d5db', true: colors.primary }}
               thumbColor="#fff"
             />
           </View>
         </View>
 
         {/* Help */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Help</Text>
+        <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Help</Text>
 
           <TouchableOpacity
-            style={styles.helpAction}
+            style={[styles.helpAction, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}
             onPress={() => navigation.navigate('HelpCenter', { role: 'rider' })}
           >
             <View style={styles.helpActionLeft}>
-              <View style={styles.helpIconWrap}>
-                <Ionicons name="book-outline" size={20} color="#0033A0" />
+              <View style={[styles.helpIconWrap, isDarkMode && { backgroundColor: colors.surface }]}>
+                <Ionicons name="book-outline" size={20} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.helpActionTitle}>User Manual</Text>
-                <Text style={styles.helpActionSubtitle}>Open rider workflow and troubleshooting guide</Text>
+                <Text style={[styles.helpActionTitle, { color: colors.textPrimary }]}>User Manual</Text>
+                <Text style={[styles.helpActionSubtitle, { color: colors.textSecondary }]}>Open rider workflow and troubleshooting guide</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.helpAction}
+            style={[styles.helpAction, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}
             onPress={() => navigation.navigate('TermsPrivacy')}
           >
             <View style={styles.helpActionLeft}>
-              <View style={styles.helpIconWrap}>
-                <Ionicons name="document-text-outline" size={20} color="#0033A0" />
+              <View style={[styles.helpIconWrap, isDarkMode && { backgroundColor: colors.surface }]}>
+                <Ionicons name="document-text-outline" size={20} color={colors.primary} />
               </View>
               <View>
-                <Text style={styles.helpActionTitle}>Terms & Privacy</Text>
-                <Text style={styles.helpActionSubtitle}>Review legal terms, privacy, and data handling policy</Text>
+                <Text style={[styles.helpActionTitle, { color: colors.textPrimary }]}>Terms & Privacy</Text>
+                <Text style={[styles.helpActionSubtitle, { color: colors.textSecondary }]}>Review legal terms, privacy, and data handling policy</Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
         {/* Edit/Save Buttons */}
         {editing && (
           <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            style={[styles.saveButton, { backgroundColor: colors.primary }, saving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
@@ -631,7 +643,7 @@ export default function RiderProfileScreen({ navigation }) {
 
         {/* Sign Out Button */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={[styles.logoutButton, { backgroundColor: colors.surface, borderColor: '#ED2939' }]}
           onPress={() => setShowLogoutModal(true)}
         >
           <Ionicons name="log-out" size={20} color="#ED2939" />

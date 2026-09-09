@@ -1,11 +1,25 @@
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://mock.supabase.co';
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key';
 
+jest.mock('../../lib/supabase', () => ({
+  supabase: {
+    from: jest.fn(),
+    channel: jest.fn(),
+  },
+}));
+
+jest.mock('react-native-webview', () => {
+  const { View } = require('react-native');
+  return {
+    WebView: View,
+  };
+});
+
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: null, loading: false, role: 'customer' }),
 }));
 
-import { createNavigationTheme } from '../../navigation/AppNavigator';
+import { createNavigationTheme } from '../../navigation/navigationTheme';
 import { lightColors, darkColors } from '../../constants/Colors';
 
 describe('AppNavigator createNavigationTheme', () => {

@@ -124,6 +124,14 @@ export default function OpenStreetMapPicker({
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           html, body, #map { height: 100vh; width: 100vw; background: ${isDarkMode ? '#0f172a' : '#f8fafc'}; overflow: hidden; }
+          ${isDarkMode ? `
+          .leaflet-tile {
+            filter: invert(100%) hue-rotate(180deg) brightness(88%) contrast(90%) !important;
+          }
+          .leaflet-container {
+            background: #0f172a !important;
+          }
+          ` : ''}
         </style>
       </head>
       <body>
@@ -142,18 +150,10 @@ export default function OpenStreetMapPicker({
               attributionControl: false
             }).setView([lat, lon], 17);
 
-            ${isDarkMode ? `
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-              subdomains: 'abcd',
-              maxZoom: 19,
-              attribution: '&copy; OpenStreetMap & CartoDB'
-            }).addTo(map);
-            ` : `
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
               maxZoom: 19,
               attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
-            `}
 
             // Add Puerto Princesa Store Hub Marker
             const hubIcon = L.divIcon({

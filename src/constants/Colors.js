@@ -57,14 +57,14 @@ export const darkColors = {
   
   // Text colors
   text: {
-    primary: '#F8FAFC',
+    primary: '#F1F5F9',
     secondary: '#CBD5E1',
     tertiary: '#94A3B8',
     light: '#ffffff',
   },
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
+  textPrimary: '#F1F5F9',
+  textSecondary: '#CBD5E1',
+  textMuted: '#94A3B8',
   
   // Borders & Dividers
   border: '#334155',

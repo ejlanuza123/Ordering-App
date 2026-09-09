@@ -574,19 +574,33 @@ export default function CheckoutScreen({ navigation }) {
               <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Where should we deliver your order?</Text>
               
               {/* Address Input with Map Button */}
-              <View style={[styles.addressInputContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa', borderColor: colors.border }]}>
+              <View style={styles.addressInputContainer}>
                 <TextInput
-                  style={[styles.addressInput, { color: colors.textPrimary }]}
+                  style={[
+                    styles.addressInput,
+                    {
+                      backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa',
+                      borderColor: colors.border,
+                      color: colors.textPrimary,
+                    }
+                  ]}
                   placeholder="House No., Street, Barangay, City..."
                   value={address}
                   onChangeText={setAddress}
                   multiline
                   numberOfLines={2}
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={colors.textMuted}
                   textAlignVertical="top"
                 />
                 <TouchableOpacity 
-                  style={styles.mapButton}
+                  style={[
+                    styles.mapButton,
+                    {
+                      backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
+                      borderColor: colors.border,
+                      borderWidth: isDarkMode ? 1 : 0,
+                    }
+                  ]}
                   onPress={() => setMapModalVisible(true)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
