@@ -2,13 +2,16 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../context/ThemeContext';
 import { MANUAL_LINKS } from '../../constants/manuals';
 
 export default function ManualViewerScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   const role = route?.params?.role === 'rider' ? 'rider' : 'customer';
   const manual = MANUAL_LINKS[role];
-  const accentColor = role === 'rider' ? '#ED2939' : '#0033A0';
+  const accentColor = role === 'rider' ? '#ED2939' : colors.primary;
   const [searchQuery, setSearchQuery] = useState('');
   const [checklistMode, setChecklistMode] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
@@ -50,11 +53,11 @@ export default function ManualViewerScreen({ navigation, route }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.statusBarBg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>User Manual</Text>
         <View style={styles.headerSpacer} />
@@ -70,17 +73,17 @@ export default function ManualViewerScreen({ navigation, route }) {
 
         <View style={styles.controlsCard}>
           <View style={styles.searchWrap}>
-            <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+            <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search steps or topics"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={colors.textSecondary}
             />
             {searchQuery ? (
               <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearchButton}>
-                <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -94,8 +97,8 @@ export default function ManualViewerScreen({ navigation, route }) {
               <Switch
                 value={checklistMode}
                 onValueChange={setChecklistMode}
-                trackColor={{ false: '#E2E8F0', true: `${accentColor}66` }}
-                thumbColor={checklistMode ? accentColor : '#fff'}
+                trackColor={{ false: isDarkMode ? colors.border : '#E2E8F0', true: `${accentColor}66` }}
+                thumbColor={checklistMode ? accentColor : (isDarkMode ? colors.surfaceElevated : '#fff')}
               />
             </View>
           </View>
@@ -169,10 +172,10 @@ export default function ManualViewerScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -180,15 +183,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -198,26 +201,26 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0033A0',
+    color: colors.textPrimary,
   },
   content: {
     padding: 16,
     gap: 12,
   },
   controlsCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#DFE7F4',
+    borderColor: colors.border,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
     paddingHorizontal: 10,
   },
   searchIcon: {
@@ -225,7 +228,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: '#0f172a',
+    color: colors.textPrimary,
     fontSize: 13,
     paddingVertical: 10,
   },
@@ -240,7 +243,7 @@ const styles = StyleSheet.create({
   },
   resultsText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   checklistToggleWrap: {
@@ -250,7 +253,7 @@ const styles = StyleSheet.create({
   },
   checklistLabel: {
     fontSize: 12,
-    color: '#334155',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   titleCard: {
@@ -287,15 +290,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   sectionCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#DFE7F4',
+    borderColor: colors.border,
     elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: isDarkMode ? 0.2 : 0.04,
     shadowRadius: 4,
   },
   sectionHeaderTouch: {
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   stepRow: {
@@ -346,12 +349,12 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: isDarkMode ? colors.border : '#CBD5E1',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
     marginTop: 1,
-    backgroundColor: '#fff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff',
   },
   stepIndexBadge: {
     width: 22,
@@ -368,12 +371,12 @@ const styles = StyleSheet.create({
   },
   stepText: {
     flex: 1,
-    color: '#334155',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 20,
   },
   stepTextDone: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     textDecorationLine: 'line-through',
   },
 });

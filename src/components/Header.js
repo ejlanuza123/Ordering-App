@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
 export const Header = ({ 
   title, 
@@ -9,19 +10,23 @@ export const Header = ({
   showBackButton = true, 
   onBackPress, 
   rightComponent,
-  backgroundColor = '#fff'
+  backgroundColor
 }) => {
   const insets = useSafeAreaInsets();
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   
   const getStatusBarHeight = () => {
     return Platform.OS === 'ios' ? insets.top : StatusBar.currentHeight || 0;
   };
 
+  const headerBg = backgroundColor || colors.surface;
+
   return (
     <View style={[
       styles.container,
       { 
-        backgroundColor,
+        backgroundColor: headerBg,
         paddingTop: getStatusBarHeight() + 15,
       }
     ]}>
@@ -32,7 +37,7 @@ export const Header = ({
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
         )}
         
@@ -56,16 +61,16 @@ export const Header = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     paddingHorizontal: 20,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
     shadowRadius: 8,
     zIndex: 1000,
   },
@@ -78,7 +83,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff', // Light blue background
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -90,12 +95,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0033A0', // Petron Blue
+    color: colors.primary,
     marginBottom: 2,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
   },
   rightContainer: {
     marginLeft: 12,

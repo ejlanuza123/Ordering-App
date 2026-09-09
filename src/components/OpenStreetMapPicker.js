@@ -1,5 +1,5 @@
 // src/components/OpenStreetMapPicker.js
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 import { 
   requestLocationPermission, 
   detectNearestBarangay, 
@@ -35,6 +36,8 @@ export default function OpenStreetMapPicker({
   initialAddress,
 }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   const webViewRef = useRef(null);
   const webViewReadyRef = useRef(false);
   const pendingLocationRef = useRef(null);
@@ -120,7 +123,7 @@ export default function OpenStreetMapPicker({
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          html, body, #map { height: 100vh; width: 100vw; background: #f8fafc; overflow: hidden; }
+          html, body, #map { height: 100vh; width: 100vw; background: ${isDarkMode ? '#0f172a' : '#f8fafc'}; overflow: hidden; }
         </style>
       </head>
       <body>
@@ -139,14 +142,22 @@ export default function OpenStreetMapPicker({
               attributionControl: false
             }).setView([lat, lon], 17);
 
+            ${isDarkMode ? `
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+              subdomains: 'abcd',
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap & CartoDB'
+            }).addTo(map);
+            ` : `
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
               maxZoom: 19,
               attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
+            `}
 
             // Add Puerto Princesa Store Hub Marker
             const hubIcon = L.divIcon({
-              html: '<div style="background:#0033A0;color:white;padding:4px 8px;border-radius:12px;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap">⛽ Petron Hub</div>',
+              html: '<div style="background:${colors.primary};color:white;padding:4px 8px;border-radius:12px;font-size:10px;font-weight:bold;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap">⛽ Petron Hub</div>',
               className: '',
               iconAnchor: [35, 12]
             });
@@ -162,44 +173,41 @@ export default function OpenStreetMapPicker({
             map.on('moveend', function() {
               const center = map.getCenter();
               window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'MAP_MOVE_END'
+                type: 'MAP_MOVE_END',
+                lat: center.lat,
+                lng: center.lng
               }));
 
               clearTimeout(moveTimeout);
-              moveTimeout = setTimeout(() => {
-                resolveAddress(center.lat, center.lng);
-              }, 300);
+              moveTimeout = setTimeout(function() {
+                fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + center.lat + '&lon=' + center.lng + '&zoom=18&addressdetails=1', {
+                  headers: { 'User-Agent': 'PetronSanPedroApp/2.0' }
+                })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'LOCATION_RESOLVED',
+                    lat: center.lat,
+                    lng: center.lng,
+                    displayName: data.display_name || '',
+                    addressDetails: data.address || {}
+                  }));
+                })
+                .catch(function(err) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'LOCATION_RESOLVED',
+                    lat: center.lat,
+                    lng: center.lng,
+                    displayName: '',
+                    addressDetails: {}
+                  }));
+                });
+              }, 400);
             });
-
-            resolveAddress(lat, lon);
 
             window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'MAP_READY'
             }));
-          }
-
-          async function resolveAddress(lat, lng) {
-            try {
-              const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' + lat + '&lon=' + lng + '&addressdetails=1&zoom=18&accept-language=en';
-              const res = await fetch(url, { headers: { 'User-Agent': 'PetronSanPedroApp/2.0' } });
-              const data = await res.json();
-
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'LOCATION_RESOLVED',
-                lat: lat,
-                lng: lng,
-                addressDetails: data ? data.address : null,
-                displayName: data ? data.display_name : ''
-              }));
-            } catch (err) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'LOCATION_RESOLVED',
-                lat: lat,
-                lng: lng,
-                addressDetails: null,
-                displayName: lat.toFixed(6) + ', ' + lng.toFixed(6)
-              }));
-            }
           }
 
           function handleIncoming(raw) {
@@ -221,7 +229,7 @@ export default function OpenStreetMapPicker({
       </body>
       </html>
     `;
-  }, []);
+  }, [isDarkMode, colors.primary]);
 
   useEffect(() => {
     if (visible) {
@@ -461,7 +469,7 @@ export default function OpenStreetMapPicker({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#1e293b" />
+            <Ionicons name="close" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Pin Delivery Location</Text>
@@ -475,11 +483,11 @@ export default function OpenStreetMapPicker({
         {/* Search Bar Container */}
         <View style={styles.searchSectionWrapper}>
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color="#64748b" style={styles.searchIcon} />
+            <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               placeholder="Search landmark (e.g. Coliseum, SM, NCCC, Mitra)..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textSecondary}
               value={searchQuery}
               onChangeText={handleSearchQueryChange}
               onFocus={() => {
@@ -490,7 +498,7 @@ export default function OpenStreetMapPicker({
               returnKeyType="search"
             />
             {isSearchingOnline && (
-              <ActivityIndicator size="small" color="#0033A0" style={{ marginRight: 6 }} />
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 6 }} />
             )}
             {searchQuery ? (
               <TouchableOpacity 
@@ -501,7 +509,7 @@ export default function OpenStreetMapPicker({
                 }} 
                 style={styles.clearSearch}
               >
-                <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -619,7 +627,7 @@ export default function OpenStreetMapPicker({
               onPress={getCurrentGPSLocation}
               activeOpacity={0.8}
             >
-              <Ionicons name="locate" size={22} color="#0033A0" />
+              <Ionicons name="locate" size={22} color={colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -644,7 +652,7 @@ export default function OpenStreetMapPicker({
                 <Ionicons 
                   name={isLearnedMemory || isManuallyCorrected ? "bookmark" : "shield-checkmark"} 
                   size={14} 
-                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : "#0033A0"} 
+                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : colors.primary} 
                 />
                 <Text style={[styles.barangayPillText, (isLearnedMemory || isManuallyCorrected) && styles.barangayPillTextLearned]}>
                   Brgy. {detectedBarangay}
@@ -652,7 +660,7 @@ export default function OpenStreetMapPicker({
                 <Ionicons 
                   name="chevron-down" 
                   size={13} 
-                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : "#0033A0"} 
+                  color={isLearnedMemory || isManuallyCorrected ? "#16a34a" : colors.primary} 
                   style={{ marginLeft: 2 }} 
                 />
               </TouchableOpacity>
@@ -675,7 +683,7 @@ export default function OpenStreetMapPicker({
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Street / Road / Building</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="navigate-outline" size={18} color="#64748b" style={styles.inputIcon} />
+                <Ionicons name="navigate-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   value={streetAddress}
@@ -684,7 +692,7 @@ export default function OpenStreetMapPicker({
                     assembleAddress(val, detectedBarangay, purokLandmark);
                   }}
                   placeholder="Street name or nearby building"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
             </View>
@@ -693,7 +701,7 @@ export default function OpenStreetMapPicker({
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Purok / Sitio / House # / Landmark (Optional)</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="home-outline" size={18} color="#64748b" style={styles.inputIcon} />
+                <Ionicons name="home-outline" size={18} color={colors.textSecondary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.textInput}
                   value={purokLandmark}
@@ -702,14 +710,14 @@ export default function OpenStreetMapPicker({
                     assembleAddress(streetAddress, detectedBarangay, val);
                   }}
                   placeholder="e.g. Purok Masipag, Red gate beside Chapel"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.textSecondary}
                 />
               </View>
             </View>
 
             {/* Address Summary Preview */}
             <View style={styles.addressPreviewBox}>
-              <Ionicons name="pin" size={16} color="#0033A0" style={{ marginTop: 2 }} />
+              <Ionicons name="pin" size={16} color={colors.primary} style={{ marginTop: 2 }} />
               <Text style={styles.addressPreviewText} numberOfLines={2}>
                 {fullAddress || 'Move the map to set exact delivery pin'}
               </Text>
@@ -746,16 +754,16 @@ export default function OpenStreetMapPicker({
                   onPress={() => setShowBarangayModal(false)}
                   style={styles.barangayModalClose}
                 >
-                  <Ionicons name="close" size={20} color="#334155" />
+                  <Ionicons name="close" size={20} color={colors.textPrimary} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.barangaySearchWrapper}>
-                <Ionicons name="search" size={16} color="#64748b" style={{ marginRight: 6 }} />
+                <Ionicons name="search" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
                 <TextInput
                   style={styles.barangaySearchInput}
                   placeholder="Search Puerto Princesa barangay..."
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.textSecondary}
                   value={barangaySearch}
                   onChangeText={setBarangaySearch}
                 />
@@ -792,10 +800,10 @@ export default function OpenStreetMapPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -804,13 +812,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    backgroundColor: '#ffffff',
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   closeButton: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc',
   },
   headerTitleContainer: {
     alignItems: 'center',
@@ -818,11 +826,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   headerSubtitle: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '500',
     marginTop: 1,
   },
@@ -830,7 +838,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
   },
   confirmHeaderButtonText: {
     color: '#ffffff',
@@ -838,12 +846,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   searchSectionWrapper: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.border,
     zIndex: 100,
   },
   searchContainer: {
@@ -851,10 +859,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     height: 42,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   searchIcon: {
     marginRight: 8,
@@ -862,7 +870,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   clearSearch: {
     padding: 4,
@@ -877,34 +885,34 @@ const styles = StyleSheet.create({
   quickChipsLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.textSecondary,
     marginRight: 2,
   },
   quickChip: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f1f5f9',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   quickChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textPrimary,
   },
   searchResultsDropdown: {
     position: 'absolute',
     top: 54,
     left: 16,
     right: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: isDarkMode ? 0.35 : 0.15,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 200,
@@ -920,7 +928,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eff6ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -931,16 +939,16 @@ const styles = StyleSheet.create({
   resultItemTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   resultItemSubtitle: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 1,
   },
   searchSeparator: {
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.border,
   },
   noResultsBox: {
     padding: 16,
@@ -950,7 +958,7 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   mapContainer: {
@@ -962,7 +970,7 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: isDarkMode ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255,255,255,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
@@ -970,7 +978,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 8,
     fontSize: 13,
-    color: '#475569',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   centerPinWrapper: {
@@ -1022,10 +1030,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255,255,255,0.95)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1041,32 +1049,32 @@ const styles = StyleSheet.create({
   accuracyText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#334155',
+    color: colors.textPrimary,
   },
   recenterButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
+    shadowOpacity: isDarkMode ? 0.3 : 0.15,
     shadowRadius: 4,
     elevation: 3,
   },
   bottomSheetContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: isDarkMode ? 0.3 : 0.08,
     shadowRadius: 8,
     elevation: 8,
   },
@@ -1089,22 +1097,22 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: '#eff6ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#eff6ff',
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#93c5fd',
+    borderColor: isDarkMode ? colors.border : '#93c5fd',
   },
   barangayPillLearned: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#86efac',
+    backgroundColor: isDarkMode ? '#064e3b' : '#f0fdf4',
+    borderColor: '#10b981',
   },
   barangayPillText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#0033A0',
+    color: isDarkMode ? colors.textPrimary : colors.primary,
   },
   barangayPillTextLearned: {
-    color: '#16a34a',
+    color: '#10b981',
   },
   geocodingStatus: {
     flexDirection: 'row',
@@ -1118,12 +1126,12 @@ const styles = StyleSheet.create({
   },
   precisionLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   learnedLabel: {
     fontSize: 11,
-    color: '#16a34a',
+    color: '#10b981',
     fontWeight: '700',
   },
   inputGroup: {
@@ -1132,17 +1140,17 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc',
     height: 38,
   },
   inputIcon: {
@@ -1151,7 +1159,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 12,
-    color: '#0f172a',
+    color: colors.textPrimary,
     paddingVertical: 0,
   },
   addressPreviewBox: {
@@ -1159,7 +1167,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 6,
     padding: 10,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f1f5f9',
     borderRadius: 8,
     marginBottom: 12,
   },
@@ -1167,19 +1175,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: '#1e293b',
+    color: colors.textPrimary,
     lineHeight: 16,
   },
   confirmButtonBig: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
-    shadowColor: '#0033A0',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
+    shadowOpacity: isDarkMode ? 0.35 : 0.25,
     shadowRadius: 5,
     elevation: 3,
   },
@@ -1195,11 +1203,11 @@ const styles = StyleSheet.create({
   // Barangay Modal Styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   barangayModalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '75%',
@@ -1213,23 +1221,23 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.border,
   },
   barangayModalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   barangayModalSubtitle: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '500',
     marginTop: 2,
   },
   barangayModalClose: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc',
   },
   barangaySearchWrapper: {
     flexDirection: 'row',
@@ -1238,15 +1246,15 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     paddingHorizontal: 12,
     height: 38,
-    backgroundColor: '#f8fafc',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8fafc',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.border,
   },
   barangaySearchInput: {
     flex: 1,
     fontSize: 13,
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   barangayFlatList: {
     paddingHorizontal: 16,
@@ -1260,19 +1268,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   barangayListItemActive: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#eff6ff',
   },
   barangayListText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textPrimary,
   },
   barangayListTextActive: {
-    color: '#0033A0',
+    color: colors.primary,
     fontWeight: '700',
   },
   barangaySeparator: {
     height: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.border,
   },
 });

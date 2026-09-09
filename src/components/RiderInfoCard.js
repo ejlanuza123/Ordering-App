@@ -1,16 +1,20 @@
 // src/components/RiderInfoCard.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function RiderInfoCard({ delivery, onChatPress }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
+
   // If no delivery or no rider, show "Not assigned yet" message
   if (!delivery || !delivery.rider) {
     return (
       <View style={styles.container}>
         <Text style={styles.title}>Rider Information</Text>
         <View style={styles.notAssignedContainer}>
-          <Ionicons name="person-outline" size={40} color="#ccc" />
+          <Ionicons name="person-outline" size={40} color={colors.textSecondary} />
           <Text style={styles.notAssignedText}>No rider assigned yet</Text>
           <Text style={styles.notAssignedSubtext}>
             A rider will be assigned once your order is being processed
@@ -26,11 +30,11 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
     switch(status) {
       case 'assigned': return '#F59E0B';
       case 'accepted': return '#10B981';
-      case 'picked_up': return '#0033A0';
-      case 'out_for_delivery': return '#0033A0';
+      case 'picked_up': return colors.primary;
+      case 'out_for_delivery': return colors.primary;
       case 'delivered': return '#10B981';
       case 'failed': return '#EF4444';
-      default: return '#666';
+      default: return colors.textSecondary;
     }
   };
 
@@ -59,7 +63,7 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
           />
         ) : (
           <View style={styles.profileImagePlaceholder}>
-            <Ionicons name="person" size={40} color="#999" />
+            <Ionicons name="person" size={40} color={colors.textSecondary} />
           </View>
         )}
         <View style={styles.profileInfo}>
@@ -76,7 +80,7 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
       <View style={styles.divider} />
       
       <View style={styles.infoRow}>
-        <Ionicons name="person" size={18} color="#666" />
+        <Ionicons name="person" size={18} color={colors.textSecondary} />
         <View style={styles.infoContent}>
           <Text style={styles.label}>Name</Text>
           <Text style={styles.value}>{rider.full_name}</Text>
@@ -85,7 +89,7 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
       
       {rider.phone_number && (
         <View style={styles.infoRow}>
-          <Ionicons name="call" size={18} color="#666" />
+          <Ionicons name="call" size={18} color={colors.textSecondary} />
           <View style={styles.infoContent}>
             <Text style={styles.label}>Contact</Text>
             <Text style={styles.value}>{rider.phone_number}</Text>
@@ -94,7 +98,7 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
       )}
       
       <View style={styles.infoRow}>
-        <Ionicons name="bicycle" size={18} color="#666" />
+        <Ionicons name="bicycle" size={18} color={colors.textSecondary} />
         <View style={styles.infoContent}>
           <Text style={styles.label}>Status</Text>
           <Text style={[styles.value, { color: getStatusColor(delivery.status) }]}>
@@ -105,7 +109,7 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
 
       {delivery.picked_up_at && (
         <View style={styles.infoRow}>
-          <Ionicons name="time" size={18} color="#666" />
+          <Ionicons name="time" size={18} color={colors.textSecondary} />
           <View style={styles.infoContent}>
             <Text style={styles.label}>Picked Up</Text>
             <Text style={styles.value}>
@@ -152,22 +156,24 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDarkMode ? 0.3 : 0.05,
     shadowRadius: 4,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   profileSection: {
@@ -180,14 +186,14 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 44,
     marginRight: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f0f0',
   },
   profileImagePlaceholder: {
     width: 88,
     height: 88,
     borderRadius: 44,
     marginRight: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -197,7 +203,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   ratingContainer: {
@@ -212,7 +218,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     marginBottom: 16,
   },
   infoRow: {
@@ -225,12 +231,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   value: {
     fontSize: 14,
-    color: '#333',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   callButton: {
@@ -249,7 +255,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chatButton: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
   },
   bottomActions: {
     flexDirection: 'column',
@@ -259,7 +265,6 @@ const styles = StyleSheet.create({
   actionButtonFullWidth: {
     width: '100%',
   },
-  // New styles for empty state
   notAssignedContainer: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -267,12 +272,12 @@ const styles = StyleSheet.create({
   notAssignedText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: colors.textSecondary,
     marginTop: 8,
   },
   notAssignedSubtext: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 4,
   },

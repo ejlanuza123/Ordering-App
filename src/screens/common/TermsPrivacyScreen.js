@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../context/ThemeContext';
 
 const TERMS_SECTIONS = [
   {
@@ -132,12 +133,12 @@ const PRIVACY_SECTIONS = [
   },
 ];
 
-const LegalSection = ({ icon, heading, sections }) => {
+const LegalSection = ({ icon, heading, sections, styles, colors }) => {
   return (
     <View style={styles.blockCard}>
       <View style={styles.blockHeader}>
         <View style={styles.blockIconWrap}>
-          <Ionicons name={icon} size={18} color="#0033A0" />
+          <Ionicons name={icon} size={18} color={colors.primary} />
         </View>
         <Text style={styles.blockHeading}>{heading}</Text>
       </View>
@@ -159,14 +160,16 @@ const LegalSection = ({ icon, heading, sections }) => {
 
 export default function TermsPrivacyScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.statusBarBg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#0033A0" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Terms & Privacy</Text>
         <View style={styles.headerSpacer} />
@@ -182,17 +185,17 @@ export default function TermsPrivacyScreen({ navigation }) {
           </Text>
         </View>
 
-        <LegalSection icon="document-text-outline" heading="Terms of Service" sections={TERMS_SECTIONS} />
-        <LegalSection icon="shield-checkmark-outline" heading="Privacy Policy" sections={PRIVACY_SECTIONS} />
+        <LegalSection icon="document-text-outline" heading="Terms of Service" sections={TERMS_SECTIONS} styles={styles} colors={colors} />
+        <LegalSection icon="shield-checkmark-outline" heading="Privacy Policy" sections={PRIVACY_SECTIONS} styles={styles} colors={colors} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -200,15 +203,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -218,14 +221,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0033A0',
+    color: colors.textPrimary,
   },
   content: {
     padding: 16,
     gap: 12,
   },
   heroCard: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     borderRadius: 20,
     padding: 16,
     overflow: 'hidden',
@@ -260,10 +263,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   blockCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DFE7F4',
+    borderColor: colors.border,
     padding: 14,
   },
   blockHeader: {
@@ -276,25 +279,25 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   blockHeading: {
-    color: '#0f172a',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
   sectionCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FBFDFF',
+    borderColor: colors.border,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#FBFDFF',
     padding: 12,
     marginBottom: 10,
   },
   sectionTitle: {
-    color: '#0f172a',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 8,
@@ -306,14 +309,14 @@ const styles = StyleSheet.create({
   },
   itemBullet: {
     width: 20,
-    color: '#0033A0',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 18,
   },
   itemText: {
     flex: 1,
-    color: '#334155',
+    color: colors.textPrimary,
     fontSize: 12,
     lineHeight: 18,
   },

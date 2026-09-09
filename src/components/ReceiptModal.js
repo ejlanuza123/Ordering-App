@@ -1,5 +1,5 @@
 // src/components/ReceiptModal.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,12 @@ import {
   Share
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ReceiptModal({ visible, onClose, order, storeName = 'PETRON SAN PEDRO STATION' }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
+
   if (!order) return null;
 
   const orderNum = String(order.order_number || order.id || '').slice(0, 10).toUpperCase();
@@ -56,11 +60,11 @@ export default function ReceiptModal({ visible, onClose, order, storeName = 'PET
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
-              <Ionicons name="receipt-outline" size={22} color="#ED2939" />
+              <Ionicons name="receipt-outline" size={22} color={colors.secondary} />
               <Text style={styles.headerTitle}>Digital E-Receipt</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={20} color="#666" />
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -89,7 +93,7 @@ export default function ReceiptModal({ visible, onClose, order, storeName = 'PET
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Status:</Text>
-              <Text style={[styles.infoVal, { color: '#00A859', fontWeight: 'bold' }]}>
+              <Text style={[styles.infoVal, { color: colors.success, fontWeight: 'bold' }]}>
                 {order.status?.toUpperCase() || 'COMPLETED'}
               </Text>
             </View>
@@ -134,7 +138,7 @@ export default function ReceiptModal({ visible, onClose, order, storeName = 'PET
 
             {/* Footer QR Placeholder */}
             <View style={styles.footerNote}>
-              <Ionicons name="checkmark-circle-outline" size={24} color="#0033A0" style={{ marginBottom: 4 }} />
+              <Ionicons name="checkmark-circle-outline" size={24} color={colors.primary} style={{ marginBottom: 4 }} />
               <Text style={styles.footerText}>Verified Digital Receipt</Text>
               <Text style={styles.footerSubText}>Thank you for choosing {storeName}!</Text>
             </View>
@@ -153,7 +157,7 @@ export default function ReceiptModal({ visible, onClose, order, storeName = 'PET
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -164,7 +168,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: '#FFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -175,8 +179,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-    backgroundColor: '#F8FAFC',
+    borderBottomColor: colors.border,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -186,7 +190,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   closeBtn: {
     padding: 4,
@@ -201,22 +205,23 @@ const styles = StyleSheet.create({
   storeName: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#0033A0',
+    color: colors.primary,
     textAlign: 'center',
   },
   storeSub: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
+    textAlign: 'center',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.border,
     marginVertical: 12,
   },
   dashedDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#CBD5E1',
+    borderBottomColor: colors.border,
     borderStyle: 'dashed',
     marginVertical: 12,
   },
@@ -227,17 +232,17 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   infoVal: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   sectionHeading: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#0033A0',
+    color: colors.primary,
     letterSpacing: 0.5,
     marginBottom: 8,
   },
@@ -250,17 +255,17 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   itemMeta: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   itemTotal: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -269,22 +274,22 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   summaryVal: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   totalLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#ED2939',
+    color: colors.secondary,
   },
   totalVal: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#ED2939',
+    color: colors.secondary,
   },
   footerNote: {
     alignItems: 'center',
@@ -293,21 +298,21 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   footerSubText: {
     fontSize: 11,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   actions: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderTopColor: colors.border,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
   },
   shareBtn: {
-    backgroundColor: '#ED2939',
+    backgroundColor: colors.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

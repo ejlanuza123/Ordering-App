@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
@@ -19,6 +20,9 @@ const SuccessModal = ({
   onTrackOrder,
   onContinueShopping
 }) => {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
+
   return (
     <Modal
       animationType="slide"
@@ -70,16 +74,16 @@ const SuccessModal = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     padding: 24,
     width: width - 40,
@@ -88,14 +92,16 @@ const styles = StyleSheet.create({
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: isDarkMode ? 0.4 : 0.25,
     shadowRadius: 4,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
   },
   successIcon: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#10B98120',
+    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#10B98120',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -103,23 +109,25 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
   },
   message: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 20,
   },
   orderDetails: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa',
     borderRadius: 12,
     padding: 16,
     width: '100%',
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   detailRow: {
     flexDirection: 'row',
@@ -129,18 +137,18 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
   },
   detailValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   trackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     padding: 16,
     borderRadius: 12,
     width: '100%',
@@ -159,7 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shopButtonText: {
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },

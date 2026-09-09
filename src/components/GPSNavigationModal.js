@@ -1,5 +1,5 @@
 // src/components/GPSNavigationModal.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { navigationService } from '../services/navigationService';
+import { useTheme } from '../context/ThemeContext';
 
 export default function GPSNavigationModal({ visible, onClose, destination }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
+
   if (!visible || !destination) return null;
 
   const { lat, lng, address, customerName, orderNumber } = destination;
@@ -59,7 +63,7 @@ export default function GPSNavigationModal({ visible, onClose, destination }) {
 
               <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
-                  <Ionicons name="compass" size={22} color="#0033A0" />
+                  <Ionicons name="compass" size={22} color={colors.primary} />
                   <Text style={styles.headerTitle}>Choose GPS App</Text>
                 </View>
                 {orderNumber && (
@@ -71,7 +75,7 @@ export default function GPSNavigationModal({ visible, onClose, destination }) {
               <View style={styles.destinationCard}>
                 {customerName && (
                   <Text style={styles.customerName}>
-                    <Ionicons name="person" size={14} color="#555" /> {customerName}
+                    <Ionicons name="person" size={14} color={colors.textSecondary} /> {customerName}
                   </Text>
                 )}
                 <Text style={styles.addressText} numberOfLines={2}>
@@ -136,7 +140,7 @@ export default function GPSNavigationModal({ visible, onClose, destination }) {
                   onPress={handleCopyAddress}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="copy-outline" size={18} color="#555" />
+                  <Ionicons name="copy-outline" size={18} color={colors.textSecondary} />
                   <Text style={styles.copyButtonText}>Copy Address Only</Text>
                 </TouchableOpacity>
               </View>
@@ -153,29 +157,31 @@ export default function GPSNavigationModal({ visible, onClose, destination }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    borderTopWidth: isDarkMode ? 1 : 0,
+    borderTopColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: isDarkMode ? 0.4 : 0.15,
     shadowRadius: 10,
     elevation: 20,
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.border,
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 16,
@@ -194,39 +200,39 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   headerOrder: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0033A0',
-    backgroundColor: '#0033A015',
+    color: colors.primary,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#0033A015',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   destinationCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   customerName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   addressText: {
     fontSize: 13,
-    color: '#64748B',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   coordsText: {
     fontSize: 11,
-    color: '#0033A0',
+    color: colors.primary,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -266,14 +272,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : 'transparent',
     gap: 6,
     marginTop: 4,
   },
   copyButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textPrimary,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -282,6 +289,6 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: colors.textSecondary,
   },
 });

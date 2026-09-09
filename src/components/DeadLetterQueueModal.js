@@ -1,5 +1,5 @@
 // src/components/DeadLetterQueueModal.js
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal,
   View,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { offlineStorageService } from '../services/offlineStorageService';
+import { useTheme } from '../context/ThemeContext';
 
 function getFriendlyOperationTitle(op) {
   if (!op) return 'Unknown Action';
@@ -33,6 +34,8 @@ function getFriendlyOperationTitle(op) {
 }
 
 export default function DeadLetterQueueModal({ visible, onClose, items = [] }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   const [retryingId, setRetryingId] = useState(null);
   const [isRetryingAll, setIsRetryingAll] = useState(false);
 
@@ -104,7 +107,7 @@ export default function DeadLetterQueueModal({ visible, onClose, items = [] }) {
               accessibilityLabel="Close modal"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={20} color="#6B7280" />
+              <Ionicons name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -203,25 +206,27 @@ export default function DeadLetterQueueModal({ visible, onClose, items = [] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     width: '100%',
     maxWidth: 420,
     maxHeight: '82%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
+    shadowOpacity: isDarkMode ? 0.4 : 0.25,
     shadowRadius: 10,
     elevation: 12,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   header: {
@@ -231,7 +236,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.border,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -241,7 +246,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -249,11 +254,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.textPrimary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   closeButton: {
@@ -273,21 +278,21 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.textPrimary,
     marginTop: 8,
   },
   emptyText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   itemCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F9FAFB',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -298,16 +303,16 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.textPrimary,
   },
   itemTime: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: isDarkMode ? 'rgba(185, 28, 28, 0.2)' : '#FEF2F2',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 6,
@@ -318,7 +323,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#991B1B',
+    color: isDarkMode ? '#fca5a5' : '#991B1B',
     flex: 1,
   },
   itemActions: {
@@ -335,15 +340,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   dismissBtn: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E5E7EB',
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
   },
   dismissBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4B5563',
+    color: isDarkMode ? colors.textSecondary : '#4B5563',
   },
   retryBtn: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
   },
   retryBtnText: {
     fontSize: 12,
@@ -356,29 +363,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: colors.border,
     gap: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#FAFAFA',
   },
   clearAllBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: isDarkMode ? colors.surface : '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
   },
   clearAllText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: isDarkMode ? colors.textSecondary : '#4B5563',
   },
   retryAllBtn: {
     flexDirection: 'row',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
