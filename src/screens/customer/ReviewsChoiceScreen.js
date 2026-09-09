@@ -1,5 +1,5 @@
 // src/screens/customer/ReviewsChoiceScreen.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ReviewsChoiceScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -25,7 +28,7 @@ export default function ReviewsChoiceScreen({ navigation }) {
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Reviews & Ratings</Text>
           <View style={{ width: 40 }} />
@@ -51,7 +54,7 @@ export default function ReviewsChoiceScreen({ navigation }) {
               Review your delivery experience and rate the riders who served you
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={24} color="#0033A0" />
+          <Ionicons name="chevron-forward" size={24} color={colors.primary} />
         </TouchableOpacity>
 
         {/* Product Review Card */}
@@ -69,22 +72,22 @@ export default function ReviewsChoiceScreen({ navigation }) {
               Share your feedback about the products you've purchased
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={24} color="#0033A0" />
+          <Ionicons name="chevron-forward" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -103,14 +106,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   content: {
     flex: 1,
@@ -121,15 +124,17 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 32,
     textAlign: 'center',
   },
   choiceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 20,
     marginBottom: 20,
     elevation: 3,
@@ -158,12 +163,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   cardDescription: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     lineHeight: 16,
   },
 });

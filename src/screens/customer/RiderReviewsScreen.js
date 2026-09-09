@@ -1,5 +1,5 @@
 // src/screens/customer/RiderReviewsScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,12 +19,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useRiderRatings } from '../../context/RiderRatingContext';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
 const { width } = Dimensions.get('window');
 
 export default function RiderReviewsScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   const { user } = useAuth();
   const { rateRider, hasUserRated, getUserRating } = useRiderRatings();
   const insets = useSafeAreaInsets();
@@ -355,7 +358,7 @@ export default function RiderReviewsScreen({ navigation }) {
                   ? `Conversation Thread (${item.replies.length + 1})` 
                   : 'Official Store Response'}
               </Text>
-              <Text style={{ fontSize: 10, color: '#0284C7' }}>View / Reply</Text>
+              <Text style={{ fontSize: 10, color: isDarkMode ? '#38BDF8' : '#0284C7' }}>View / Reply</Text>
             </View>
             <Text style={styles.adminReplyText} numberOfLines={2}>
               {item.replies && item.replies.length > 0 
@@ -371,16 +374,16 @@ export default function RiderReviewsScreen({ navigation }) {
         </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color="#999" />
+      <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0033A0" />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading deliveries...</Text>
         </View>
       </View>
@@ -389,7 +392,7 @@ export default function RiderReviewsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -399,7 +402,7 @@ export default function RiderReviewsScreen({ navigation }) {
             style={styles.backButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Rate Riders</Text>
           <View style={{ width: 40 }} />
@@ -447,14 +450,14 @@ export default function RiderReviewsScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#0033A0']}
-            tintColor="#0033A0"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="bicycle-outline" size={80} color="#ccc" />
+            <Ionicons name="bicycle-outline" size={80} color={colors.textSecondary} />
             <Text style={styles.emptyTitle}>No deliveries to rate</Text>
             <Text style={styles.emptySubtitle}>
               {selectedFilter === 'all'
@@ -482,7 +485,7 @@ export default function RiderReviewsScreen({ navigation }) {
                 onPress={() => setShowEditModal(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Ionicons name="close" size={24} color="#0033A0" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -503,7 +506,7 @@ export default function RiderReviewsScreen({ navigation }) {
                   <Ionicons
                     name={star <= editRating ? 'star' : 'star-outline'}
                     size={40}
-                    color={star <= editRating ? '#F59E0B' : '#ccc'}
+                    color={star <= editRating ? '#F59E0B' : colors.border}
                   />
                 </TouchableOpacity>
               ))}
@@ -526,7 +529,7 @@ export default function RiderReviewsScreen({ navigation }) {
               <TextInput
                 style={styles.commentInput}
                 placeholder="Share your delivery experience..."
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={4}
                 maxLength={500}
@@ -578,41 +581,42 @@ export default function RiderReviewsScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Conversation Thread</Text>
               <TouchableOpacity onPress={() => setShowThreadModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="close" size={24} color="#0033A0" />
+                <Ionicons name="close" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={{ flex: 1, marginVertical: 10 }}>
-              <View style={{ padding: 10, backgroundColor: '#f0f0f0', borderRadius: 8, marginBottom: 10 }}>
-                <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>You</Text>
-                <Text style={{ fontSize: 14 }}>{threadReview?.comment || '(No comment provided)'}</Text>
+              <View style={{ padding: 10, backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f0f0', borderRadius: 8, marginBottom: 10 }}>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: 'bold' }}>You</Text>
+                <Text style={{ fontSize: 14, color: colors.textPrimary }}>{threadReview?.comment || '(No comment provided)'}</Text>
               </View>
 
               {threadReview?.replies?.map((msg, index) => (
-                <View key={index} style={{ padding: 10, backgroundColor: msg.sender === 'admin' ? '#E0F2FE' : '#f0f0f0', borderRadius: 8, marginBottom: 10, alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
-                  <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>{msg.sender === 'admin' ? 'Official Store' : 'You'}</Text>
-                  <Text style={{ fontSize: 14 }}>{msg.message}</Text>
+                <View key={index} style={{ padding: 10, backgroundColor: msg.sender === 'admin' ? (isDarkMode ? 'rgba(2, 132, 199, 0.2)' : '#E0F2FE') : (isDarkMode ? colors.surfaceElevated : '#f0f0f0'), borderRadius: 8, marginBottom: 10, alignSelf: msg.sender === 'admin' ? 'flex-end' : 'flex-start', maxWidth: '85%' }}>
+                  <Text style={{ fontSize: 12, color: msg.sender === 'admin' ? (isDarkMode ? '#38BDF8' : '#0284C7') : colors.textSecondary, fontWeight: 'bold' }}>{msg.sender === 'admin' ? 'Official Store' : 'You'}</Text>
+                  <Text style={{ fontSize: 14, color: colors.textPrimary }}>{msg.message}</Text>
                 </View>
               ))}
 
               {(!threadReview?.replies || threadReview.replies.length === 0) && threadReview?.admin_reply && (
-                <View style={{ padding: 10, backgroundColor: '#E0F2FE', borderRadius: 8, marginBottom: 10, alignSelf: 'flex-end', maxWidth: '85%' }}>
-                  <Text style={{ fontSize: 12, color: '#666', fontWeight: 'bold' }}>Official Store</Text>
-                  <Text style={{ fontSize: 14 }}>{threadReview.admin_reply}</Text>
+                <View style={{ padding: 10, backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.2)' : '#E0F2FE', borderRadius: 8, marginBottom: 10, alignSelf: 'flex-end', maxWidth: '85%' }}>
+                  <Text style={{ fontSize: 12, color: isDarkMode ? '#38BDF8' : '#0284C7', fontWeight: 'bold' }}>Official Store</Text>
+                  <Text style={{ fontSize: 14, color: colors.textPrimary }}>{threadReview.admin_reply}</Text>
                 </View>
               )}
             </ScrollView>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
               <TextInput
-                style={{ flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, maxHeight: 100 }}
+                style={{ flex: 1, borderWidth: 1, borderColor: colors.border, backgroundColor: isDarkMode ? colors.surfaceElevated : '#FFFFFF', color: colors.textPrimary, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, maxHeight: 100 }}
                 placeholder="Reply to store..."
+                placeholderTextColor={colors.textSecondary}
                 value={threadReplyText}
                 onChangeText={setThreadReplyText}
                 multiline
               />
               <TouchableOpacity 
-                style={{ marginLeft: 10, backgroundColor: '#0033A0', padding: 12, borderRadius: 25 }}
+                style={{ marginLeft: 10, backgroundColor: colors.primary, padding: 12, borderRadius: 25 }}
                 onPress={submitThreadReply}
                 disabled={submittingThreadReply || !threadReplyText.trim()}
               >
@@ -636,15 +640,15 @@ export default function RiderReviewsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -663,19 +667,19 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   filterWrapper: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: colors.border,
   },
   filterContent: {
     paddingHorizontal: 16,
@@ -685,18 +689,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: colors.border,
   },
   filterTabActive: {
-    backgroundColor: '#0033A0',
-    borderColor: '#0033A0',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
     fontSize: 13,
-    color: '#666',
+    color: colors.textSecondary,
     fontWeight: '500',
   },
   filterTextActive: {
@@ -709,7 +713,9 @@ const styles = StyleSheet.create({
   deliveryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -723,7 +729,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     marginRight: 12,
   },
   deliveryContent: {
@@ -742,12 +748,12 @@ const styles = StyleSheet.create({
   riderName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 2,
   },
   orderNumber: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -758,20 +764,20 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   pendingBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: isDarkMode ? 'rgba(245, 158, 11, 0.2)' : '#FEF3C7',
   },
   submittedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7',
   },
   statusBadgeText: {
     fontSize: 11,
     fontWeight: '600',
   },
   pendingText: {
-    color: '#B45309',
+    color: isDarkMode ? '#FBBF24' : '#B45309',
   },
   submittedText: {
-    color: '#166534',
+    color: isDarkMode ? '#34D399' : '#166534',
   },
   ratingDisplay: {
     flexDirection: 'row',
@@ -779,33 +785,33 @@ const styles = StyleSheet.create({
   },
   commentPreview: {
     fontSize: 12,
-    color: '#666',
+    color: colors.textSecondary,
     lineHeight: 16,
     marginBottom: 4,
   },
   adminReplyContainer: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: isDarkMode ? 'rgba(2, 132, 199, 0.15)' : '#F0F9FF',
     padding: 8,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: isDarkMode ? 'rgba(2, 132, 199, 0.3)' : '#BAE6FD',
     marginTop: 4,
     marginBottom: 8,
   },
   adminReplyLabel: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#0284C7',
+    color: isDarkMode ? '#38BDF8' : '#0284C7',
     marginBottom: 2,
   },
   adminReplyText: {
     fontSize: 12,
-    color: '#0F172A',
+    color: colors.textPrimary,
     lineHeight: 16,
   },
   deliveryDate: {
     fontSize: 10,
-    color: '#999',
+    color: colors.textSecondary,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -815,13 +821,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#666',
+    color: colors.textPrimary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
@@ -832,18 +838,20 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#666',
+    color: colors.textSecondary,
     fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 24,
     width: '100%',
@@ -858,11 +866,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: colors.textPrimary,
   },
   riderNameModal: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
     marginBottom: 16,
     textAlign: 'center',
     fontWeight: '500',
@@ -890,23 +898,24 @@ const styles = StyleSheet.create({
   commentLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#333',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   commentInput: {
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: colors.border,
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#333',
+    color: colors.textPrimary,
     textAlignVertical: 'top',
     marginBottom: 4,
   },
   commentLength: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSecondary,
     textAlign: 'right',
   },
   modalActions: {
@@ -923,17 +932,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f0f4ff',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
     borderWidth: 1,
-    borderColor: '#0033A0',
+    borderColor: colors.primary,
   },
   cancelButtonText: {
-    color: '#0033A0',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   },
   submitButton: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
   },
   submitButtonText: {
     color: '#fff',

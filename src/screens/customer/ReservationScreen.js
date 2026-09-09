@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { reservationService } from '../../services/reservationService';
 
 const SLOT_INTERVAL_MINUTES = 10;
@@ -60,6 +61,8 @@ function buildTimeSlots() {
 const TIME_SLOTS = buildTimeSlots();
 
 export default function ReservationScreen({ navigation, route }) {
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
   const insets = useSafeAreaInsets();
   const { user, profile } = useAuth();
 
@@ -407,10 +410,10 @@ export default function ReservationScreen({ navigation, route }) {
           style={styles.backButton}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={22} color="#0033A0" />
+          <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </TouchableOpacity>
 
-        <Ionicons name="calendar" size={20} color="#0033A0" />
+        <Ionicons name="calendar" size={20} color={colors.primary} />
         <Text style={styles.headerTitle}>Reservation</Text>
       </View>
 
@@ -420,7 +423,7 @@ export default function ReservationScreen({ navigation, route }) {
             style={[styles.actionBtnPrimary, mode === 'new' && styles.actionBtnPrimaryActive]}
             onPress={startNewReservation}
           >
-            <Ionicons name="add-circle-outline" size={16} color={mode === 'new' ? '#fff' : '#0033A0'} />
+            <Ionicons name="add-circle-outline" size={16} color={mode === 'new' ? '#fff' : colors.primary} />
             <Text style={[styles.actionBtnPrimaryText, mode === 'new' && styles.actionBtnPrimaryTextActive]}>
               New Reservation
             </Text>
@@ -431,7 +434,7 @@ export default function ReservationScreen({ navigation, route }) {
             onPress={() => setManageModalVisible(true)}
             disabled={myReservations.length === 0}
           >
-            <Ionicons name="settings-outline" size={16} color="#0033A0" />
+            <Ionicons name="settings-outline" size={16} color={colors.primary} />
             <Text style={styles.actionBtnSecondaryText}>Manage Reservation</Text>
           </TouchableOpacity>
         </View>
@@ -454,7 +457,7 @@ export default function ReservationScreen({ navigation, route }) {
                 <Ionicons
                   name={quickGuideExpanded ? 'chevron-up' : 'chevron-down'}
                   size={16}
-                  color="#1E3A8A"
+                  color={colors.primary}
                 />
               </TouchableOpacity>
             </View>
@@ -513,11 +516,11 @@ export default function ReservationScreen({ navigation, route }) {
 
             <View style={styles.monthHeader}>
               <TouchableOpacity onPress={() => goToMonth(-1)} style={styles.monthButton}>
-                <Ionicons name="chevron-back" size={18} color="#0033A0" />
+                <Ionicons name="chevron-back" size={18} color={colors.primary} />
               </TouchableOpacity>
               <Text style={styles.monthLabel}>{monthLabel}</Text>
               <TouchableOpacity onPress={() => goToMonth(1)} style={styles.monthButton}>
-                <Ionicons name="chevron-forward" size={18} color="#0033A0" />
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -561,7 +564,7 @@ export default function ReservationScreen({ navigation, route }) {
             <Text style={styles.sectionTitle}>Your upcoming reservations</Text>
             {loadingMine ? (
               <View style={styles.loadingWrap}>
-                <ActivityIndicator size="small" color="#0033A0" />
+                <ActivityIndicator size="small" color={colors.primary} />
               </View>
             ) : myReservations.length === 0 ? (
               <View style={styles.emptyCard}>
@@ -590,11 +593,11 @@ export default function ReservationScreen({ navigation, route }) {
 
                 <View style={styles.monthHeader}>
                   <TouchableOpacity onPress={() => goToMonth(-1)} style={styles.monthButton}>
-                    <Ionicons name="chevron-back" size={18} color="#0033A0" />
+                    <Ionicons name="chevron-back" size={18} color={colors.primary} />
                   </TouchableOpacity>
                   <Text style={styles.monthLabel}>{monthLabel}</Text>
                   <TouchableOpacity onPress={() => goToMonth(1)} style={styles.monthButton}>
-                    <Ionicons name="chevron-forward" size={18} color="#0033A0" />
+                    <Ionicons name="chevron-forward" size={18} color={colors.primary} />
                   </TouchableOpacity>
                 </View>
 
@@ -642,7 +645,7 @@ export default function ReservationScreen({ navigation, route }) {
                 <Text style={styles.stepTitle}>Step 2: Choose time</Text>
                 {loadingSlots ? (
                   <View style={styles.loadingWrap}>
-                    <ActivityIndicator size="small" color="#0033A0" />
+                    <ActivityIndicator size="small" color={colors.primary} />
                   </View>
                 ) : (
                   <View style={styles.slotWrap}>
@@ -691,7 +694,7 @@ export default function ReservationScreen({ navigation, route }) {
                 <View style={styles.summaryCard}>
                   <View style={styles.summaryHeaderRow}>
                     <View style={styles.summaryBadge}>
-                      <Ionicons name="calendar-outline" size={14} color="#0033A0" />
+                      <Ionicons name="calendar-outline" size={14} color={colors.primary} />
                       <Text style={styles.summaryBadgeText}>Reservation Summary</Text>
                     </View>
                     <Text style={styles.summaryStatus}>{editingReservation ? 'Editing' : 'New'}</Text>
@@ -721,7 +724,7 @@ export default function ReservationScreen({ navigation, route }) {
                   value={notes}
                   onChangeText={setNotes}
                   placeholder="Add any note for admin"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.textSecondary}
                   multiline
                   numberOfLines={3}
                   style={styles.notesInput}
@@ -801,7 +804,7 @@ export default function ReservationScreen({ navigation, route }) {
             <View style={styles.modalHeaderRow}>
               <Text style={styles.modalTitle}>Manage Reservations</Text>
               <TouchableOpacity onPress={() => setManageModalVisible(false)}>
-                <Ionicons name="close" size={20} color="#334155" />
+                <Ionicons name="close" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -881,10 +884,10 @@ export default function ReservationScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -892,9 +895,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 32,
@@ -902,13 +905,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E2E8F0',
     marginRight: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   content: {
     padding: 16,
@@ -918,17 +921,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.border,
   },
   wizardStickyContainer: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.border,
   },
   actionRow: {
     flexDirection: 'row',
@@ -936,9 +939,9 @@ const styles = StyleSheet.create({
   },
   actionBtnPrimary: {
     flex: 1,
-    backgroundColor: '#E5EEFF',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E5EEFF',
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: isDarkMode ? colors.border : '#BFDBFE',
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: 'center',
@@ -947,11 +950,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionBtnPrimaryActive: {
-    backgroundColor: '#0033A0',
-    borderColor: '#0033A0',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   actionBtnPrimaryText: {
-    color: '#0033A0',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -960,8 +963,8 @@ const styles = StyleSheet.create({
   },
   actionBtnSecondary: {
     flex: 1,
-    backgroundColor: '#E5EEFF',
-    borderColor: '#BFDBFE',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E5EEFF',
+    borderColor: isDarkMode ? colors.border : '#BFDBFE',
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 10,
@@ -971,7 +974,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionBtnSecondaryText: {
-    color: '#0033A0',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -979,13 +982,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
+    color: colors.textPrimary,
   },
   wizardInfoCard: {
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: isDarkMode ? colors.border : '#BFDBFE',
     borderRadius: 12,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#EFF6FF',
     marginTop: 6,
     padding: 12,
     gap: 4,
@@ -997,7 +1000,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   wizardInfoTitle: {
-    color: '#1E3A8A',
+    color: colors.primary,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1007,21 +1010,21 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#DBEAFE',
+    backgroundColor: isDarkMode ? colors.surface : '#DBEAFE',
   },
   wizardInfoText: {
-    color: '#1E40AF',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '600',
   },
   wizardInfoHint: {
-    color: '#334155',
+    color: colors.textSecondary,
     fontSize: 11,
   },
   stepTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   progressRow: {
@@ -1038,21 +1041,21 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   progressDotActive: {
-    borderColor: '#0033A0',
-    backgroundColor: '#0033A0',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   progressDotDone: {
-    borderColor: '#0EA5E9',
-    backgroundColor: '#0EA5E9',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   progressDotText: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1061,35 +1064,35 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     marginTop: 4,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
   progressLabelActive: {
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   progressConnector: {
     flex: 1,
     height: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: colors.border,
     marginTop: 11,
     marginHorizontal: 4,
   },
   progressConnectorActive: {
-    backgroundColor: '#0EA5E9',
+    backgroundColor: colors.primary,
   },
   summaryText: {
-    color: '#334155',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   summaryCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     padding: 14,
     gap: 12,
-    shadowColor: '#0F172A',
+    shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
@@ -1105,18 +1108,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#E5EEFF',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E5EEFF',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   summaryBadgeText: {
-    color: '#0033A0',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '700',
   },
   summaryStatus: {
-    color: '#0F766E',
+    color: colors.primary,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -1128,14 +1131,14 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   summaryLabel: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -1143,7 +1146,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   summaryValue: {
-    color: '#0F172A',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -1151,22 +1154,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#F0FDFA',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F0FDFA',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#99F6E4',
+    borderColor: isDarkMode ? colors.border : '#99F6E4',
   },
   summaryNoteText: {
     flex: 1,
-    color: '#115E59',
+    color: isDarkMode ? colors.textPrimary : '#115E59',
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
   },
   notesLabel: {
     marginTop: 2,
-    color: '#334155',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1179,14 +1182,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   weekRow: {
     flexDirection: 'row',
@@ -1195,17 +1198,17 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
     textAlign: 'center',
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   calendarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   dayCellEmpty: {
     width: `${100 / 7}%`,
@@ -1218,7 +1221,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dayCellSelected: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     borderRadius: 10,
   },
   dayCellDisabled: {
@@ -1226,21 +1229,21 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 13,
-    color: '#1E293B',
+    color: colors.textPrimary,
     fontWeight: '600',
   },
   dayTextSelected: {
     color: '#FFFFFF',
   },
   dayTextDisabled: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
   },
   dayDot: {
     marginTop: 3,
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#ED2939',
+    backgroundColor: colors.primary,
   },
   loadingWrap: {
     paddingVertical: 14,
@@ -1256,20 +1259,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: 'center',
   },
   slotSelected: {
-    borderColor: '#0033A0',
-    backgroundColor: '#0033A0',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
   },
   slotDisabled: {
-    backgroundColor: '#E2E8F0',
-    borderColor: '#CBD5E1',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E2E8F0',
+    borderColor: colors.border,
   },
   slotText: {
-    color: '#1E293B',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -1277,50 +1280,50 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   slotTextDisabled: {
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   notesInput: {
     minHeight: 90,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
     textAlignVertical: 'top',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   helperText: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   emptyCard: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 14,
   },
   emptyText: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 13,
   },
   myReservationCard: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     padding: 12,
     gap: 8,
   },
   myReservationTime: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   myReservationNotes: {
     fontSize: 12,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   footer: {
@@ -1329,8 +1332,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingTop: 12,
   },
@@ -1342,33 +1345,33 @@ const styles = StyleSheet.create({
     minWidth: 88,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC',
   },
   footerGhostBtnDisabled: {
     opacity: 0.45,
   },
   footerGhostText: {
-    color: '#334155',
+    color: colors.textPrimary,
     fontWeight: '700',
   },
   footerGhostTextDisabled: {
-    color: '#64748B',
+    color: colors.textSecondary,
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#ED2939',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
   },
   noticeActionButton: {
-    backgroundColor: '#ED2939',
+    backgroundColor: colors.primary,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1387,7 +1390,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 16,
     gap: 10,
@@ -1403,11 +1406,11 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: colors.textPrimary,
   },
   modalMessage: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 19,
   },
   noticeList: {
@@ -1415,13 +1418,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   noticeItem: {
-    color: '#334155',
+    color: colors.textPrimary,
     fontSize: 12,
     lineHeight: 18,
   },
   manageItemCard: {
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 10,
     gap: 10,
@@ -1433,14 +1436,14 @@ const styles = StyleSheet.create({
   manageChangeBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
-    backgroundColor: '#E5EEFF',
+    borderColor: isDarkMode ? colors.border : '#BFDBFE',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E5EEFF',
     borderRadius: 8,
     paddingVertical: 8,
     alignItems: 'center',
   },
   manageChangeText: {
-    color: '#0033A0',
+    color: colors.primary,
     fontWeight: '700',
     fontSize: 12,
   },
@@ -1448,7 +1451,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: isDarkMode ? 'rgba(185, 28, 28, 0.15)' : '#FEF2F2',
     borderRadius: 8,
     paddingVertical: 8,
     alignItems: 'center',
@@ -1456,7 +1459,7 @@ const styles = StyleSheet.create({
     minHeight: 34,
   },
   manageCancelText: {
-    color: '#B91C1C',
+    color: '#EF4444',
     fontWeight: '700',
     fontSize: 12,
   },
@@ -1468,7 +1471,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dialogBtn: {
-    backgroundColor: '#0033A0',
+    backgroundColor: colors.primary,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1485,9 +1488,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   dialogSecondaryBtn: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: isDarkMode ? colors.surfaceElevated : '#E2E8F0',
   },
   dialogSecondaryText: {
-    color: '#334155',
+    color: colors.textPrimary,
   },
 });

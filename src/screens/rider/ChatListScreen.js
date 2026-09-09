@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { chatService } from '../../services/chatService';
 
 const RECONCILE_INTERVAL_MS = 75000;
@@ -34,6 +35,7 @@ const isConversationUnread = (conversation) => {
 };
 
 const RiderChatListScreen = ({ navigation }) => {
+  const { colors, isDarkMode } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState([]);
@@ -388,8 +390,9 @@ const RiderChatListScreen = ({ navigation }) => {
       <TouchableOpacity
         style={[
           styles.conversationItem,
-          isUnread && styles.unreadConversation,
-          isSelected && styles.selectedConversationItem,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+          isUnread && [styles.unreadConversation, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F0F5FF', borderColor: colors.primary }],
+          isSelected && [styles.selectedConversationItem, { backgroundColor: isDarkMode ? '#0033A025' : '#FFF1F2' }],
         ]}
         onPress={() => {
           if (isSelectionMode) {
@@ -408,48 +411,48 @@ const RiderChatListScreen = ({ navigation }) => {
             <Ionicons
               name={isSelected ? 'checkbox' : 'square-outline'}
               size={22}
-              color={isSelected ? '#0033A0' : '#94A3B8'}
+              color={isSelected ? colors.primary : colors.textSecondary}
             />
           </TouchableOpacity>
         )}
 
         <View style={styles.avatarWrap}>
-          <View style={[styles.avatarRing, label === 'Admin' && styles.adminRing]}>
+          <View style={[styles.avatarRing, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EAF1FF' }, label === 'Admin' && styles.adminRing]}>
             {avatarSource ? (
               <Image source={avatarSource} style={styles.avatarImage} />
             ) : (
-              <View style={[styles.avatarFallback, label === 'Admin' ? styles.adminAvatar : styles.customerAvatar]}>
+              <View style={[styles.avatarFallback, { backgroundColor: colors.primary }, label === 'Admin' ? styles.adminAvatar : styles.customerAvatar]}>
                 <Text style={styles.avatarFallbackText}>{getInitials(otherName)}</Text>
               </View>
             )}
           </View>
-          {isUnread && <View style={styles.avatarDot} />}
+          {isUnread && <View style={[styles.avatarDot, { borderColor: colors.surface }]} />}
         </View>
 
         <View style={styles.conversationContent}>
           <View style={styles.conversationHeader}>
             <View style={styles.titleRow}>
-              <Text style={[styles.conversationName, isUnread && styles.unreadText]} numberOfLines={1}>
+              <Text style={[styles.conversationName, { color: colors.textPrimary }, isUnread && styles.unreadText]} numberOfLines={1}>
                 {otherName}
               </Text>
-              <View style={[styles.labelBadge, label === 'Admin' && styles.adminBadge]}>
-                <Text style={styles.labelText}>{label}</Text>
+              <View style={[styles.labelBadge, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EFF6FF' }, label === 'Admin' && styles.adminBadge]}>
+                <Text style={[styles.labelText, { color: colors.primary }]}>{label}</Text>
               </View>
               {isClosed && (
-                <View style={styles.finishedBadge}>
-                  <Text style={styles.finishedBadgeText}>Finished</Text>
+                <View style={[styles.finishedBadge, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#E2E8F0' }]}>
+                  <Text style={[styles.finishedBadgeText, { color: colors.textSecondary }]}>Finished</Text>
                 </View>
               )}
             </View>
-            <Text style={styles.conversationTime}>{timeAgo}</Text>
+            <Text style={[styles.conversationTime, { color: colors.textSecondary }]}>{timeAgo}</Text>
           </View>
 
-          <Text style={[styles.messagePreview, isUnread && styles.unreadText]} numberOfLines={1}>
+          <Text style={[styles.messagePreview, { color: colors.textSecondary }, isUnread && [styles.unreadText, { color: colors.textPrimary }]]} numberOfLines={1}>
             {preview}
           </Text>
 
           {item.type === 'customer_rider' && item.orders && (
-            <Text style={styles.conversationMeta} numberOfLines={1}>
+            <Text style={[styles.conversationMeta, { color: colors.textSecondary }]} numberOfLines={1}>
               Order #{getOrderReference(item)} • {item.orders.status}
             </Text>
           )}
@@ -460,31 +463,31 @@ const RiderChatListScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#ED2939" />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+        <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <View style={styles.backgroundCanvas}>
-        <View style={[styles.backgroundOrb, styles.backgroundOrbTop]} />
-        <View style={[styles.backgroundOrb, styles.backgroundOrbMid]} />
-        <View style={[styles.backgroundOrb, styles.backgroundOrbBottom]} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'left', 'right']}>
+      <View style={[styles.backgroundCanvas, { backgroundColor: colors.background }]}>
+        <View style={[styles.backgroundOrb, styles.backgroundOrbTop, { opacity: isDarkMode ? 0.05 : 1 }]} />
+        <View style={[styles.backgroundOrb, styles.backgroundOrbMid, { opacity: isDarkMode ? 0.05 : 1 }]} />
+        <View style={[styles.backgroundOrb, styles.backgroundOrbBottom, { opacity: isDarkMode ? 0.05 : 1 }]} />
       </View>
       <View style={styles.container}>
         {isSelectionMode ? (
-          <View style={[styles.bulkHeaderBar, { paddingTop: 14 }]}>
+          <View style={[styles.bulkHeaderBar, { paddingTop: 14, backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
             <TouchableOpacity style={styles.bulkSelectAllButton} onPress={toggleSelectAll}>
               <Ionicons
                 name={selectedIds.length === conversations.length && conversations.length > 0 ? 'checkbox' : 'square-outline'}
                 size={22}
-                color="#0033A0"
+                color={colors.primary}
               />
-              <Text style={styles.bulkCountText}>
+              <Text style={[styles.bulkCountText, { color: colors.textPrimary }]}>
                 {selectedIds.length === 0 ? 'Select All' : `${selectedIds.length} Selected`}
               </Text>
             </TouchableOpacity>
@@ -509,36 +512,36 @@ const RiderChatListScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.bulkCancelButton}
+                style={[styles.bulkCancelButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' }]}
                 onPress={() => {
                   setIsSelectionMode(false);
                   setSelectedIds([]);
                 }}
               >
-                <Ionicons name="close" size={20} color="#64748B" />
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View style={[styles.header, { paddingTop: 14 }]}>
             <View style={styles.headerTextBlock}>
-              <Text style={styles.headerKicker}>Messages</Text>
-              <Text style={styles.headerTitle}>Rider Chat</Text>
-              <Text style={styles.headerSubtitle}>Customer and admin conversations in one place</Text>
+              <Text style={[styles.headerKicker, { color: colors.textSecondary }]}>Messages</Text>
+              <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Rider Chat</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Customer and admin conversations in one place</Text>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={styles.headerPill}>
-                <Ionicons name="chatbubbles" size={14} color="#0033A0" />
-                <Text style={styles.headerPillText}>{unreadCount} unread</Text>
+              <View style={[styles.headerPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Ionicons name="chatbubbles" size={14} color={colors.primary} />
+                <Text style={[styles.headerPillText, { color: colors.primary }]}>{unreadCount} unread</Text>
               </View>
 
               <TouchableOpacity
-                style={styles.headerMenuButton}
+                style={[styles.headerMenuButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 onPress={() => setHeaderMenuVisible(true)}
                 activeOpacity={0.8}
               >
-                <Ionicons name="ellipsis-vertical" size={20} color="#1E293B" />
+                <Ionicons name="ellipsis-vertical" size={20} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
           </View>
@@ -552,18 +555,18 @@ const RiderChatListScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#ED2939"
-              colors={['#ED2939']}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           contentContainerStyle={conversations.length === 0 ? styles.emptyListContent : styles.listContent}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons name="chatbubble-ellipses-outline" size={34} color="#0033A0" />
+            <View style={[styles.emptyContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.emptyIconWrap, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EAF1FF' }]}>
+                <Ionicons name="chatbubble-ellipses-outline" size={34} color={colors.primary} />
               </View>
-              <Text style={styles.emptyText}>No conversations yet</Text>
-              <Text style={styles.emptySubtext}>Chat with customers about orders or with admin</Text>
+              <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No conversations yet</Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Chat with customers about orders or with admin</Text>
             </View>
           }
         />
@@ -579,29 +582,29 @@ const RiderChatListScreen = ({ navigation }) => {
             activeOpacity={1}
             onPress={() => setHeaderMenuVisible(false)}
           >
-            <View style={[styles.menuDropdownCard, { top: Math.max(insets.top, 14) + 40 }]}>
+            <View style={[styles.menuDropdownCard, { top: Math.max(insets.top, 14) + 40, backgroundColor: colors.surface, borderColor: colors.border }]}>
               <TouchableOpacity
-                style={styles.dropdownMenuItem}
+                style={[styles.dropdownMenuItem, { borderBottomColor: colors.border }]}
                 onPress={() => {
                   setHeaderMenuVisible(false);
                   setIsSelectionMode(true);
                 }}
               >
-                <Ionicons name="checkbox-outline" size={18} color="#0033A0" />
-                <Text style={styles.dropdownMenuItemText}>Select Conversations</Text>
+                <Ionicons name="checkbox-outline" size={18} color={colors.primary} />
+                <Text style={[styles.dropdownMenuItemText, { color: colors.textPrimary }]}>Select Conversations</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.dropdownMenuItem}
+                style={[styles.dropdownMenuItem, { borderBottomColor: colors.border }]}
                 onPress={() => {
                   setHeaderMenuVisible(false);
                   setIsSelectionMode(true);
                 }}
               >
                 <Ionicons name="checkmark-done-circle-outline" size={18} color="#10B981" />
-                <Text style={styles.dropdownMenuItemText}>Bulk Finish Chats</Text>
+                <Text style={[styles.dropdownMenuItemText, { color: colors.textPrimary }]}>Bulk Finish Chats</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.dropdownMenuItem}
+                style={[styles.dropdownMenuItem, { borderBottomColor: colors.border }]}
                 onPress={() => {
                   setHeaderMenuVisible(false);
                   setIsSelectionMode(true);
@@ -611,14 +614,14 @@ const RiderChatListScreen = ({ navigation }) => {
                 <Text style={[styles.dropdownMenuItemText, { color: '#EF4444' }]}>Bulk Delete Chats</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.dropdownMenuItem}
+                style={[styles.dropdownMenuItem, { borderBottomColor: colors.border }]}
                 onPress={() => {
                   setHeaderMenuVisible(false);
                   handleMarkAllAsRead();
                 }}
               >
-                <Ionicons name="mail-open-outline" size={18} color="#64748B" />
-                <Text style={styles.dropdownMenuItemText}>Mark All as Read</Text>
+                <Ionicons name="mail-open-outline" size={18} color={colors.textSecondary} />
+                <Text style={[styles.dropdownMenuItemText, { color: colors.textPrimary }]}>Mark All as Read</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>

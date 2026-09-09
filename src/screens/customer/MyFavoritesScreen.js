@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { useFavorites } from '../../context/FavoritesContext';
 import ProductCard from '../../components/ProductCard';
 import { useCart } from '../../context/CartContext';
+import { useTheme } from '../../context/ThemeContext';
 import SafeAreaWrapper from '../../components/SafeAreaWrapper';
 import CustomAlertModal from '../../components/CustomAlertModal';
 import StorePauseBanner from '../../components/StorePauseBanner';
@@ -24,6 +25,7 @@ const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 45) / 2;
 
 export default function MyFavoritesScreen({ navigation }) {
+  const { colors, isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
   const [products, setProducts] = useState([]);
@@ -101,14 +103,14 @@ export default function MyFavoritesScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaWrapper backgroundColor="#f8f9fa" barStyle="dark-content">
-      <View style={[styles.container, { paddingTop: insets.top }] }>
+    <SafeAreaWrapper backgroundColor={colors.background} barStyle={isDarkMode ? 'light-content' : 'dark-content'}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#0033A0" />
+        <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
+            <Ionicons name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Favorites</Text>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>My Favorites</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -116,7 +118,7 @@ export default function MyFavoritesScreen({ navigation }) {
 
         {loading ? (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color="#0033A0" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
           <FlatList
@@ -126,13 +128,13 @@ export default function MyFavoritesScreen({ navigation }) {
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0033A0']} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="heart-outline" size={80} color="#ccc" />
-                <Text style={styles.emptyTitle}>No favorites yet</Text>
-                <Text style={styles.emptySubtitle}>Tap the heart button on a product to save it here.</Text>
+                <Ionicons name="heart-outline" size={80} color={colors.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No favorites yet</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>Tap the heart button on a product to save it here.</Text>
               </View>
             }
             renderItem={({ item, index }) => (

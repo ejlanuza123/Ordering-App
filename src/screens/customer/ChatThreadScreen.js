@@ -20,9 +20,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { chatService } from '../../services/chatService';
 
 const ChatThreadScreen = ({ route, navigation }) => {
+  const { colors, isDarkMode } = useTheme();
   const { conversationId } = route.params;
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -410,16 +412,24 @@ const ChatThreadScreen = ({ route, navigation }) => {
             {senderAvatar ? (
               <Image source={senderAvatar} style={styles.messageAvatar} />
             ) : (
-              <View style={styles.messageAvatarFallback}>
+              <View style={[styles.messageAvatarFallback, { backgroundColor: colors.primary }]}>
                 <Text style={styles.messageAvatarFallbackText}>{getInitials(senderName)}</Text>
               </View>
             )}
           </View>
         )}
-        <View style={[styles.messageBubble, isCurrentUser && styles.currentUserBubble]}>
-          {!isCurrentUser && <Text style={styles.senderName}>{senderName}</Text>}
-          <Text style={[styles.messageText, isCurrentUser && styles.currentUserText]}>{item.content}</Text>
-          <Text style={[styles.messageTime, isCurrentUser && styles.currentUserTime]}>
+        <View
+          style={[
+            styles.messageBubble,
+            { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+            isCurrentUser && [styles.currentUserBubble, { backgroundColor: colors.primary, borderColor: colors.primary }],
+          ]}
+        >
+          {!isCurrentUser && <Text style={[styles.senderName, { color: colors.textSecondary }]}>{senderName}</Text>}
+          <Text style={[styles.messageText, { color: colors.textPrimary }, isCurrentUser && styles.currentUserText]}>
+            {item.content}
+          </Text>
+          <Text style={[styles.messageTime, { color: colors.textSecondary }, isCurrentUser && styles.currentUserTime]}>
             {format(new Date(item.created_at), 'HH:mm')}
           </Text>
           {isCurrentUser && (
@@ -452,43 +462,43 @@ const ChatThreadScreen = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#ED2939" />
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FB" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
-      <View style={styles.backgroundCanvas}>
-        <View style={[styles.backgroundOrb, styles.backgroundOrbTop]} />
-        <View style={[styles.backgroundOrb, styles.backgroundOrbMid]} />
-        <View style={[styles.backgroundOrb, styles.backgroundOrbBottom]} />
+      <View style={[styles.backgroundCanvas, { backgroundColor: colors.background }]}>
+        <View style={[styles.backgroundOrb, styles.backgroundOrbTop, { opacity: isDarkMode ? 0.05 : 1 }]} />
+        <View style={[styles.backgroundOrb, styles.backgroundOrbMid, { opacity: isDarkMode ? 0.05 : 1 }]} />
+        <View style={[styles.backgroundOrb, styles.backgroundOrbBottom, { opacity: isDarkMode ? 0.05 : 1 }]} />
       </View>
 
       <View style={[styles.headerShell, { paddingTop: Math.max(insets.top, 10) }]}>
         <View style={styles.headerTopRow}>
-          <TouchableOpacity style={styles.backButtonWrap} onPress={() => navigation.goBack()} activeOpacity={0.85}>
-            <Ionicons name="chevron-back" size={18} color="#111827" />
-            <Text style={styles.backButton}>Back</Text>
+          <TouchableOpacity style={[styles.backButtonWrap, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.goBack()} activeOpacity={0.85}>
+            <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />
+            <Text style={[styles.backButton, { color: colors.textPrimary }]}>Back</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.headerActionButton} onPress={handleConversationActions} activeOpacity={0.85}>
-            <Ionicons name="ellipsis-horizontal" size={16} color="#111827" />
+          <TouchableOpacity style={[styles.headerActionButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={handleConversationActions} activeOpacity={0.85}>
+            <Ionicons name="ellipsis-horizontal" size={16} color={colors.textPrimary} />
           </TouchableOpacity>
 
-          <View style={styles.headerBadge}>
-            <Ionicons name="chatbubbles" size={14} color="#0033A0" />
-            <Text style={styles.headerBadgeText}>
+          <View style={[styles.headerBadge, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EDF3FF' }]}>
+            <Ionicons name="chatbubbles" size={14} color={colors.primary} />
+            <Text style={[styles.headerBadgeText, { color: colors.primary }]}>
               {conversation?.type === 'customer_rider' ? 'Order chat' : 'Support chat'}
             </Text>
           </View>
         </View>
 
-        <View style={styles.headerCard}>
-          <View style={styles.avatar}>
+        <View style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
             {getHeaderAvatarSource() ? (
               <Image source={getHeaderAvatarSource()} style={styles.avatarImage} />
             ) : (
@@ -496,15 +506,15 @@ const ChatThreadScreen = ({ route, navigation }) => {
             )}
           </View>
           <View style={styles.headerCopy}>
-            <Text style={styles.participantName} numberOfLines={1}>
+            <Text style={[styles.participantName, { color: colors.textPrimary }]} numberOfLines={1}>
               {getHeaderTitle()}
             </Text>
             {conversation?.type === 'customer_rider' && conversation?.orders ? (
-              <Text style={styles.orderInfo}>Order #{getOrderReference()}</Text>
+              <Text style={[styles.orderInfo, { color: colors.textSecondary }]}>Order #{getOrderReference()}</Text>
             ) : (
-              <Text style={styles.orderInfo}>Keep the conversation focused on delivery updates</Text>
+              <Text style={[styles.orderInfo, { color: colors.textSecondary }]}>Keep the conversation focused on delivery updates</Text>
             )}
-            {isOtherTyping && <Text style={styles.typingInfo}>typing...</Text>}
+            {isOtherTyping && <Text style={[styles.typingInfo, { color: colors.primary }]}>typing...</Text>}
           </View>
         </View>
       </View>
@@ -518,34 +528,34 @@ const ChatThreadScreen = ({ route, navigation }) => {
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <View style={styles.emptyMessages}>
-            <View style={styles.emptyMessagesCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#0033A0" />
-              <Text style={styles.emptyMessagesText}>No messages yet</Text>
-              <Text style={styles.emptyMessagesSubtext}>Send the first update to keep the order moving.</Text>
+            <View style={[styles.emptyMessagesCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="chatbubble-ellipses-outline" size={28} color={colors.primary} />
+              <Text style={[styles.emptyMessagesText, { color: colors.textPrimary }]}>No messages yet</Text>
+              <Text style={[styles.emptyMessagesSubtext, { color: colors.textSecondary }]}>Send the first update to keep the order moving.</Text>
             </View>
           </View>
         }
       />
 
       {editingMessageId && (
-        <View style={styles.editingBar}>
-          <Text style={styles.editingBarText}>Editing message</Text>
+        <View style={[styles.editingBar, { backgroundColor: isDarkMode ? colors.surfaceElevated : 'rgba(219, 234, 254, 0.62)', borderColor: isDarkMode ? colors.border : 'rgba(0, 51, 160, 0.2)' }]}>
+          <Text style={[styles.editingBarText, { color: colors.primary }]}>Editing message</Text>
           <TouchableOpacity onPress={() => { setEditingMessageId(null); setNewMessage(''); }}>
-            <Text style={styles.editingBarCancel}>Cancel</Text>
+            <Text style={[styles.editingBarCancel, { color: colors.error || '#B91C1C' }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {isClosed ? (
-        <View style={[styles.closedChatBanner, { marginBottom: Math.max(insets.bottom, 12) }]}>
-          <View style={styles.closedChatIconBadge}>
+        <View style={[styles.closedChatBanner, { marginBottom: Math.max(insets.bottom, 12), backgroundColor: isDarkMode ? colors.surfaceElevated : '#ECFDF5', borderColor: isDarkMode ? colors.border : '#A7F3D0' }]}>
+          <View style={[styles.closedChatIconBadge, { backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.2)' : '#D1FAE5' }]}>
             <Ionicons name="checkmark-circle" size={24} color="#10B981" />
           </View>
           <View style={styles.closedChatContent}>
-            <Text style={styles.closedChatTitle}>
+            <Text style={[styles.closedChatTitle, { color: isDarkMode ? '#34D399' : '#065F46' }]}>
               {isFinishedStatus ? 'Order Delivered • Chat Closed' : 'Conversation Marked Finished'}
             </Text>
-            <Text style={styles.closedChatSubtext}>
+            <Text style={[styles.closedChatSubtext, { color: isDarkMode ? colors.textSecondary : '#047857' }]}>
               This delivery has been completed. Messaging is disabled for closed conversations.
             </Text>
           </View>
@@ -555,11 +565,11 @@ const ChatThreadScreen = ({ route, navigation }) => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}
         >
-          <View style={styles.composerCard}>
+          <View style={[styles.composerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.textPrimary }]}
               placeholder="Type a message..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.textSecondary}
               value={newMessage}
               onChangeText={handleMessageChange}
               editable={!sending}
@@ -567,12 +577,22 @@ const ChatThreadScreen = ({ route, navigation }) => {
               maxLength={1000}
             />
             <TouchableOpacity
-              style={[styles.sendButton, (!newMessage.trim() || sending) && styles.sendButtonDisabled]}
+              style={[
+                styles.sendButton,
+                { backgroundColor: (!newMessage.trim() || sending) ? (isDarkMode ? colors.surfaceElevated : '#F3F4F6') : colors.primary },
+              ]}
               onPress={handleSendMessage}
               disabled={!newMessage.trim() || sending}
               activeOpacity={0.85}
             >
-              <Text style={styles.sendButtonText}>{sending ? '...' : (editingMessageId ? 'Save' : 'Send')}</Text>
+              <Text
+                style={[
+                  styles.sendButtonText,
+                  { color: (!newMessage.trim() || sending) ? colors.textSecondary : '#fff' },
+                ]}
+              >
+                {sending ? '...' : (editingMessageId ? 'Save' : 'Send')}
+              </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -584,9 +604,9 @@ const ChatThreadScreen = ({ route, navigation }) => {
           activeOpacity={1}
           onPress={() => setConversationMenuVisible(false)}
         >
-          <View style={styles.dropdownMenuCard}>
+          <View style={[styles.dropdownMenuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TouchableOpacity style={styles.dropdownMenuItem} onPress={() => { setConversationMenuVisible(false); setRenameDraft(conversation?.custom_name || ''); setRenameModalVisible(true); }}>
-              <Text style={styles.dropdownMenuItemText}>Rename</Text>
+              <Text style={[styles.dropdownMenuItemText, { color: colors.textPrimary }]}>Rename</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dropdownMenuItem} onPress={handleDeleteConversation}>
               <Text style={[styles.dropdownMenuItemText, styles.dropdownMenuItemDanger]}>Delete conversation</Text>
@@ -597,9 +617,9 @@ const ChatThreadScreen = ({ route, navigation }) => {
 
       <Modal visible={messageMenuVisible} transparent animationType="fade" onRequestClose={() => setMessageMenuVisible(false)}>
         <TouchableOpacity style={[styles.menuBackdrop, { justifyContent: 'center' }]} activeOpacity={1} onPress={() => setMessageMenuVisible(false)}>
-          <View style={[styles.dropdownMenuCard, { marginRight: 18 }]}>
+          <View style={[styles.dropdownMenuCard, { marginRight: 18, backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TouchableOpacity style={styles.dropdownMenuItem} onPress={handleEditSelectedMessage}>
-              <Text style={styles.dropdownMenuItemText}>Edit message</Text>
+              <Text style={[styles.dropdownMenuItemText, { color: colors.textPrimary }]}>Edit message</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dropdownMenuItem} onPress={handleDeleteSelectedMessage}>
               <Text style={[styles.dropdownMenuItemText, styles.dropdownMenuItemDanger]}>Delete message</Text>
@@ -610,20 +630,21 @@ const ChatThreadScreen = ({ route, navigation }) => {
 
       <Modal visible={renameModalVisible} transparent animationType="fade" onRequestClose={() => setRenameModalVisible(false)}>
         <View style={styles.renameModalBackdrop}>
-          <View style={styles.renameModalCard}>
-            <Text style={styles.renameModalTitle}>Rename conversation</Text>
+          <View style={[styles.renameModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.renameModalTitle, { color: colors.textPrimary }]}>Rename conversation</Text>
             <TextInput
-              style={styles.renameModalInput}
+              style={[styles.renameModalInput, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border, color: colors.textPrimary }]}
               value={renameDraft}
               onChangeText={setRenameDraft}
               placeholder="Conversation name"
+              placeholderTextColor={colors.textSecondary}
               maxLength={80}
             />
             <View style={styles.renameModalActions}>
-              <TouchableOpacity onPress={() => setRenameModalVisible(false)} style={styles.renameModalButton}>
-                <Text style={styles.renameModalButtonText}>Cancel</Text>
+              <TouchableOpacity onPress={() => setRenameModalVisible(false)} style={[styles.renameModalButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EEF2FF' }]}>
+                <Text style={[styles.renameModalButtonText, { color: colors.textPrimary }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleRenameConversation} style={[styles.renameModalButton, styles.renameModalButtonPrimary]}>
+              <TouchableOpacity onPress={handleRenameConversation} style={[styles.renameModalButton, styles.renameModalButtonPrimary, { backgroundColor: colors.primary }]}>
                 <Text style={[styles.renameModalButtonText, styles.renameModalButtonPrimaryText]}>
                   {conversationActionBusy ? 'Saving...' : 'Save'}
                 </Text>
@@ -635,14 +656,14 @@ const ChatThreadScreen = ({ route, navigation }) => {
 
       <Modal visible={deleteConfirmVisible} transparent animationType="fade" onRequestClose={() => setDeleteConfirmVisible(false)}>
         <View style={styles.renameModalBackdrop}>
-          <View style={styles.renameModalCard}>
-            <Text style={styles.renameModalTitle}>Delete conversation?</Text>
-            <Text style={styles.deleteModalBodyText}>
+          <View style={[styles.renameModalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.renameModalTitle, { color: colors.textPrimary }]}>Delete conversation?</Text>
+            <Text style={[styles.deleteModalBodyText, { color: colors.textSecondary }]}>
               Are you sure you want to delete this conversation? This action cannot be undone.
             </Text>
             <View style={styles.renameModalActions}>
-              <TouchableOpacity onPress={() => setDeleteConfirmVisible(false)} style={styles.renameModalButton}>
-                <Text style={styles.renameModalButtonText}>Cancel</Text>
+              <TouchableOpacity onPress={() => setDeleteConfirmVisible(false)} style={[styles.renameModalButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EEF2FF' }]}>
+                <Text style={[styles.renameModalButtonText, { color: colors.textPrimary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={confirmDeleteConversation} style={[styles.renameModalButton, styles.deleteModalButton]}>
                 <Text style={[styles.renameModalButtonText, styles.renameModalButtonPrimaryText]}>Delete</Text>
