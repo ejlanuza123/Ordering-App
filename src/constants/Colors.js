@@ -7,6 +7,7 @@ export const lightColors = {
   // Status colors
   warning: '#F59E0B',
   danger: '#EF4444',
+  error: '#EF4444',
   success: '#10B981',
   
   // Backgrounds & Surfaces
@@ -45,6 +46,7 @@ export const darkColors = {
   // Status colors
   warning: '#FBBF24',
   danger: '#F87171',
+  error: '#F87171',
   success: '#34D399',
   
   // Backgrounds & Surfaces
