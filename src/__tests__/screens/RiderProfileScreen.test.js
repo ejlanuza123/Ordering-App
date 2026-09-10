@@ -110,8 +110,8 @@ describe('RiderProfileScreen', () => {
 
     const { Switch } = require('react-native');
     const switches = UNSAFE_getAllByType(Switch);
-    // 3 switches: Online Status, Notifications, Battery Saver
-    expect(switches.length).toBe(3);
+    // 4 switches: Online Status, Notifications, Battery Saver, Dark Mode
+    expect(switches.length).toBe(4);
     const batterySwitch = switches[2];
 
     await act(async () => {
