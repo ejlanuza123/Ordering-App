@@ -16,6 +16,7 @@ import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { avatarService } from '../services/avatarService';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import CustomAlertModal from './CustomAlertModal';
 
 const Avatar = ({ 
@@ -27,6 +28,7 @@ const Avatar = ({
 }) => {
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
   const { user, profile } = useAuth();
+  const { colors, isDarkMode } = useTheme();
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showOptions, setShowOptions] = useState(false);
@@ -248,11 +250,11 @@ const Avatar = ({
   const getStatusIcon = () => {
     switch(uploadStatus) {
       case 'preparing':
-        return <Ionicons name="image-outline" size={40} color="#0033A0" />;
+        return <Ionicons name="image-outline" size={40} color={colors.primary} />;
       case 'uploading':
         return (
           <Animated.View style={{ transform: [{ rotate }] }}>
-            <Ionicons name="cloud-upload-outline" size={40} color="#0033A0" />
+            <Ionicons name="cloud-upload-outline" size={40} color={colors.primary} />
           </Animated.View>
         );
       case 'removing':
@@ -266,7 +268,7 @@ const Avatar = ({
       case 'error':
         return <Ionicons name="close-circle" size={40} color="#EF4444" />;
       default:
-        return <Ionicons name="cloud-outline" size={40} color="#0033A0" />;
+        return <Ionicons name="cloud-outline" size={40} color={colors.primary} />;
     }
   };
 
@@ -281,15 +283,15 @@ const Avatar = ({
           {avatarUrl ? (
             <Image
               source={{ uri: avatarUrl }}
-              style={[styles.avatar, { width: size, height: size }]}
+              style={[styles.avatar, { width: size, height: size, borderColor: colors.surface }]}
             />
           ) : profile?.avatar_url ? (
             <Image
               source={{ uri: profile.avatar_url }}
-              style={[styles.avatar, { width: size, height: size }]}
+              style={[styles.avatar, { width: size, height: size, borderColor: colors.surface }]}
             />
           ) : (
-            <View style={[styles.avatar, styles.placeholder, { width: size, height: size }]}>
+            <View style={[styles.avatar, styles.placeholder, { width: size, height: size, borderColor: colors.surface, backgroundColor: colors.primary }]}>
               <Text style={[styles.initials, { fontSize: size * 0.4 }]}>
                 {getInitials()}
               </Text>
@@ -297,7 +299,7 @@ const Avatar = ({
           )}
 
           {editable && showEditButton && !uploading && (
-            <View style={styles.editBadge}>
+            <View style={[styles.editBadge, { borderColor: colors.surface }]}>
               <Ionicons name="camera" size={size * 0.2} color="#fff" />
             </View>
           )}
@@ -316,33 +318,33 @@ const Avatar = ({
           activeOpacity={1}
           onPress={() => setShowOptions(false)}
         >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Profile Picture</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Profile Picture</Text>
               <TouchableOpacity onPress={() => setShowOptions(false)}>
-                <Ionicons name="close" size={24} color="#666" />
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={styles.optionItem}
+              style={[styles.optionItem, { borderBottomColor: colors.border }]}
               onPress={handleChooseFromGallery}
             >
-              <Ionicons name="images" size={24} color="#0033A0" />
-              <Text style={styles.optionText}>Choose from Gallery</Text>
+              <Ionicons name="images" size={24} color={colors.primary} />
+              <Text style={[styles.optionText, { color: colors.textPrimary }]}>Choose from Gallery</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.optionItem}
+              style={[styles.optionItem, { borderBottomColor: colors.border }]}
               onPress={handleTakePhoto}
             >
-              <Ionicons name="camera" size={24} color="#0033A0" />
-              <Text style={styles.optionText}>Take Photo</Text>
+              <Ionicons name="camera" size={24} color={colors.primary} />
+              <Text style={[styles.optionText, { color: colors.textPrimary }]}>Take Photo</Text>
             </TouchableOpacity>
 
             {profile?.avatar_url && (
               <TouchableOpacity
-                style={[styles.optionItem, styles.removeOption]}
+                style={[styles.optionItem, styles.removeOption, { backgroundColor: isDarkMode ? 'rgba(237, 41, 57, 0.15)' : '#FFF5F5' }]}
                 onPress={handleRemoveAvatar}
               >
                 <Ionicons name="trash" size={24} color="#ED2939" />
@@ -363,16 +365,16 @@ const Avatar = ({
         onRequestClose={() => {}}
       >
         <View style={styles.uploadModalOverlay}>
-          <View style={styles.uploadModalContent}>
-            <View style={styles.uploadIconContainer}>
+          <View style={[styles.uploadModalContent, { backgroundColor: colors.surface }]}>
+            <View style={[styles.uploadIconContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff' }]}>
               {getStatusIcon()}
             </View>
             
-            <Text style={styles.uploadTitle}>
+            <Text style={[styles.uploadTitle, { color: colors.textPrimary }]}>
               {getStatusMessage()}
             </Text>
             
-            <Text style={styles.uploadSubtitle}>
+            <Text style={[styles.uploadSubtitle, { color: colors.textSecondary }]}>
               {uploadStatus === 'preparing' && 'Please wait...'}
               {uploadStatus === 'uploading' && `${Math.round(progressAnimation.__getValue() * 100)}% complete`}
               {uploadStatus === 'removing' && 'Deleting from server...'}
@@ -381,7 +383,7 @@ const Avatar = ({
             </Text>
 
             {/* Progress Bar */}
-            <View style={styles.progressBarContainer}>
+            <View style={[styles.progressBarContainer, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#e9ecef' }]}>
               <Animated.View 
                 style={[
                   styles.progressBarFill,
@@ -390,7 +392,7 @@ const Avatar = ({
                       inputRange: [0, 1],
                       outputRange: ['0%', '100%']
                     }),
-                    backgroundColor: uploadStatus === 'error' ? '#EF4444' : '#0033A0'
+                    backgroundColor: uploadStatus === 'error' ? '#EF4444' : colors.primary
                   }
                 ]} 
               />
@@ -402,7 +404,7 @@ const Avatar = ({
 
             {uploadStatus === 'error' && (
               <TouchableOpacity 
-                style={styles.retryButton}
+                style={[styles.retryButton, { backgroundColor: colors.primary }]}
                 onPress={() => setShowUploadModal(false)}
               >
                 <Text style={styles.retryButtonText}>Close</Text>

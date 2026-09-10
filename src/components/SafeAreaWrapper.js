@@ -9,7 +9,7 @@ const SafeAreaWrapper = ({ children, backgroundColor = '#fff', barStyle = 'dark-
     <>
       <StatusBar 
         barStyle={barStyle} 
-        backgroundColor={barStyle === 'light-content' ? '#0033A0' : backgroundColor}
+        backgroundColor={backgroundColor}
         translucent={false}
       />
       <SafeAreaView 

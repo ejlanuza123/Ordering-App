@@ -9,7 +9,8 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
-  Switch
+  Switch,
+  StatusBar
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -311,6 +312,7 @@ export default function RiderProfileScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.statusBarBg} />
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, isDarkMode && { backgroundColor: colors.surfaceElevated }]}>
