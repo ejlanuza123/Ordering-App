@@ -1,5 +1,5 @@
 // src/screens/customer/ProfileScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   ScrollView,
   StatusBar,
   Switch,
-  Modal
+  Modal,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +38,27 @@ export default function ProfileScreen({ navigation }) {
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
+
+  // Animation for Dark Mode toggle
+  const themeAnim = useRef(new Animated.Value(isDarkMode ? 1 : 0)).current;
+  
+  useEffect(() => {
+    Animated.timing(themeAnim, {
+      toValue: isDarkMode ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [isDarkMode]);
+
+  const spin = themeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  
+  const scale = themeAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.4, 1],
+  });
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -499,7 +521,9 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={[styles.preferenceItem, { borderBottomColor: 'transparent' }]}>
               <View style={styles.preferenceInfo}>
-                <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={isDarkMode ? "#60A5FA" : colors.primary} />
+                <Animated.View style={{ transform: [{ rotate: spin }, { scale }] }}>
+                  <Ionicons name={isDarkMode ? "moon" : "sunny"} size={22} color={isDarkMode ? "#60A5FA" : colors.primary} />
+                </Animated.View>
                 <View style={styles.preferenceText}>
                   <Text style={[styles.preferenceTitle, { color: colors.textPrimary }]}>Dark Mode</Text>
                   <Text style={[styles.preferenceDescription, { color: colors.textSecondary }]}>

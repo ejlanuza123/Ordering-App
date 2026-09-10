@@ -753,8 +753,17 @@ export default function CheckoutScreen({ navigation }) {
             </View>
 
             {/* Terms and Conditions */}
-            <View style={styles.termsContainer}>
-              <Text style={[styles.termsText, { color: colors.textSecondary }]}>
+            <View 
+              style={[
+                styles.termsContainer, 
+                { 
+                  backgroundColor: isDarkMode ? colors.surfaceElevated : '#f0f4ff',
+                  borderColor: colors.border,
+                  borderWidth: isDarkMode ? 1 : 0
+                }
+              ]}
+            >
+              <Text style={[styles.termsText, { color: isDarkMode ? colors.textPrimary : colors.textSecondary }]}>
                 By placing your order, you agree to our Terms of Service and Privacy Policy. Delivery time: 15-30 minutes.
               </Text>
             </View>

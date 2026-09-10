@@ -28,12 +28,12 @@ export default function RiderInfoCard({ delivery, onChatPress }) {
   
   const getStatusColor = (status) => {
     switch(status) {
-      case 'assigned': return '#F59E0B';
-      case 'accepted': return '#10B981';
-      case 'picked_up': return colors.primary;
-      case 'out_for_delivery': return colors.primary;
-      case 'delivered': return '#10B981';
-      case 'failed': return '#EF4444';
+      case 'assigned': return isDarkMode ? '#3B82F6' : '#F59E0B';
+      case 'accepted': return isDarkMode ? '#34D399' : '#10B981';
+      case 'picked_up': return isDarkMode ? '#38BDF8' : colors.primary;
+      case 'out_for_delivery': return isDarkMode ? '#E879F9' : colors.primary;
+      case 'delivered': return isDarkMode ? '#34D399' : '#10B981';
+      case 'failed': return isDarkMode ? '#F87171' : '#EF4444';
       default: return colors.textSecondary;
     }
   };

@@ -451,14 +451,42 @@ export default function RiderDashboardScreen({ navigation }) {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'assigned': return '#F59E0B';
-      case 'accepted': return '#10B981';
-      case 'picked_up': return '#0033A0';
-      case 'out_for_delivery': return '#0033A0';
-      case 'delivered': return '#10B981';
-      case 'failed': return '#EF4444';
-      default: return '#666';
+    const s = typeof status === 'string' ? status.toLowerCase().replace(/\s+/g, '') : '';
+    switch(s) {
+      case 'pending':
+      case 'placed':
+        return isDarkMode ? '#FDE047' : '#F59E0B';
+      case 'processing':
+      case 'preparing':
+        return isDarkMode ? '#60A5FA' : '#0033A0';
+      case 'confirmed':
+      case 'accepted':
+      case 'assigned':
+        return isDarkMode ? '#3B82F6' : '#2563EB';
+      case 'riderpickedup':
+      case 'riderpickeduptheorder':
+      case 'pickedup':
+      case 'picked_up':
+        return isDarkMode ? '#38BDF8' : '#0EA5E9';
+      case 'outfordelivery':
+      case 'out_for_delivery':
+      case 'intransit':
+      case 'transit':
+      case 'delivering':
+        return isDarkMode ? '#E879F9' : '#7e0083'; // Purple -> Neon Pink/Purple
+      case 'completed':
+      case 'delivered':
+        return isDarkMode ? '#34D399' : '#10B981';
+      case 'cancelled':
+      case 'failed':
+        return isDarkMode ? '#F87171' : '#EF4444';
+      case 'archived':
+        return isDarkMode ? '#FCD34D' : '#F59E0B';
+      case 'pendingsync':
+      case 'offline':
+        return isDarkMode ? '#FBBF24' : '#D97706';
+      default:
+        return isDarkMode ? '#94A3B8' : '#666666'; // fallback
     }
   };
 

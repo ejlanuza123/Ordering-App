@@ -667,14 +667,14 @@ export default function RiderDeliveryDetailsScreen({ route, navigation }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'assigned': return '#F59E0B';
-      case 'accepted': return '#10B981';
-      case 'picked_up': return '#0033A0';
-      case 'out_for_delivery': return '#0033A0';
-      case 'delivered': return '#10B981';
-      case 'failed': return '#EF4444';
-      case 'issue_reported': return '#EF4444';
-      default: return '#666';
+      case 'assigned': return isDarkMode ? '#3B82F6' : '#F59E0B';
+      case 'accepted': return isDarkMode ? '#34D399' : '#10B981';
+      case 'picked_up': return isDarkMode ? '#38BDF8' : '#0033A0';
+      case 'out_for_delivery': return isDarkMode ? '#E879F9' : '#0033A0';
+      case 'delivered': return isDarkMode ? '#34D399' : '#10B981';
+      case 'failed': return isDarkMode ? '#F87171' : '#EF4444';
+      case 'issue_reported': return isDarkMode ? '#F87171' : '#EF4444';
+      default: return isDarkMode ? '#94A3B8' : '#666';
     }
   };
 

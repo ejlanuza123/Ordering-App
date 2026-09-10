@@ -636,36 +636,36 @@ export default function OrderHistoryScreen({ navigation, route }) {
     switch(s) {
       case 'pendingsync':
       case 'offline':
-        return '#D97706';
+        return isDarkMode ? '#FBBF24' : '#D97706';
       case 'pending':
       case 'placed':
-        return '#F59E0B';
+        return isDarkMode ? '#FDE047' : '#F59E0B';
       case 'confirmed':
       case 'accepted':
       case 'assigned':
-        return '#2563EB';
+        return isDarkMode ? '#3B82F6' : '#2563EB';
       case 'processing':
       case 'preparing':
-        return '#0033A0';
+        return isDarkMode ? '#60A5FA' : '#0033A0';
       case 'riderpickedup':
       case 'riderpickeduptheorder':
       case 'pickedup':
-        return '#0EA5E9';
+        return isDarkMode ? '#38BDF8' : '#0EA5E9';
       case 'outfordelivery':
       case 'intransit':
       case 'transit':
       case 'delivering':
-        return '#7e0083';
+        return isDarkMode ? '#E879F9' : '#7e0083';
       case 'completed':
       case 'delivered':
-        return '#10B981';
+        return isDarkMode ? '#34D399' : '#10B981';
       case 'cancelled':
       case 'failed':
-        return '#EF4444';
+        return isDarkMode ? '#F87171' : '#EF4444';
       case 'archived':
-        return '#F59E0B';
+        return isDarkMode ? '#FCD34D' : '#F59E0B';
       default:
-        return '#666';
+        return isDarkMode ? '#94A3B8' : '#666666';
     }
   };
 

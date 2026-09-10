@@ -1,5 +1,5 @@
 // src/screens/rider/RiderProfileScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
-  StatusBar
+  StatusBar,
+  Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -51,12 +52,34 @@ export default function RiderProfileScreen({ navigation }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [togglingNotifications, setTogglingNotifications] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showAlert, setShowAlert] = useState(false);
+  const [showImageOptions, setShowImageOptions] = useState(false);
+
+  // Animation for Dark Mode toggle
+  const themeAnim = useRef(new Animated.Value(isDarkMode ? 1 : 0)).current;
+  
+  useEffect(() => {
+    Animated.timing(themeAnim, {
+      toValue: isDarkMode ? 1 : 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [isDarkMode]);
+
+  const spin = themeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  
+  const scale = themeAnim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.4, 1],
+  });
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
   const [onlineStatus, setOnlineStatus] = useState(true);
   const [togglingOnlineStatus, setTogglingOnlineStatus] = useState(false);
   const [batterySaverEnabled, setBatterySaverEnabled] = useState(true);
   const [togglingBatterySaver, setTogglingBatterySaver] = useState(false);
+  const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -564,11 +587,13 @@ export default function RiderProfileScreen({ navigation }) {
           <View style={[styles.preferenceItem, isDarkMode && { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <View style={styles.preferenceInfo}>
               <View style={[styles.preferenceIconWrap, isDarkMode ? styles.preferenceIconOnline : null, isDarkMode && { backgroundColor: 'rgba(96, 165, 250, 0.2)', borderColor: '#60A5FA' }]}>
-                <Ionicons
-                  name={isDarkMode ? "moon" : "sunny"}
-                  size={18}
-                  color={isDarkMode ? "#60A5FA" : "#F59E0B"}
-                />
+                <Animated.View style={{ transform: [{ rotate: spin }, { scale }] }}>
+                  <Ionicons
+                    name={isDarkMode ? "moon" : "sunny"}
+                    size={18}
+                    color={isDarkMode ? "#60A5FA" : "#F59E0B"}
+                  />
+                </Animated.View>
               </View>
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={[styles.preferenceText, { color: colors.textPrimary }]}>Dark Mode</Text>
