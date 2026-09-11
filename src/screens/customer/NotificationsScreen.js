@@ -134,6 +134,13 @@ export default function NotificationsScreen({ navigation }) {
 
   const getNotificationIcon = (type) => {
     switch (type) {
+      case 'broadcast':
+      case 'announcement':
+        return { name: 'megaphone', color: colors.primary };
+      case 'weather_advisory':
+        return { name: 'rainy', color: '#EAB308' };
+      case 'emergency':
+        return { name: 'alert-circle', color: '#EF4444' };
       case 'chat':
       case 'chat_message':
       case 'message':
