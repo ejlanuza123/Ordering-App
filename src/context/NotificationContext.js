@@ -142,6 +142,15 @@ export const NotificationProvider = ({ children }) => {
           if (notificationsEnabledRef.current) {
             setNotifications(prev => [payload.new, ...prev]);
             setUnreadCount(prev => prev + 1);
+
+            // If broadcast notification received while in foreground, trigger local notification banner & chime
+            if (payload.new?.type === 'broadcast') {
+              mobileNotificationService.sendLocalNotification(
+                payload.new.title,
+                payload.new.message,
+                { notificationId: payload.new.id, ...(payload.new.data || {}) }
+              ).catch(err => console.warn('Failed to display foreground broadcast banner:', err));
+            }
           }
         }
       )
