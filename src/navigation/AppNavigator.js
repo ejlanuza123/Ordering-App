@@ -144,6 +144,36 @@ export default function AppNavigator() {
       const title = notification?.request?.content?.title || '';
       const body = notification?.request?.content?.body || '';
 
+      const isBroadcast =
+        ['broadcast', 'announcement', 'weather_advisory', 'emergency'].includes(type) ||
+        Boolean(data?.broadcast_id) ||
+        (type === 'promo' && !data?.order_id && !data?.orderId);
+
+      if (isBroadcast && navigationRef.isReady()) {
+        const broadcastPayload = {
+          id: data?.broadcast_id || data?.id || Date.now(),
+          title: title || 'Broadcast Announcement',
+          message: body || '',
+          type: type || data?.category || 'broadcast',
+          data,
+          created_at: data?.created_at || new Date().toISOString(),
+          is_read: false
+        };
+
+        if (role === 'rider') {
+          navigationRef.navigate('RiderStack', {
+            screen: 'Notifications',
+            params: { selectedBroadcast: broadcastPayload }
+          });
+        } else {
+          navigationRef.navigate('CustomerStack', {
+            screen: 'Notifications',
+            params: { selectedBroadcast: broadcastPayload }
+          });
+        }
+        return;
+      }
+
       const isChat = 
         ['chat', 'chat_message', 'message', 'order_chat'].includes(type) ||
         Boolean(conversationId) ||

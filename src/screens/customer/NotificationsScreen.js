@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Modal,
+  ScrollView,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { formatDistanceToNow } from '../../utils/dateFormatter';
 import CustomAlertModal from '../../components/CustomAlertModal';
 
-export default function NotificationsScreen({ navigation }) {
+export default function NotificationsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { role } = useAuth();
   const { colors, isDarkMode } = useTheme();
@@ -43,6 +46,21 @@ export default function NotificationsScreen({ navigation }) {
     message: ''
   });
 
+  const [selectedBroadcast, setSelectedBroadcast] = useState(null);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+
+  // Automatically open broadcast detail modal if navigated here with selectedBroadcast param
+  useEffect(() => {
+    if (route?.params?.selectedBroadcast) {
+      const broadcast = route.params.selectedBroadcast;
+      setSelectedBroadcast(broadcast);
+      setShowBroadcastModal(true);
+      if (broadcast.id && !broadcast.is_read) {
+        markAsRead(broadcast.id);
+      }
+    }
+  }, [route?.params?.selectedBroadcast]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadNotifications();
@@ -58,6 +76,17 @@ export default function NotificationsScreen({ navigation }) {
     const payloadOrderId = payload?.order_id ?? payload?.orderId ?? null;
     const payloadDeliveryId = payload?.delivery_id ?? payload?.deliveryId ?? null;
     const payloadConversationId = payload?.conversation_id ?? payload?.conversationId ?? null;
+
+    const isBroadcast =
+      ['broadcast', 'announcement', 'weather_advisory', 'emergency'].includes(notification?.type) ||
+      Boolean(payload?.broadcast_id) ||
+      (notification?.type === 'promo' && !payloadOrderId);
+
+    if (isBroadcast) {
+      setSelectedBroadcast(notification);
+      setShowBroadcastModal(true);
+      return;
+    }
 
     const isChatNotification = [
       'chat',
@@ -164,6 +193,85 @@ export default function NotificationsScreen({ navigation }) {
       return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
     } catch (error) {
       return 'some time ago';
+    }
+  };
+
+  const formatFullDateTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleString('en-PH', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      return '';
+    }
+  };
+
+  const getBroadcastCategoryInfo = (type, data) => {
+    const cat = data?.category || type || 'announcement';
+    switch (cat) {
+      case 'weather_advisory':
+        return {
+          label: 'Weather & Operations',
+          icon: 'rainy',
+          color: '#EAB308',
+          bg: isDarkMode ? 'rgba(234, 179, 8, 0.15)' : '#FEF9C3',
+          borderColor: isDarkMode ? 'rgba(234, 179, 8, 0.3)' : '#FDE047',
+        };
+      case 'promo':
+        return {
+          label: 'Special Promotion',
+          icon: 'flame',
+          color: '#EC4899',
+          bg: isDarkMode ? 'rgba(236, 72, 153, 0.15)' : '#FCE7F3',
+          borderColor: isDarkMode ? 'rgba(236, 72, 153, 0.3)' : '#FBCFE8',
+        };
+      case 'emergency':
+        return {
+          label: 'Urgent Advisory',
+          icon: 'alert-circle',
+          color: '#EF4444',
+          bg: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEE2E2',
+          borderColor: isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#FECACA',
+        };
+      case 'broadcast':
+      case 'announcement':
+      default:
+        return {
+          label: 'Official Announcement',
+          icon: 'megaphone',
+          color: colors.primary,
+          bg: isDarkMode ? 'rgba(59, 130, 246, 0.15)' : '#DBEAFE',
+          borderColor: isDarkMode ? 'rgba(59, 130, 246, 0.3)' : '#BFDBFE',
+        };
+    }
+  };
+
+  const handleShareBroadcast = async () => {
+    if (!selectedBroadcast) return;
+    try {
+      await Share.share({
+        title: selectedBroadcast.title || 'Broadcast Announcement',
+        message: `${selectedBroadcast.title}\n\n${selectedBroadcast.message}\n\n— Broadcasted via Petron San Pedro`,
+      });
+    } catch (err) {
+      console.warn('Failed to share broadcast:', err);
+    }
+  };
+
+  const handleModalAction = () => {
+    setShowBroadcastModal(false);
+    if (role === 'rider') {
+      navigation.navigate('RiderDeliveries');
+    } else {
+      navigation.navigate('Home');
     }
   };
 
@@ -318,6 +426,172 @@ export default function NotificationsScreen({ navigation }) {
         message={alertConfig.message}
         confirmText="OK"
       />
+
+      {/* Broadcast Detail Modal */}
+      <Modal
+        visible={showBroadcastModal && !!selectedBroadcast}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowBroadcastModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdropTouch} 
+            activeOpacity={1} 
+            onPress={() => setShowBroadcastModal(false)} 
+          />
+          <View style={[
+            styles.broadcastModalCard, 
+            { 
+              backgroundColor: colors.surface, 
+              borderColor: colors.border 
+            }
+          ]}>
+            {selectedBroadcast && (() => {
+              const catInfo = getBroadcastCategoryInfo(selectedBroadcast.type, selectedBroadcast.data);
+              const targetAudience = selectedBroadcast.data?.target_audience;
+              const audienceLabel = targetAudience === 'riders' 
+                ? 'Riders Only' 
+                : targetAudience === 'customers' 
+                  ? 'Customers Only' 
+                  : targetAudience === 'all' 
+                    ? 'Everyone' 
+                    : null;
+
+              return (
+                <>
+                  {/* Top Bar: Category Badges & Close Button */}
+                  <View style={styles.broadcastModalHeader}>
+                    <View style={styles.badgeRow}>
+                      <View style={[
+                        styles.categoryBadge, 
+                        { backgroundColor: catInfo.bg, borderColor: catInfo.borderColor }
+                      ]}>
+                        <Ionicons name={catInfo.icon} size={14} color={catInfo.color} style={styles.badgeIcon} />
+                        <Text style={[styles.categoryBadgeText, { color: catInfo.color }]}>
+                          {catInfo.label}
+                        </Text>
+                      </View>
+
+                      {audienceLabel && (
+                        <View style={[
+                          styles.audienceBadge, 
+                          { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' }
+                        ]}>
+                          <Ionicons name="people-outline" size={12} color={colors.textSecondary} style={styles.badgeIcon} />
+                          <Text style={[styles.audienceBadgeText, { color: colors.textSecondary }]}>
+                            {audienceLabel}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' }]}
+                      onPress={() => setShowBroadcastModal(false)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessibilityLabel="Close broadcast details"
+                    >
+                      <Ionicons name="close" size={20} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Title */}
+                  <Text style={[styles.broadcastModalTitle, { color: colors.textPrimary }]}>
+                    {selectedBroadcast.title}
+                  </Text>
+
+                  {/* Metadata Row */}
+                  <View style={styles.broadcastMetaRow}>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={13} color={colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.broadcastMetaText, { color: colors.textMuted }]}>
+                        {formatFullDateTime(selectedBroadcast.created_at) || formatTime(selectedBroadcast.created_at)}
+                      </Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="checkmark-circle" size={13} color={colors.primary} style={{ marginRight: 4 }} />
+                      <Text style={[styles.broadcastMetaText, { color: colors.primary, fontWeight: '600' }]}>
+                        Official Broadcast
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={[styles.modalDivider, { backgroundColor: colors.border }]} />
+
+                  {/* Scrollable Message Content */}
+                  <ScrollView 
+                    style={styles.broadcastBodyScroll} 
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={{ paddingVertical: 12 }}
+                  >
+                    <Text 
+                      style={[styles.broadcastBodyText, { color: colors.textSecondary }]}
+                      selectable={true}
+                    >
+                      {selectedBroadcast.message}
+                    </Text>
+                  </ScrollView>
+
+                  {/* Action Buttons */}
+                  <View style={styles.modalActionButtons}>
+                    <TouchableOpacity
+                      style={[styles.actionPrimaryButton, { backgroundColor: colors.primary }]}
+                      onPress={handleModalAction}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons 
+                        name={role === 'rider' ? 'bicycle' : 'bag-handle-outline'} 
+                        size={18} 
+                        color="#FFFFFF" 
+                        style={{ marginRight: 6 }} 
+                      />
+                      <Text style={styles.actionPrimaryButtonText}>
+                        {role === 'rider' ? 'View Deliveries' : 'Browse Products'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.modalSecondaryRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.actionSecondaryButton, 
+                          { 
+                            borderColor: colors.border, 
+                            backgroundColor: isDarkMode ? colors.surfaceElevated : '#F8FAFC' 
+                          }
+                        ]}
+                        onPress={handleShareBroadcast}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="share-social-outline" size={18} color={colors.textPrimary} style={{ marginRight: 6 }} />
+                        <Text style={[styles.actionSecondaryButtonText, { color: colors.textPrimary }]}>
+                          Share
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.actionCloseButton, 
+                          { 
+                            borderColor: colors.border, 
+                            backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' 
+                          }
+                        ]}
+                        onPress={() => setShowBroadcastModal(false)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.actionCloseButtonText, { color: colors.textSecondary }]}>
+                          Close
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -481,5 +755,156 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalBackdropTouch: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  broadcastModalCard: {
+    width: '100%',
+    maxHeight: '82%',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  broadcastModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  badgeIcon: {
+    marginRight: 4,
+  },
+  categoryBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  audienceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  audienceBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  modalCloseCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  broadcastModalTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    lineHeight: 26,
+    marginBottom: 8,
+  },
+  broadcastMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  broadcastMetaText: {
+    fontSize: 12,
+  },
+  modalDivider: {
+    height: 1,
+    width: '100%',
+    marginBottom: 4,
+  },
+  broadcastBodyScroll: {
+    maxHeight: 220,
+  },
+  broadcastBodyText: {
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  modalActionButtons: {
+    marginTop: 16,
+    gap: 10,
+  },
+  actionPrimaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalSecondaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionSecondaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionSecondaryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  actionCloseButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  actionCloseButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
