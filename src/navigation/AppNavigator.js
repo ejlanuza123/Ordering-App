@@ -91,7 +91,8 @@ const RiderStack = () => (
   </Stack.Navigator>
 );
 
-export { createNavigationTheme } from './navigationTheme';
+import { createNavigationTheme } from './navigationTheme';
+export { createNavigationTheme };
 
 export default function AppNavigator() {
   const { user, loading, role } = useAuth();

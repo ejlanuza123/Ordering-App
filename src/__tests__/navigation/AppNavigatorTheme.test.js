@@ -15,6 +15,10 @@ jest.mock('react-native-webview', () => {
   };
 });
 
+jest.mock('@expo/vector-icons', () => ({
+  Ionicons: 'Ionicons',
+}));
+
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: null, loading: false, role: 'customer' }),
 }));
@@ -63,5 +67,11 @@ describe('AppNavigator createNavigationTheme', () => {
     expect(theme.fonts.regular).toBeDefined();
     expect(theme.colors).toBeDefined();
     expect(theme.colors.primary).toBeDefined();
+  });
+
+  it('is properly exported from AppNavigator as well as navigationTheme', () => {
+    const { createNavigationTheme: exportedFromNavigator } = require('../../navigation/AppNavigator');
+    expect(exportedFromNavigator).toBeDefined();
+    expect(exportedFromNavigator).toBe(createNavigationTheme);
   });
 });
