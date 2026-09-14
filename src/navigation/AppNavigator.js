@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { NavigationContainer, useNavigationContainerRef, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -99,6 +99,8 @@ export default function AppNavigator() {
   const [introSeen, setIntroSeen] = useState(true);
   const [introLoading, setIntroLoading] = useState(true);
   const [currentRouteName, setCurrentRouteName] = useState(null);
+  const [navIsReady, setNavIsReady] = useState(false);
+  const [pendingNotification, setPendingNotification] = useState(null);
   const navigationRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -133,85 +135,150 @@ export default function AppNavigator() {
     };
   }, [user?.id, role, loading]);
 
-  // Handle push notification tap navigation globally (e.g. chat messages -> ChatThread / ChatList)
-  useEffect(() => {
-    const handleNotificationResponse = (notification, actionType) => {
-      if (actionType !== 'tapped') return;
+  const dispatchNotificationNavigation = useCallback((item) => {
+    if (!item || !navigationRef?.isReady()) return false;
 
-      const data = notification?.request?.content?.data || {};
-      const type = data?.type || notification?.request?.content?.categoryIdentifier || '';
-      const conversationId = data?.conversation_id || data?.conversationId || null;
-      const title = notification?.request?.content?.title || '';
-      const body = notification?.request?.content?.body || '';
+    const { isBroadcast, broadcastPayload, isChat, conversationId } = item;
 
-      const isBroadcast =
-        ['broadcast', 'announcement', 'weather_advisory', 'emergency'].includes(type) ||
-        Boolean(data?.broadcast_id) ||
-        (type === 'promo' && !data?.order_id && !data?.orderId);
+    if (isBroadcast && broadcastPayload) {
+      if (role === 'rider') {
+        navigationRef.navigate('RiderStack', {
+          screen: 'Notifications',
+          params: { selectedBroadcast: broadcastPayload }
+        });
+      } else {
+        navigationRef.navigate('CustomerStack', {
+          screen: 'Notifications',
+          params: { selectedBroadcast: broadcastPayload }
+        });
+      }
+      return true;
+    }
 
-      if (isBroadcast && navigationRef.isReady()) {
-        const broadcastPayload = {
-          id: data?.broadcast_id || data?.id || Date.now(),
-          title: title || 'Broadcast Announcement',
-          message: body || '',
-          type: type || data?.category || 'broadcast',
-          data,
-          created_at: data?.created_at || new Date().toISOString(),
-          is_read: false
-        };
-
-        if (role === 'rider') {
+    if (isChat) {
+      if (role === 'rider') {
+        if (conversationId) {
           navigationRef.navigate('RiderStack', {
-            screen: 'Notifications',
-            params: { selectedBroadcast: broadcastPayload }
+            screen: 'ChatThread',
+            params: { conversationId }
+          });
+        } else {
+          navigationRef.navigate('RiderStack', {
+            screen: 'ChatList'
+          });
+        }
+      } else {
+        if (conversationId) {
+          navigationRef.navigate('CustomerStack', {
+            screen: 'ChatThread',
+            params: { conversationId }
           });
         } else {
           navigationRef.navigate('CustomerStack', {
-            screen: 'Notifications',
-            params: { selectedBroadcast: broadcastPayload }
+            screen: 'ChatList'
           });
         }
-        return;
       }
+      return true;
+    }
 
-      const isChat = 
-        ['chat', 'chat_message', 'message', 'order_chat'].includes(type) ||
-        Boolean(conversationId) ||
-        title.toLowerCase().includes('chat') ||
-        title.toLowerCase().includes('message') ||
-        body.toLowerCase().includes('chat') ||
-        body.toLowerCase().includes('message');
+    return false;
+  }, [navigationRef, role]);
 
-      if (isChat && navigationRef.isReady()) {
-        if (role === 'rider') {
-          if (conversationId) {
-            navigationRef.navigate('RiderStack', {
-              screen: 'ChatThread',
-              params: { conversationId }
-            });
-          } else {
-            navigationRef.navigate('RiderStack', {
-              screen: 'ChatList'
-            });
-          }
-        } else {
-          if (conversationId) {
-            navigationRef.navigate('CustomerStack', {
-              screen: 'ChatThread',
-              params: { conversationId }
-            });
-          } else {
-            navigationRef.navigate('CustomerStack', {
-              screen: 'ChatList'
-            });
-          }
+  // Process pending notification once NavigationContainer is ready and user auth is resolved
+  useEffect(() => {
+    if (!pendingNotification || !navIsReady || !navigationRef?.isReady()) {
+      return;
+    }
+
+    if (loading) return;
+
+    if (user) {
+      const handled = dispatchNotificationNavigation(pendingNotification);
+      if (handled) {
+        setPendingNotification(null);
+      }
+    }
+  }, [pendingNotification, navIsReady, user, loading, role, dispatchNotificationNavigation]);
+
+  const handleNotificationResponse = useCallback((notification, actionType) => {
+    if (actionType !== 'tapped') return;
+
+    const content = notification?.request?.content || {};
+    const data = content?.data || notification?.data || {};
+    const type = String(data?.type || data?.category || data?.broadcast_category || content?.categoryIdentifier || '').toLowerCase();
+    const conversationId = data?.conversation_id || data?.conversationId || null;
+    const title = content?.title || notification?.title || '';
+    const body = content?.body || notification?.message || notification?.body || '';
+
+    const isBroadcast =
+      ['broadcast', 'announcement', 'weather_advisory', 'emergency'].includes(type) ||
+      Boolean(data?.broadcast_id) ||
+      Boolean(data?.broadcast_category) ||
+      (type === 'promo' && !data?.order_id && !data?.orderId);
+
+    if (isBroadcast) {
+      const broadcastPayload = {
+        id: data?.broadcast_id || data?.notificationId || data?.id || Date.now(),
+        title: title || 'Broadcast Announcement',
+        message: body || '',
+        type: type || data?.category || data?.broadcast_category || 'broadcast',
+        data,
+        created_at: data?.created_at || new Date().toISOString(),
+        is_read: false
+      };
+
+      const item = { isBroadcast: true, broadcastPayload };
+      if (navIsReady && navigationRef?.isReady() && user && !loading) {
+        dispatchNotificationNavigation(item);
+      } else {
+        setPendingNotification(item);
+      }
+      return;
+    }
+
+    const isChat = 
+      ['chat', 'chat_message', 'message', 'order_chat'].includes(type) ||
+      Boolean(conversationId) ||
+      title.toLowerCase().includes('chat') ||
+      title.toLowerCase().includes('message') ||
+      body.toLowerCase().includes('chat') ||
+      body.toLowerCase().includes('message');
+
+    if (isChat) {
+      const item = { isChat: true, conversationId };
+      if (navIsReady && navigationRef?.isReady() && user && !loading) {
+        dispatchNotificationNavigation(item);
+      } else {
+        setPendingNotification(item);
+      }
+    }
+  }, [navIsReady, navigationRef, user, loading, dispatchNotificationNavigation]);
+
+  // Set up listeners and check cold start (notification tapped while app was closed)
+  useEffect(() => {
+    const cleanup = mobileNotificationService.setupNotificationListeners(handleNotificationResponse);
+
+    let isMounted = true;
+    const checkColdStartNotification = async () => {
+      try {
+        const lastResponse = await mobileNotificationService.getLastNotificationResponse();
+        if (lastResponse && isMounted) {
+          const { notification } = lastResponse;
+          handleNotificationResponse(notification, 'tapped');
         }
+      } catch (err) {
+        console.warn('Failed to check cold start notification:', err);
       }
     };
 
-    const cleanup = mobileNotificationService.setupNotificationListeners(handleNotificationResponse);
-    return () => cleanup();
-  }, [navigationRef, role]);
+    checkColdStartNotification();
+
+    return () => {
+      isMounted = false;
+      cleanup();
+    };
+  }, [handleNotificationResponse]);
 
   const handleGetStarted = async () => {
     try {
@@ -258,7 +325,10 @@ export default function AppNavigator() {
       <NavigationContainer
         ref={navigationRef}
         theme={navigationTheme}
-        onReady={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
+        onReady={() => {
+          setNavIsReady(true);
+          setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null);
+        }}
         onStateChange={() => setCurrentRouteName(navigationRef.getCurrentRoute()?.name || null)}
       >
         <Stack.Navigator screenOptions={{ headerShown: false }}>

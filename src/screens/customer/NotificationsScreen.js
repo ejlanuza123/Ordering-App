@@ -49,17 +49,26 @@ export default function NotificationsScreen({ navigation, route }) {
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
+  const incomingBroadcast = route?.params?.selectedBroadcast || route?.params?.params?.selectedBroadcast;
+
   // Automatically open broadcast detail modal if navigated here with selectedBroadcast param
   useEffect(() => {
-    if (route?.params?.selectedBroadcast) {
-      const broadcast = route.params.selectedBroadcast;
-      setSelectedBroadcast(broadcast);
+    if (incomingBroadcast) {
+      setSelectedBroadcast(incomingBroadcast);
       setShowBroadcastModal(true);
-      if (broadcast.id && !broadcast.is_read) {
-        markAsRead(broadcast.id);
+      if (incomingBroadcast.id && !incomingBroadcast.is_read) {
+        markAsRead(incomingBroadcast.id);
       }
     }
-  }, [route?.params?.selectedBroadcast]);
+  }, [incomingBroadcast]);
+
+  const handleCloseBroadcastModal = () => {
+    setShowBroadcastModal(false);
+    setSelectedBroadcast(null);
+    if (navigation?.setParams) {
+      navigation.setParams({ selectedBroadcast: null });
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -267,7 +276,7 @@ export default function NotificationsScreen({ navigation, route }) {
   };
 
   const handleModalAction = () => {
-    setShowBroadcastModal(false);
+    handleCloseBroadcastModal();
     if (role === 'rider') {
       navigation.navigate('RiderDeliveries');
     } else {
@@ -432,13 +441,13 @@ export default function NotificationsScreen({ navigation, route }) {
         visible={showBroadcastModal && !!selectedBroadcast}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowBroadcastModal(false)}
+        onRequestClose={handleCloseBroadcastModal}
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity 
             style={styles.modalBackdropTouch} 
             activeOpacity={1} 
-            onPress={() => setShowBroadcastModal(false)} 
+            onPress={handleCloseBroadcastModal} 
           />
           <View style={[
             styles.broadcastModalCard, 
@@ -488,7 +497,7 @@ export default function NotificationsScreen({ navigation, route }) {
 
                     <TouchableOpacity
                       style={[styles.modalCloseCircle, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' }]}
-                      onPress={() => setShowBroadcastModal(false)}
+                      onPress={handleCloseBroadcastModal}
                       hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       accessibilityLabel="Close broadcast details"
                     >
@@ -577,7 +586,7 @@ export default function NotificationsScreen({ navigation, route }) {
                             backgroundColor: isDarkMode ? colors.surfaceElevated : '#F1F5F9' 
                           }
                         ]}
-                        onPress={() => setShowBroadcastModal(false)}
+                        onPress={handleCloseBroadcastModal}
                         activeOpacity={0.7}
                       >
                         <Text style={[styles.actionCloseButtonText, { color: colors.textSecondary }]}>

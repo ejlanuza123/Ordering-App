@@ -210,4 +210,33 @@ describe('NotificationsScreen with Broadcast Detail Modal', () => {
       expect(mockMarkAsRead).toHaveBeenCalledWith(99);
     });
   });
+
+  it('auto-opens modal when nested route.params.params.selectedBroadcast is provided', async () => {
+    const nestedBroadcastParam = {
+      id: 100,
+      type: 'emergency',
+      title: '⚠️ Urgent Typhoon Advisory',
+      message: 'Severe weather alert in San Pedro area.',
+      is_read: false,
+      created_at: '2026-09-14T08:00:00.000Z',
+      data: {
+        category: 'emergency',
+        target_audience: 'all',
+      },
+    };
+
+    const { getByText } = render(
+      <NotificationsScreen
+        navigation={mockNavigation}
+        route={{ params: { params: { selectedBroadcast: nestedBroadcastParam } } }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(getByText('⚠️ Urgent Typhoon Advisory')).toBeTruthy();
+      expect(getByText('Severe weather alert in San Pedro area.')).toBeTruthy();
+      expect(getByText('Urgent Advisory')).toBeTruthy();
+      expect(mockMarkAsRead).toHaveBeenCalledWith(100);
+    });
+  });
 });

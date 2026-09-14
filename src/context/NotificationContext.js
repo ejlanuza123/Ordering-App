@@ -144,11 +144,29 @@ export const NotificationProvider = ({ children }) => {
             setUnreadCount(prev => prev + 1);
 
             // If broadcast notification received while in foreground, trigger local notification banner & chime
-            if (payload.new?.type === 'broadcast') {
+            const isBroadcastType = 
+              ['broadcast', 'announcement', 'weather_advisory', 'emergency'].includes(payload.new?.type) ||
+              Boolean(payload.new?.data?.broadcast_category) ||
+              Boolean(payload.new?.data?.category);
+
+            if (isBroadcastType) {
+              const category = payload.new?.data?.broadcast_category || payload.new?.data?.category || payload.new?.type || 'broadcast';
               mobileNotificationService.sendLocalNotification(
                 payload.new.title,
                 payload.new.message,
-                { notificationId: payload.new.id, ...(payload.new.data || {}) }
+                {
+                  type: 'broadcast',
+                  category: category,
+                  broadcast_category: category,
+                  broadcast_id: payload.new?.data?.broadcast_id || payload.new?.id,
+                  notificationId: payload.new.id,
+                  id: payload.new.id,
+                  title: payload.new.title,
+                  message: payload.new.message,
+                  created_at: payload.new.created_at,
+                  target_audience: payload.new?.data?.target_audience,
+                  ...(payload.new.data || {})
+                }
               ).catch(err => console.warn('Failed to display foreground broadcast banner:', err));
             }
           }

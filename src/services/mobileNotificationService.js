@@ -165,6 +165,18 @@ export const mobileNotificationService = {
   },
 
   /**
+   * Get the notification response that launched the app (cold start)
+   */
+  async getLastNotificationResponse() {
+    try {
+      return await Notifications.getLastNotificationResponseAsync();
+    } catch (error) {
+      console.warn('Error getting last notification response:', error);
+      return null;
+    }
+  },
+
+  /**
    * Save push token to database
    */
   async savePushToken(userId, token) {
