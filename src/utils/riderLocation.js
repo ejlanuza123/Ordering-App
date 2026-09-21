@@ -304,14 +304,14 @@ export const reverseGeocode = async (latitude, longitude) => {
   }
 };
 
-// Check if location is within service area (San Pedro, Laguna)
+// Check if location is within the Petron service area (Puerto Princesa, Palawan)
 export const isWithinServiceArea = (latitude, longitude) => {
-  // San Pedro, Laguna bounds (approximate)
+  // Puerto Princesa, Palawan bounds (approximate)
   const serviceArea = {
-    north: 14.38,
-    south: 14.35,
-    east: 121.05,
-    west: 121.00
+    north: 9.80,
+    south: 9.68,
+    east: 118.82,
+    west: 118.68
   };
   
   return (
@@ -323,9 +323,9 @@ export const isWithinServiceArea = (latitude, longitude) => {
 };
 
 export const DEFAULT_STORE_LOCATION = {
-  latitude: 9.754820,
-  longitude: 118.748890,
-  name: 'Petron San Pedro',
+  latitude: 9.7534772,
+  longitude: 118.7478688,
+  name: 'Petron San Pedro Hub',
 };
 
 /**
