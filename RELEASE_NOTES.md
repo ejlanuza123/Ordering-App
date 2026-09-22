@@ -1,30 +1,28 @@
 # Petron San Pedro Ordering App — Release Notes
 
 ## 📱 Release Information
-- **Version:** `v1.26.12`
+- **Version:** `v1.26.13`
 - **Platform:** Android / iOS (React Native + Expo 54)
+- **APK Download:** [Download Petron San Pedro v1.26.13 APK](https://drive.google.com/file/d/1xH9Jl9WoK_6RYqiGv9YGoQO09s-lh6Tl/view?usp=drive_link)
+- **Direct Link:** `https://drive.google.com/file/d/1xH9Jl9WoK_6RYqiGv9YGoQO09s-lh6Tl/view?usp=drive_link`
+
+---
+
+## 🚀 What's New in v1.26.13
+
+### 🌐 Puerto Princesa City Geofencing & Service Area Alignment
+- **Corrected Service Area Bounds:** Resolved critical geofencing error where `isWithinServiceArea()` checked coordinates against San Pedro, Laguna (`14.35°–14.38° N`). Bounding box is now accurately calibrated for **Puerto Princesa City, Palawan** (`9.68°–9.80° N, 118.68°–118.82° E`), ensuring customer delivery availability and rider GPS tracking properly recognize the operating territory.
+- **Store Station Location Ground Truth:** Updated `DEFAULT_STORE_LOCATION` fallback coordinates from Coliseum (`9.754820, 118.748890`) to the verified **Petron San Pedro Station Hub** (`9.7534772, 118.7478688`) on National Highway, Brgy. San Pedro, Puerto Princesa City.
+- **OpenStreetMap Picker Store Pin Sync:** Fixed coordinate rounding in the customer map picker from `[9.7535, 118.7479]` to exact station coordinates `[9.7534772, 118.7478688]`.
+- **Automated Geofencing Test Suite:** Added unit tests in `src/__tests__/utils/riderLocation.test.js` verifying service area validation and store coordinates within Puerto Princesa City.
+
+---
+
+## 📜 Previous Releases
+
+### 📱 v1.26.12
 - **APK Download:** [Download Petron San Pedro v1.26.12 APK](https://drive.google.com/file/d/1zrYMrPsArYqD6J7wnkY3Q3FrH9KoGdyj/view?usp=drive_link)
-- **Direct Link:** `https://drive.google.com/file/d/1zrYMrPsArYqD6J7wnkY3Q3FrH9KoGdyj/view?usp=drive_link`
-
----
-
-## 🚀 What's New in v1.26.12
-
-### 📢 Admin Push Notification Broadcaster & Deep Linking
-- **Interactive Broadcast Detail Modal:** Tapping push notifications opens a high-contrast bottom modal with official announcement badges (`🌧️ Weather`, `🔥 Promo`, `📢 Announcement`, `⚠️ Emergency`).
-- **1-Tap Social Sharing:** Native OS social sharing via `Share.share` lets users immediately forward station advisories or promos via Messenger, WhatsApp, or SMS.
-- **Contextual Navigation:** Fast shortcuts directly to the fuel/lubricant store catalog for customers, or active delivery queue for riders.
-- **Cold-Start & Tray Click Routing:** Clicking push notifications in the smartphone notification shade or lockscreen correctly routes directly to the broadcast detail modal, even when the app was completely closed or killed.
-
-### 🎨 Dark Mode & Contrast Enhancements
-- **Smooth Theme Animations:** Added spinning & scaling icon animations for the Dark Mode switch in Customer and Rider Profile screens.
-- **Neon Status Indicators:** High-contrast neon badges for order statuses in dark mode for optimal day/night visibility.
-- **Themed Borders & Layouts:** Polished checkout terms boxes, text inputs, and modals to eliminate hardcoded backgrounds and text color clipping.
-
----
-
-## 🛠️ Bug Fixes & Stability
-- **Fixed System Tray Navigation:** Resolved issue where clicking notifications in the smartphone notification tray only opened the app without showing the announcement modal.
-- **Fixed Real-Time Foreground Notifications:** Foreground broadcast alerts now carry full metadata and category formatting.
-- **Fixed Navigation Theme Font Crash:** Resolved `regular of undefined` error in custom navigation headers.
-- **Database Check Constraint:** Updated notification check constraint to allow `'broadcast'` notification type.
+- **Admin Push Notification Broadcaster:** Interactive detail modal with category badges (`Weather`, `Promo`, `Announcement`, `Emergency`).
+- **Cold-Start & Tray Click Routing:** Direct navigation to broadcast details when tapping notifications in the phone shade or lockscreen.
+- **1-Tap Social Sharing:** Native OS sharing for station advisories and promos.
+- **Dark Mode Polish:** Animated theme toggle transitions, neon status indicators, and themed checkout terms container.
