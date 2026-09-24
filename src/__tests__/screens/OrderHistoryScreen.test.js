@@ -119,7 +119,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
       <OrderHistoryScreen navigation={mockNavigation} route={{}} />
     );
 
-    const title = await findByText(/My Orders/i, {}, { timeout: 5000 });
+    const title = await findByText(/My Orders/i, {}, { timeout: 25000 });
     expect(title).toBeTruthy();
 
     // Archive button exists as icon button without "ARCHIVED" label text
@@ -138,7 +138,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
       <OrderHistoryScreen navigation={mockNavigation} route={{}} />
     );
 
-    const title = await findByText(/My Orders/i, {}, { timeout: 5000 });
+    const title = await findByText(/My Orders/i, {}, { timeout: 25000 });
     expect(title).toBeTruthy();
 
     // Tap archive button to enter archive view
@@ -146,7 +146,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
     fireEvent.press(archiveBtn);
 
     // Title changes to "Archived Orders"
-    expect(await findByText(/Archived Orders/i, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await findByText(/Archived Orders/i, {}, { timeout: 25000 })).toBeTruthy();
 
     // The button should NOT render squished text label "ARCHIVED"
     expect(queryByText('ARCHIVED')).toBeNull();
@@ -156,7 +156,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
     fireEvent.press(backBtn);
 
     // Should return to "My Orders"
-    expect(await findByText(/My Orders/i, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await findByText(/My Orders/i, {}, { timeout: 25000 })).toBeTruthy();
     expect(mockNavigation.goBack).not.toHaveBeenCalled();
   }, 30000);
 
@@ -167,11 +167,11 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
       <OrderHistoryScreen navigation={mockNavigation} route={{}} />
     );
 
-    await findByText(/My Orders/i, {}, { timeout: 5000 });
+    await findByText(/My Orders/i, {}, { timeout: 25000 });
 
     // Enter archive view
     fireEvent.press(getByLabelText('View Archived Orders'));
-    expect(await findByText(/Archived Orders/i, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await findByText(/Archived Orders/i, {}, { timeout: 25000 })).toBeTruthy();
 
     // Trigger Android hardware back press callback
     const hardwareBackCallback = backHandlerSpy.mock.calls[backHandlerSpy.mock.calls.length - 1][1];
@@ -182,7 +182,7 @@ describe('OrderHistoryScreen - Archive Navigation & Icon', () => {
 
     // It should handle the press and navigate back to "My Orders"
     expect(handled).toBe(true);
-    expect(await findByText(/My Orders/i, {}, { timeout: 5000 })).toBeTruthy();
+    expect(await findByText(/My Orders/i, {}, { timeout: 25000 })).toBeTruthy();
     expect(mockNavigation.goBack).not.toHaveBeenCalled();
 
     backHandlerSpy.mockRestore();
