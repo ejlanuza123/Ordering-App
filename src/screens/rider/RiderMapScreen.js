@@ -66,6 +66,30 @@ export default function RiderMapScreen({ navigation, route }) {
     lng: 118.7478688
   };
 
+  // Helper to safely send location to WebView via both direct JS injection and postMessage
+  const updateWebViewLocation = useCallback((lat, lng, shouldCenter = false) => {
+    if (!webViewRef.current || typeof lat !== 'number' || typeof lng !== 'number') return;
+    try {
+      webViewRef.current.injectJavaScript(`
+        if (typeof window.updateRiderPosition === 'function') {
+          window.updateRiderPosition(${lat}, ${lng}, ${shouldCenter ? 'true' : 'false'});
+        } else if (${shouldCenter ? 'true' : 'false'} && typeof window.centerOnMe === 'function') {
+          window.centerOnMe();
+        }
+        true;
+      `);
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'UPDATE_LOCATION',
+        lat,
+        lon: lng,
+        lng,
+        shouldCenter
+      }));
+    } catch (err) {
+      devLog('Error updating webview location:', err);
+    }
+  }, []);
+
   // Auto-focus delivery if routed with parameters
   useEffect(() => {
     const targetId = route?.params?.focusedDeliveryId;
@@ -179,14 +203,7 @@ export default function RiderMapScreen({ navigation, route }) {
           lng: loc.longitude
         });
 
-        if (webViewRef.current) {
-          webViewRef.current.postMessage(JSON.stringify({
-            type: 'UPDATE_LOCATION',
-            lat: loc.latitude,
-            lon: loc.longitude,
-            shouldCenter: false
-          }));
-        }
+        updateWebViewLocation(loc.latitude, loc.longitude, false);
       });
 
       if (result.success && isActive) {
@@ -1230,39 +1247,61 @@ export default function RiderMapScreen({ navigation, route }) {
             }
           };
           
+          window.updateRiderPosition = function(lat, lng, shouldCenter) {
+            try {
+              if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) return;
+              window.currentLocation = { lat: lat, lng: lng };
+              if (!window.map) return;
+              
+              if (window.riderMarker) {
+                window.riderMarker.setLatLng([lat, lng]);
+              } else {
+                addRiderMarker();
+              }
+              
+              if (window.routeMode === 'focused' && window.deliveries && window.deliveries.length > 0) {
+                drawOptimizedRoute(false);
+              }
+              
+              if (shouldCenter && window.map) {
+                window.map.flyTo([lat, lng], 17, {
+                  duration: 1.2
+                });
+              }
+            } catch (err) {
+              console.error('Error updating rider position:', err);
+            }
+          };
+
           window.centerOnMe = function() {
             log('centerOnMe called');
             if (window.map && window.currentLocation) {
-              window.map.flyTo([window.currentLocation.lat, window.currentLocation.lng], 16, {
-                duration: 1.5
+              window.map.flyTo([window.currentLocation.lat, window.currentLocation.lng], 17, {
+                duration: 1.2
               });
             }
           };
           
-          // Listen for location updates from React Native
-          window.addEventListener('message', function(event) {
+          // Listen for messages from React Native on both window and document (Android WebView support)
+          function handleIncomingMessage(event) {
             try {
-              const data = JSON.parse(event.data);
+              var data = event.data;
+              if (typeof data === 'string') {
+                try {
+                  data = JSON.parse(data);
+                } catch (e) {
+                  return;
+                }
+              }
+              if (!data || !data.type) return;
               log('Message received in WebView:', data);
               
               if (data.type === 'UPDATE_LOCATION') {
-                window.currentLocation = { lat: data.lat, lng: data.lon };
-                
-                if (window.riderMarker) {
-                  window.riderMarker.setLatLng([data.lat, data.lon]);
-                  
-                  // Update route line
-                  if (window.routeMode === 'focused' && window.deliveryMarkers.length > 0) {
-                    drawOptimizedRoute(false);
-                  }
-                  
-                  // Update map view if needed
-                  if (data.shouldCenter && window.map) {
-                    window.map.flyTo([data.lat, data.lon], 16, {
-                      duration: 1
-                    });
-                  }
-                }
+                var lat = data.lat;
+                var lng = data.lon !== undefined ? data.lon : data.lng;
+                window.updateRiderPosition(lat, lng, data.shouldCenter);
+              } else if (data.type === 'CENTER_ON_ME') {
+                window.centerOnMe();
               } else if (data.type === 'FIT_ALL') {
                 window.fitAllMarkers();
               } else if (data.type === 'CENTER_ON_DELIVERY') {
@@ -1287,7 +1326,10 @@ export default function RiderMapScreen({ navigation, route }) {
             } catch (error) {
               console.error('Error processing message:', error);
             }
-          });
+          }
+
+          window.addEventListener('message', handleIncomingMessage);
+          document.addEventListener('message', handleIncomingMessage);
           
           // Initialize map when DOM is ready
           if (document.readyState === 'loading') {
@@ -1365,28 +1407,38 @@ export default function RiderMapScreen({ navigation, route }) {
       const hasPermission = await requestLocationPermission();
       if (!hasPermission) return;
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-      });
-
-      const { latitude, longitude } = location.coords;
-      
-      devLog('Current location:', latitude, longitude);
-      
-      setCurrentLocation({
-        lat: latitude,
-        lng: longitude
-      });
-
-      if (webViewRef.current) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'UPDATE_LOCATION',
-          lat: latitude,
-          lon: longitude,
-          shouldCenter
-        }));
+      // 1. Instantly use cached location if available (0ms delay)
+      try {
+        const lastKnown = await Location.getLastKnownPositionAsync({ maxAge: 60000 });
+        if (lastKnown?.coords) {
+          const { latitude, longitude } = lastKnown.coords;
+          devLog('Fast cached location:', latitude, longitude);
+          setCurrentLocation({
+            lat: latitude,
+            lng: longitude
+          });
+          updateWebViewLocation(latitude, longitude, shouldCenter);
+        }
+      } catch (lastErr) {
+        devLog('getLastKnownPosition error:', lastErr);
       }
 
+      // 2. Fetch fresh balanced accuracy location (fast and reliable indoors & outdoors)
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      if (location?.coords) {
+        const { latitude, longitude } = location.coords;
+        devLog('Accurate current location:', latitude, longitude);
+        
+        setCurrentLocation({
+          lat: latitude,
+          lng: longitude
+        });
+
+        updateWebViewLocation(latitude, longitude, shouldCenter);
+      }
     } catch (error) {
       console.error('Error getting location:', error);
     }
@@ -1575,6 +1627,10 @@ export default function RiderMapScreen({ navigation, route }) {
   };
 
   const refreshLocation = () => {
+    // If location is already known, immediately center on it without waiting
+    if (currentLocation) {
+      updateWebViewLocation(currentLocation.lat, currentLocation.lng, true);
+    }
     getCurrentLocation(true);
   };
 
@@ -1649,7 +1705,12 @@ export default function RiderMapScreen({ navigation, route }) {
           javaScriptEnabled={true}
           domStorageEnabled={true}
           style={styles.webview}
-          onLoadEnd={() => setLoading(false)}
+          onLoadEnd={() => {
+            setLoading(false);
+            if (currentLocation) {
+              updateWebViewLocation(currentLocation.lat, currentLocation.lng, true);
+            }
+          }}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.warn('WebView error: ', nativeEvent);
@@ -1890,38 +1951,55 @@ export default function RiderMapScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                <View style={styles.modalInfo}>
-                  <Text style={[styles.modalOrderNumber, { color: colors.textPrimary }]}>
+                <View style={[
+                  styles.modalInfo,
+                  {
+                    backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa',
+                    borderColor: colors.border,
+                    borderWidth: isDarkMode ? 1 : 0
+                  }
+                ]}>
+                  <Text style={[styles.modalOrderNumber, { color: isDarkMode ? colors.textPrimary : '#0033A0' }]}>
                     Order #{selectedDelivery.orders?.order_number || selectedDelivery.order_id}
                   </Text>
                   
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="person" size={18} color={colors.textSecondary} />
-                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                    <Ionicons name="person" size={18} color={isDarkMode ? '#60A5FA' : colors.primary} />
+                    <Text style={[styles.modalInfoText, { color: isDarkMode ? colors.textPrimary : '#475569' }]}>
                       {selectedDelivery.orders?.customer_name?.full_name}
                     </Text>
                   </View>
 
                   {selectedDelivery.orders?.customer_name?.phone_number ? (
-                    <TouchableOpacity style={styles.phoneTouchRow} onPress={callCustomer}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.phoneTouchRow,
+                        {
+                          backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ecfdf5',
+                          borderColor: isDarkMode ? 'rgba(16, 185, 129, 0.3)' : 'transparent',
+                          borderWidth: isDarkMode ? 1 : 0
+                        }
+                      ]} 
+                      onPress={callCustomer}
+                    >
                       <Ionicons name="call" size={18} color="#10B981" />
-                      <Text style={styles.phoneText}>
+                      <Text style={[styles.phoneText, { color: isDarkMode ? '#34D399' : '#065f46' }]}>
                         {selectedDelivery.orders?.customer_name?.phone_number} (Tap to Call)
                       </Text>
                     </TouchableOpacity>
                   ) : null}
 
                   <View style={styles.modalInfoRow}>
-                    <Ionicons name="location" size={18} color={colors.textSecondary} />
-                    <Text style={[styles.modalInfoText, { color: colors.textSecondary }]} numberOfLines={2}>
+                    <Ionicons name="location" size={18} color={isDarkMode ? '#60A5FA' : colors.primary} />
+                    <Text style={[styles.modalInfoText, { color: isDarkMode ? colors.textSecondary : '#475569' }]} numberOfLines={2}>
                       {selectedDelivery.orders?.delivery_address}
                     </Text>
                   </View>
 
                   {selectedDelivery.orders?.special_instructions && (
                     <View style={styles.modalInfoRow}>
-                      <Ionicons name="document-text" size={18} color={colors.textSecondary} />
-                      <Text style={[styles.modalInfoText, { color: colors.textSecondary }]} numberOfLines={2}>
+                      <Ionicons name="document-text" size={18} color={isDarkMode ? '#60A5FA' : colors.primary} />
+                      <Text style={[styles.modalInfoText, { color: isDarkMode ? colors.textSecondary : '#475569' }]} numberOfLines={2}>
                         {selectedDelivery.orders.special_instructions}
                       </Text>
                     </View>
