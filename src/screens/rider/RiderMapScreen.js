@@ -47,6 +47,7 @@ export default function RiderMapScreen({ navigation, route }) {
   const [mapViewMode, setMapViewMode] = useState('all');
   const [mapLayer, setMapLayer] = useState(isDarkMode ? 'dark' : 'street'); // 'street' | 'satellite' | 'dark'
   const [showLandmarks, setShowLandmarks] = useState(true);
+  const [routeLineStyle, setRouteLineStyle] = useState('solid'); // 'solid' | 'dashed'
   const [routeEtaMinutes, setRouteEtaMinutes] = useState(null);
   const [routeDistanceKm, setRouteDistanceKm] = useState(null);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
@@ -127,7 +128,7 @@ export default function RiderMapScreen({ navigation, route }) {
     if (!loading) {
       generateMapHtml();
     }
-  }, [deliveries, loading, mapViewMode, focusedDeliveryId, mapLayer, showLandmarks]);
+  }, [deliveries, loading, mapViewMode, focusedDeliveryId, mapLayer, showLandmarks, routeLineStyle]);
 
   // UseFocusEffect to ensure rider stays online when viewing map
   useFocusEffect(
@@ -605,6 +606,7 @@ export default function RiderMapScreen({ navigation, route }) {
           window.currentLayerName = '${mapLayer}';
           window.showLandmarks = ${showLandmarks ? 'true' : 'false'};
           window.landmarksData = ${JSON.stringify(PUERTO_PRINCESA_LANDMARKS || [])};
+          window.routeLineStyle = '${routeLineStyle}';
           
           // Delivery markers data
           window.deliveries = ${JSON.stringify(markers)};
@@ -694,6 +696,9 @@ export default function RiderMapScreen({ navigation, route }) {
               document.body.classList.remove('dark-mode-active');
             }
             if (window.routeLine) {
+              window.routeLine.setStyle({
+                color: layerName === 'dark' ? '#38BDF8' : '#0033A0'
+              });
               window.routeLine.bringToFront();
             }
           }
@@ -998,12 +1003,14 @@ export default function RiderMapScreen({ navigation, route }) {
               window.map.removeLayer(window.routeLine);
             }
 
+            const isSolid = window.routeLineStyle !== 'dashed';
             window.routeLine = L.polyline(waypoints, {
-              color: '#0033A0',
-              weight: 4,
-              opacity: 0.6,
-              dashArray: '8, 8',
-              lineJoin: 'round'
+              color: window.currentLayerName === 'dark' ? '#38BDF8' : '#0033A0',
+              weight: isSolid ? 5 : 4,
+              opacity: isSolid ? 0.85 : 0.6,
+              dashArray: isSolid ? null : '8, 8',
+              lineJoin: 'round',
+              lineCap: 'round'
             }).addTo(window.map);
 
             drawRouteArrows(waypoints);
@@ -1179,12 +1186,14 @@ export default function RiderMapScreen({ navigation, route }) {
                 }
               }
 
+              const isSolid = window.routeLineStyle !== 'dashed';
               window.routeLine = L.polyline(renderedRoute, {
-                color: '#0033A0',
-                weight: 4,
-                opacity: 0.6,
-                dashArray: '8, 8',
-                lineJoin: 'round'
+                color: window.currentLayerName === 'dark' ? '#38BDF8' : '#0033A0',
+                weight: isSolid ? 5 : 4,
+                opacity: isSolid ? 0.85 : 0.6,
+                dashArray: isSolid ? null : '8, 8',
+                lineJoin: 'round',
+                lineCap: 'round'
               }).addTo(window.map);
 
               drawRouteArrows(renderedRoute);
@@ -1281,6 +1290,20 @@ export default function RiderMapScreen({ navigation, route }) {
               });
             }
           };
+
+          window.setRouteLineStyle = function(style) {
+            window.routeLineStyle = style;
+            const isSolid = style !== 'dashed';
+            if (window.routeLine) {
+              window.routeLine.setStyle({
+                weight: isSolid ? 5 : 4,
+                opacity: isSolid ? 0.85 : 0.6,
+                dashArray: isSolid ? null : '8, 8',
+                lineJoin: 'round',
+                lineCap: 'round'
+              });
+            }
+          };
           
           // Listen for messages from React Native on both window and document (Android WebView support)
           function handleIncomingMessage(event) {
@@ -1322,6 +1345,8 @@ export default function RiderMapScreen({ navigation, route }) {
                 switchTileLayer(data.layer);
               } else if (data.type === 'TOGGLE_LANDMARKS') {
                 toggleLandmarksLayer(data.show);
+              } else if (data.type === 'SET_ROUTE_LINE_STYLE') {
+                window.setRouteLineStyle(data.style);
               }
             } catch (error) {
               console.error('Error processing message:', error);
@@ -1563,6 +1588,23 @@ export default function RiderMapScreen({ navigation, route }) {
     }
   };
 
+  const handleToggleRouteLineStyle = () => {
+    const nextStyle = routeLineStyle === 'solid' ? 'dashed' : 'solid';
+    setRouteLineStyle(nextStyle);
+    if (webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+        if (typeof window.setRouteLineStyle === 'function') {
+          window.setRouteLineStyle('${nextStyle}');
+        }
+        true;
+      `);
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'SET_ROUTE_LINE_STYLE',
+        style: nextStyle
+      }));
+    }
+  };
+
   const openGoogleMaps = () => {
     const lat = selectedDelivery?.orders?.delivery_lat ?? selectedDelivery?.delivery_lat;
     const lng = selectedDelivery?.orders?.delivery_lng ?? selectedDelivery?.delivery_lng;
@@ -1790,6 +1832,24 @@ export default function RiderMapScreen({ navigation, route }) {
             <Ionicons name="flag" size={16} color={showLandmarks ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
             <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, showLandmarks && styles.hudButtonTextActive]}>
               Landmarks
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.hudButton, 
+              { 
+                backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                borderColor: colors.border,
+                borderWidth: isDarkMode ? 1 : 0
+              },
+              routeLineStyle === 'solid' && [styles.hudButtonActive, { backgroundColor: colors.primary }]
+            ]}
+            onPress={handleToggleRouteLineStyle}
+          >
+            <Ionicons name={routeLineStyle === 'solid' ? 'git-commit' : 'ellipsis-horizontal'} size={16} color={routeLineStyle === 'solid' ? '#fff' : (isDarkMode ? colors.textPrimary : colors.primary)} />
+            <Text style={[styles.hudButtonText, { color: isDarkMode ? colors.textPrimary : colors.primary }, routeLineStyle === 'solid' && styles.hudButtonTextActive]}>
+              {routeLineStyle === 'solid' ? 'Solid' : 'Dashed'}
             </Text>
           </TouchableOpacity>
         </View>
