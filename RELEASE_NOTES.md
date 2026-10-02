@@ -2,7 +2,7 @@
 
 ## 📱 Release Information
 - **Version:** `v1.26.16`
-- **Platform:** Android / iOS (React Native + Expo 54)
+- **Platform:** Android (React Native + Expo 54)
 - **APK Download:** [Download Petron San Pedro v1.26.16 APK](https://drive.google.com/file/d/1QTGMMwEWThkiXqBo8lRXVQaXr1ijGu7_/view?usp=drive_link)
 - **Direct Link:** `https://drive.google.com/file/d/1QTGMMwEWThkiXqBo8lRXVQaXr1ijGu7_/view?usp=drive_link`
 
