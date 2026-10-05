@@ -27,6 +27,7 @@ import CustomAlertModal from '../../components/CustomAlertModal';
 import { useFocusEffect } from '@react-navigation/native';
 import Avatar from '../../components/Avatar';
 import { riderPresenceService } from '../../services/riderPresenceService';
+import { offlineStorageService } from '../../services/offlineStorageService';
 import SkeletonLoader from '../../components/SkeletonLoader';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -60,6 +61,9 @@ export default function RiderDashboardScreen({ navigation }) {
   const [recentDeliveries, setRecentDeliveries] = useState([]);
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [showBulkAcceptModal, setShowBulkAcceptModal] = useState(false);
+  const [selectedBulkIds, setSelectedBulkIds] = useState([]);
+  const [bulkAccepting, setBulkAccepting] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertConfig, setAlertConfig] = useState({ type: 'success', title: '', message: '' });
   const [onlineStatus, setOnlineStatus] = useState(true);
@@ -342,27 +346,49 @@ export default function RiderDashboardScreen({ navigation }) {
   const acceptDelivery = async () => {
     if (!selectedDelivery) return;
     
+    const now = new Date().toISOString();
+    let isOfflineUpdate = false;
     try {
-      const { error } = await supabase
-        .from('deliveries')
-        .update({ 
-          status: 'accepted',
-          accepted_at: new Date().toISOString()
-        })
-        .eq('id', selectedDelivery.id);
+      try {
+        const { error } = await supabase
+          .from('deliveries')
+          .update({ 
+            status: 'accepted',
+            accepted_at: now
+          })
+          .eq('id', selectedDelivery.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } catch (deliveryErr) {
+        devLog('Network error accepting delivery, queueing offline:', deliveryErr.message);
+        await offlineStorageService.queueOperation({
+          type: 'update',
+          table: 'deliveries',
+          recordId: selectedDelivery.id,
+          data: { status: 'accepted', accepted_at: now },
+          match: { id: selectedDelivery.id }
+        });
+        isOfflineUpdate = true;
+      }
 
-      // Update order status
-      await supabase
-        .from('orders')
-        .update({ status: 'Processing' })
-        .eq('id', selectedDelivery.order_id);
+      // Update order status if online
+      if (!isOfflineUpdate && selectedDelivery.order_id) {
+        try {
+          await supabase
+            .from('orders')
+            .update({ status: 'Processing' })
+            .eq('id', selectedDelivery.order_id);
+        } catch (orderErr) {
+          devLog('Order status update notice:', orderErr.message);
+        }
+      }
 
       setAlertConfig({
         type: 'success',
-        title: 'Success!',
-        message: 'Delivery accepted successfully. Please proceed to pick up the order.'
+        title: isOfflineUpdate ? 'Saved Offline' : 'Success!',
+        message: isOfflineUpdate
+          ? 'Delivery accepted offline and will auto-sync when connected.'
+          : 'Delivery accepted successfully. Please proceed to pick up the order.'
       });
       setShowAlert(true);
       
@@ -416,6 +442,95 @@ export default function RiderDashboardScreen({ navigation }) {
     } finally {
       setShowAcceptModal(false);
       setSelectedDelivery(null);
+    }
+  };
+
+  const handleOpenBulkAccept = () => {
+    const assigned = activeDeliveries.filter(d => d.status === 'assigned');
+    setSelectedBulkIds(assigned.map(d => d.id));
+    setShowBulkAcceptModal(true);
+  };
+
+  const toggleSelectBulkDelivery = (id) => {
+    setSelectedBulkIds(prev =>
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllBulk = () => {
+    const assigned = activeDeliveries.filter(d => d.status === 'assigned');
+    if (selectedBulkIds.length === assigned.length) {
+      setSelectedBulkIds([]);
+    } else {
+      setSelectedBulkIds(assigned.map(d => d.id));
+    }
+  };
+
+  const handleBulkAccept = async () => {
+    if (selectedBulkIds.length === 0) return;
+
+    setBulkAccepting(true);
+    const now = new Date().toISOString();
+    const assigned = activeDeliveries.filter(d => d.status === 'assigned');
+    const deliveriesToAccept = assigned.filter(d => selectedBulkIds.includes(d.id));
+    const orderIds = deliveriesToAccept.map(d => d.order_id).filter(Boolean);
+    let isOffline = false;
+
+    try {
+      try {
+        const { error } = await supabase
+          .from('deliveries')
+          .update({
+            status: 'accepted',
+            accepted_at: now
+          })
+          .in('id', selectedBulkIds);
+
+        if (error) throw error;
+      } catch (err) {
+        devLog('Network error on bulk accept, queueing offline:', err?.message);
+        for (const d of deliveriesToAccept) {
+          await offlineStorageService.queueOperation({
+            type: 'update',
+            table: 'deliveries',
+            recordId: d.id,
+            data: { status: 'accepted', accepted_at: now },
+            match: { id: d.id }
+          });
+        }
+        isOffline = true;
+      }
+
+      if (!isOffline && orderIds.length > 0) {
+        try {
+          await supabase
+            .from('orders')
+            .update({ status: 'Processing' })
+            .in('id', orderIds);
+        } catch (orderErr) {
+          devLog('Bulk orders update notice:', orderErr?.message);
+        }
+      }
+
+      setShowBulkAcceptModal(false);
+      setAlertConfig({
+        type: 'success',
+        title: isOffline ? 'Saved Offline' : 'Success!',
+        message: isOffline
+          ? `${selectedBulkIds.length} ${selectedBulkIds.length === 1 ? 'delivery' : 'deliveries'} accepted offline and will auto-sync when online.`
+          : `Successfully accepted ${selectedBulkIds.length} ${selectedBulkIds.length === 1 ? 'delivery' : 'deliveries'}. Please proceed to pick up the orders.`
+      });
+      setShowAlert(true);
+      fetchDashboardData();
+    } catch (error) {
+      setAlertConfig({
+        type: 'error',
+        title: 'Error',
+        message: error?.message || 'Failed to accept deliveries'
+      });
+      setShowAlert(true);
+    } finally {
+      setBulkAccepting(false);
     }
   };
 
@@ -702,11 +817,55 @@ export default function RiderDashboardScreen({ navigation }) {
         {activeDeliveries.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Active Deliveries</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Active Deliveries</Text>
+                {activeDeliveries.filter(d => d.status === 'assigned').length > 1 && (
+                  <TouchableOpacity
+                    testID="bulk-accept-header-button"
+                    style={[styles.bulkAcceptHeaderBtn, { backgroundColor: colors.primary }]}
+                    onPress={handleOpenBulkAccept}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="checkmark-done" size={14} color="#fff" />
+                    <Text style={styles.bulkAcceptHeaderBtnText}>
+                      {`Accept All (${activeDeliveries.filter(d => d.status === 'assigned').length})`}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <TouchableOpacity onPress={() => navigation.navigate('RiderDeliveries')}>
                 <Text style={[styles.viewAllText, { color: colors.primary }]}>View All ({activeDeliveries.length})</Text>
               </TouchableOpacity>
             </View>
+
+            {activeDeliveries.filter(d => d.status === 'assigned').length > 1 && (
+              <View style={[styles.bulkActionBar, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#EFF6FF', borderColor: isDarkMode ? colors.border : '#BFDBFE' }]}>
+                <View style={styles.bulkActionInfo}>
+                  <View style={[styles.bulkActionIconWrap, { backgroundColor: isDarkMode ? 'rgba(96, 165, 250, 0.15)' : 'rgba(0, 51, 160, 0.1)' }]}>
+                    <Ionicons name="layers" size={20} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.bulkActionTitle, { color: colors.textPrimary }]}>
+                      {activeDeliveries.filter(d => d.status === 'assigned').length} Deliveries Waiting
+                    </Text>
+                    <Text style={[styles.bulkActionSubtitle, { color: colors.textSecondary }]}>
+                      Review and accept all assigned orders in one tap
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  testID="bulk-accept-banner-button"
+                  style={[styles.bulkActionButton, { backgroundColor: colors.primary }]}
+                  onPress={handleOpenBulkAccept}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-done" size={16} color="#fff" style={{ marginRight: 6 }} />
+                  <Text style={styles.bulkActionButtonText}>
+                    {`Accept All (${activeDeliveries.filter(d => d.status === 'assigned').length})`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             
             {activeDeliveries.map((delivery) => (
               <TouchableOpacity
@@ -853,6 +1012,122 @@ export default function RiderDashboardScreen({ navigation }) {
                 </View>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk Accept Deliveries Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showBulkAcceptModal}
+        onRequestClose={() => !bulkAccepting && setShowBulkAcceptModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.bulkModalContent, { paddingBottom: insets.bottom + 20, backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <View>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Bulk Accept Orders</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+                  {selectedBulkIds.length} of {activeDeliveries.filter(d => d.status === 'assigned').length} selected
+                </Text>
+              </View>
+              <TouchableOpacity 
+                disabled={bulkAccepting} 
+                onPress={() => setShowBulkAcceptModal(false)}
+              >
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.bulkSelectAllRow, { borderBottomColor: colors.border }]}>
+              <TouchableOpacity 
+                style={styles.selectAllButton}
+                onPress={toggleSelectAllBulk}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={selectedBulkIds.length === activeDeliveries.filter(d => d.status === 'assigned').length ? "checkbox" : "square-outline"} 
+                  size={20} 
+                  color={colors.primary} 
+                />
+                <Text style={[styles.selectAllText, { color: colors.textPrimary }]}>
+                  {selectedBulkIds.length === activeDeliveries.filter(d => d.status === 'assigned').length ? "Deselect All" : "Select All"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.bulkList} showsVerticalScrollIndicator={false}>
+              {activeDeliveries.filter(d => d.status === 'assigned').map((delivery) => {
+                const isSelected = selectedBulkIds.includes(delivery.id);
+                return (
+                  <TouchableOpacity
+                    key={delivery.id}
+                    style={[
+                      styles.bulkDeliveryItem,
+                      {
+                        backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa',
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      }
+                    ]}
+                    onPress={() => toggleSelectBulkDelivery(delivery.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons 
+                      name={isSelected ? "checkbox" : "square-outline"} 
+                      size={22} 
+                      color={isSelected ? colors.primary : colors.textSecondary} 
+                      style={{ marginRight: 12 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[styles.bulkItemOrder, { color: colors.primary }]}>
+                          Order {formatOrderNumber(delivery.orders?.order_number, delivery.order_id)}
+                        </Text>
+                        <Text style={[styles.bulkItemAmount, { color: colors.textPrimary }]}>
+                          {formatCurrency(delivery.orders?.total_amount || 0)}
+                        </Text>
+                      </View>
+                      <Text style={[styles.bulkItemCustomer, { color: colors.textPrimary }]} numberOfLines={1}>
+                        {delivery.orders?.profiles?.full_name || 'Customer'}
+                      </Text>
+                      <Text style={[styles.bulkItemAddress, { color: colors.textSecondary }]} numberOfLines={1}>
+                        {delivery.orders?.delivery_address}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.declineButton, { backgroundColor: isDarkMode ? colors.surfaceElevated : '#f8f9fa' }]}
+                onPress={() => setShowBulkAcceptModal(false)}
+                disabled={bulkAccepting}
+              >
+                <Text style={styles.declineButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="bulk-accept-confirm-button"
+                style={[
+                  styles.modalButton, 
+                  styles.acceptModalButton,
+                  { backgroundColor: colors.primary, opacity: selectedBulkIds.length === 0 || bulkAccepting ? 0.6 : 1 }
+                ]}
+                onPress={handleBulkAccept}
+                disabled={selectedBulkIds.length === 0 || bulkAccepting}
+              >
+                {bulkAccepting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.acceptModalButtonText}>
+                    {`Accept (${selectedBulkIds.length})`}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1455,5 +1730,116 @@ const styles = StyleSheet.create({
     color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bulkAcceptHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  bulkAcceptHeaderBtnText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  bulkActionBar: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 12,
+    flexDirection: 'column',
+    gap: 10,
+  },
+  bulkActionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bulkActionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bulkActionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  bulkActionSubtitle: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  bulkActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  bulkActionButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bulkModalContent: {
+    maxHeight: '80%',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  bulkSelectAllRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  selectAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bulkList: {
+    maxHeight: 320,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+  },
+  bulkDeliveryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginBottom: 10,
+  },
+  bulkItemOrder: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  bulkItemAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bulkItemCustomer: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 3,
+  },
+  bulkItemAddress: {
+    fontSize: 12,
+    marginTop: 2,
   },
 });
