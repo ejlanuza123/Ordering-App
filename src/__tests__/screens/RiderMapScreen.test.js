@@ -52,6 +52,7 @@ jest.mock('../../context/AuthContext', () => ({
 }));
 
 let mockIsDarkMode = false;
+let mockDeliveries = [];
 jest.mock('../../context/ThemeContext', () => ({
   useTheme: () => ({
     isDarkMode: mockIsDarkMode,
@@ -74,7 +75,7 @@ jest.mock('../../lib/supabase', () => ({
       select: () => ({
         eq: () => ({
           single: jest.fn().mockResolvedValue({ data: { avatar_url: null, is_online: true }, error: null }),
-          in: jest.fn().mockResolvedValue({ data: [], error: null }),
+          in: jest.fn().mockImplementation(() => Promise.resolve({ data: mockDeliveries, error: null })),
         }),
       }),
     }),
@@ -122,6 +123,7 @@ describe('Petron RiderMapScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsDarkMode = false;
+    mockDeliveries = [];
   });
 
   it('renders correctly and acquires location using fast cache and balanced accuracy', async () => {
@@ -167,6 +169,44 @@ describe('Petron RiderMapScreen', () => {
     fireEvent.press(toggleButton);
 
     expect(getByText('Dashed')).toBeTruthy();
+  });
+
+  it('renders high-contrast delivery status badges for dark mode', async () => {
+    mockIsDarkMode = true;
+    mockDeliveries = [
+      {
+        id: 'del-1',
+        status: 'picked_up',
+        order_id: 'ord-101',
+        orders: {
+          id: 'ord-101',
+          order_number: '101',
+          total_amount: 500,
+          delivery_address: '123 Rizal Ave',
+          delivery_lat: 9.75,
+          delivery_lng: 118.75,
+          customer_name: { full_name: 'Juan Dela Cruz', phone_number: '09123456789' },
+          payment_method: 'cash',
+          special_instructions: 'Handle with care',
+        }
+      }
+    ];
+
+    const { getByText, queryByText } = render(
+      <RiderMapScreen navigation={{ goBack: jest.fn(), navigate: jest.fn() }} route={{ params: {} }} />
+    );
+
+    if (queryByText('Loading map...')) {
+      await waitForElementToBeRemoved(() => queryByText('Loading map...'), { timeout: 10000 });
+    }
+
+    expect(getByText('Active Deliveries (1)')).toBeTruthy();
+    const chip = getByText('#101');
+    expect(chip).toBeTruthy();
+
+    fireEvent.press(chip);
+
+    expect(getByText('Picked Up - In Transit')).toBeTruthy();
   });
 });
 

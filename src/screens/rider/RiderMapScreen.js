@@ -128,7 +128,7 @@ export default function RiderMapScreen({ navigation, route }) {
     if (!loading) {
       generateMapHtml();
     }
-  }, [deliveries, loading, mapViewMode, focusedDeliveryId, mapLayer, showLandmarks, routeLineStyle]);
+  }, [deliveries, loading, mapViewMode, focusedDeliveryId, mapLayer, showLandmarks, routeLineStyle, isDarkMode]);
 
   // UseFocusEffect to ensure rider stays online when viewing map
   useFocusEffect(
@@ -224,6 +224,51 @@ export default function RiderMapScreen({ navigation, route }) {
       }
     };
   }, [tracking, profile?.id]);
+
+  const getDeliveryStatusColor = (status) => {
+    const s = typeof status === 'string' ? status.toLowerCase().replace(/\s+/g, '') : '';
+    switch(s) {
+      case 'pending':
+      case 'placed':
+      case 'assigned':
+        return isDarkMode ? '#FDE047' : '#D97706';
+      case 'accepted':
+      case 'confirmed':
+        return isDarkMode ? '#60A5FA' : '#2563EB';
+      case 'pickedup':
+      case 'picked_up':
+      case 'riderpickedup':
+        return isDarkMode ? '#38BDF8' : '#0284C7';
+      case 'outfordelivery':
+      case 'out_for_delivery':
+      case 'intransit':
+      case 'transit':
+      case 'delivering':
+        return isDarkMode ? '#E879F9' : '#9333EA';
+      case 'delivered':
+      case 'completed':
+        return isDarkMode ? '#34D399' : '#059669';
+      case 'failed':
+      case 'cancelled':
+        return isDarkMode ? '#F87171' : '#DC2626';
+      default:
+        return isDarkMode ? '#94A3B8' : '#64748B';
+    }
+  };
+
+  const getDeliveryStatusLabel = (status) => {
+    switch (status) {
+      case 'assigned': return 'Waiting for Acceptance';
+      case 'accepted': return 'Accepted - Ready to Pick Up';
+      case 'picked_up': return 'Picked Up - In Transit';
+      case 'out_for_delivery': return 'Out for Delivery';
+      case 'delivered':
+      case 'completed': return 'Delivered';
+      case 'cancelled':
+      case 'failed': return 'Failed';
+      default: return status ? status.replace(/_/g, ' ') : 'Active';
+    }
+  };
 
   const generateMapHtml = () => {
     const deliveriesForMap = mapViewMode === 'focused' && focusedDeliveryId
@@ -581,6 +626,20 @@ export default function RiderMapScreen({ navigation, route }) {
           .dark-mode-active .popup-address {
             color: #94a3b8;
           }
+          .dark-mode-active .popup-status {
+            color: #94a3b8;
+          }
+          .dark-mode-active .popup-status span {
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+          }
+          .dark-mode-active .popup-button {
+            background: #2563EB;
+            color: #ffffff;
+          }
+          .dark-mode-active .popup-button:hover {
+            background: #1D4ED8;
+          }
           .dark-mode-active .attribution {
             background: rgba(15, 23, 42, 0.85);
             color: #94a3b8;
@@ -701,6 +760,9 @@ export default function RiderMapScreen({ navigation, route }) {
               });
               window.routeLine.bringToFront();
             }
+            if (typeof addDeliveryMarkers === 'function' && window.deliveries && window.deliveries.length > 0) {
+              addDeliveryMarkers();
+            }
           }
 
           function addLandmarkMarkers() {
@@ -781,9 +843,38 @@ export default function RiderMapScreen({ navigation, route }) {
             }
           }
           
+          function getMarkerColor(status, isDark) {
+            const s = (status || '').toLowerCase().replace(/\s+/g, '');
+            if (s === 'assigned' || s === 'pending') {
+              return isDark ? '#FDE047' : '#D97706';
+            }
+            if (s === 'accepted' || s === 'confirmed') {
+              return isDark ? '#60A5FA' : '#2563EB';
+            }
+            if (s === 'pickedup' || s === 'picked_up') {
+              return isDark ? '#38BDF8' : '#0284C7';
+            }
+            if (s === 'outfordelivery' || s === 'out_for_delivery' || s === 'intransit') {
+              return isDark ? '#E879F9' : '#9333EA';
+            }
+            if (s === 'delivered' || s === 'completed') {
+              return isDark ? '#34D399' : '#059669';
+            }
+            return isDark ? '#38BDF8' : '#0033A0';
+          }
+          
           function addDeliveryMarkers() {
             try {
+              if (window.deliveryMarkers && window.deliveryMarkers.length > 0) {
+                window.deliveryMarkers.forEach(function(item) {
+                  if (item.marker && window.map) {
+                    window.map.removeLayer(item.marker);
+                  }
+                });
+              }
               window.deliveryMarkers = [];
+              
+              const isDark = window.currentLayerName === 'dark' || document.body.classList.contains('dark-mode-active');
               
               window.deliveries.forEach((delivery, index) => {
                 if (!delivery.lat || !delivery.lng) {
@@ -791,8 +882,7 @@ export default function RiderMapScreen({ navigation, route }) {
                   return;
                 }
                 
-                const color = delivery.status === 'assigned' ? '#F59E0B' : 
-                             (delivery.status === 'picked_up' || delivery.status === 'out_for_delivery') ? '#0033A0' : '#10B981';
+                const color = getMarkerColor(delivery.status, isDark);
                 
                 const deliveryIcon = L.divIcon({
                   html: \`
@@ -822,7 +912,7 @@ export default function RiderMapScreen({ navigation, route }) {
                   <div class="popup-title">\${delivery.title}</div>
                   <div class="popup-address">\${delivery.description}</div>
                   <div class="popup-status">
-                    Status: <span style="color: \${color};">\${delivery.status.replace('_', ' ')}</span>
+                    Status: <span style="color: \${color}; font-weight: 700;">\${delivery.status.replace(/_/g, ' ')}</span>
                   </div>
                   <button class="popup-button" data-delivery-id="\${delivery.id}">
                     View Details
@@ -1953,19 +2043,24 @@ export default function RiderMapScreen({ navigation, route }) {
                 style={[
                   styles.deliveryChip,
                   { backgroundColor: isDarkMode ? colors.surfaceElevated : '#fff', borderColor: colors.border },
-                  selectedDelivery?.id === delivery.id && [styles.deliveryChipSelected, { borderColor: colors.primary, backgroundColor: isDarkMode ? '#0033A025' : '#EBF4FF' }]
+                  selectedDelivery?.id === delivery.id && [styles.deliveryChipSelected, { borderColor: colors.primary, backgroundColor: isDarkMode ? `${colors.primary}25` : '#EBF4FF' }]
                 ]}
                 onPress={() => handleDeliveryPress(delivery)}
               >
                 <View style={[
                   styles.chipNumber,
-                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
+                  { backgroundColor: getDeliveryStatusColor(delivery.status) }
                 ]}>
-                  <Text style={styles.chipNumberText}>{index + 1}</Text>
+                  <Text style={[
+                    styles.chipNumberText,
+                    { color: (isDarkMode && (delivery.status === 'assigned' || delivery.status === 'pending')) ? '#0F172A' : '#ffffff' }
+                  ]}>
+                    {index + 1}
+                  </Text>
                 </View>
                 <View style={[
                   styles.chipStatus,
-                  { backgroundColor: delivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
+                  { backgroundColor: getDeliveryStatusColor(delivery.status) }
                 ]} />
                 <View style={styles.chipInfo}>
                   <Text style={[styles.chipOrder, { color: colors.textPrimary }]}>
@@ -2003,10 +2098,17 @@ export default function RiderMapScreen({ navigation, route }) {
                 <View style={styles.modalStatus}>
                   <View style={[
                     styles.modalStatusBadge,
-                    { backgroundColor: selectedDelivery.status === 'assigned' ? '#F59E0B' : '#ED2939' }
+                    { 
+                      backgroundColor: isDarkMode ? `${getDeliveryStatusColor(selectedDelivery.status)}25` : `${getDeliveryStatusColor(selectedDelivery.status)}15`,
+                      borderColor: isDarkMode ? `${getDeliveryStatusColor(selectedDelivery.status)}60` : `${getDeliveryStatusColor(selectedDelivery.status)}40`,
+                      borderWidth: 1,
+                    }
                   ]}>
-                    <Text style={styles.modalStatusText}>
-                      {selectedDelivery.status === 'assigned' ? 'Waiting for Acceptance' : 'Out for Delivery'}
+                    <Text style={[
+                      styles.modalStatusText,
+                      { color: getDeliveryStatusColor(selectedDelivery.status), fontWeight: '700' }
+                    ]}>
+                      {getDeliveryStatusLabel(selectedDelivery.status)}
                     </Text>
                   </View>
                 </View>
